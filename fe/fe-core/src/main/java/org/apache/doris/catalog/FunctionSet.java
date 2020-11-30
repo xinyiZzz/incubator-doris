@@ -1129,6 +1129,19 @@ public class FunctionSet {
                         null,
                         prefix + "22knuth_var_pop_finalizeEPN9doris_udf15FunctionContextERKNS1_9StringValE",
                         false, false, false));
+		
+                // Change the variable function definition whose parameter is DOUBLE type to the first position in
+                // functions. The purpose is to convert the parameter types that are not defined in the variance function
+                // into DOUBLE to participate in the variance calculation by default. Otherwise the default conversion to
+                // TINYIT calculation will lose a lot of precision
+                if (t.matchesType(Type.DOUBLE)) {
+                    List<String> variance_name = Lists.newArrayList("stddev", "stddev_samp", "stddev_pop",
+                            "variance", "variance_samp", "var_samp", "variance_pop", "var_pop");
+                    for (String fn_name: variance_name){
+                        List<Function> fns = functions.get(fn_name);
+                        java.util.Collections.swap(fns, fns.size()-1, 0);
+                    }
+                }	
             }
         }
 
