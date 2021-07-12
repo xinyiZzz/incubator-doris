@@ -36,6 +36,10 @@ ChunkAllocator* ChunkAllocator::_s_instance = nullptr;
 
 DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_local_core_alloc_count, MetricUnit::NOUNIT);
 DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_other_core_alloc_count, MetricUnit::NOUNIT);
+DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_local_core_free_count, MetricUnit::NOUNIT);
+DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_other_core_free_count, MetricUnit::NOUNIT);
+DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_local_core_alloc_count_ns, MetricUnit::NANOSECONDS);
+DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_other_core_alloc_count_ns, MetricUnit::NANOSECONDS);
 DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_system_alloc_count, MetricUnit::NOUNIT);
 DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_system_free_count, MetricUnit::NOUNIT);
 DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_system_alloc_cost_ns, MetricUnit::NANOSECONDS);
@@ -43,6 +47,10 @@ DEFINE_COUNTER_METRIC_PROTOTYPE_2ARG(chunk_pool_system_free_cost_ns, MetricUnit:
 
 static IntCounter* chunk_pool_local_core_alloc_count;
 static IntCounter* chunk_pool_other_core_alloc_count;
+static IntCounter* chunk_pool_local_core_free_count;
+static IntCounter* chunk_pool_other_core_free_count;
+static IntCounter* chunk_pool_local_core_alloc_count_ns;
+static IntCounter* chunk_pool_other_core_alloc_count_ns;
 static IntCounter* chunk_pool_system_alloc_count;
 static IntCounter* chunk_pool_system_free_count;
 static IntCounter* chunk_pool_system_alloc_cost_ns;
@@ -122,6 +130,10 @@ ChunkAllocator::ChunkAllocator(size_t reserve_limit)
             DorisMetrics::instance()->metric_registry()->register_entity("chunk_allocator");
     INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_local_core_alloc_count);
     INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_other_core_alloc_count);
+    INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_local_core_free_count);
+    INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_other_core_free_count);
+    INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_local_core_alloc_count_ns);
+    INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_other_core_alloc_count_ns);
     INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_system_alloc_count);
     INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_system_free_count);
     INT_COUNTER_METRIC_REGISTER(_chunk_allocator_metric_entity, chunk_pool_system_alloc_cost_ns);
@@ -183,9 +195,17 @@ void ChunkAllocator::free(const Chunk& chunk) {
 
             return;
         }
-    } while (!_reserved_bytes.compare_exchange_weak(old_reserved_bytes, new_reserved_bytes));
+    } while (!_reserved_bytes.compare_exchange_weak(old_reserved_bytes, new_reserved_bytes)); 
+    // 应该是为了应付多线程，当_reserved_bytes!=old_reserved_bytes时即意味着old_reserved_bytes初始化后_reserved_bytes发生了修改，
+    // 此时这个原子操作会将old_reserved_bytes重新赋值为_reserved_bytes，然后重新进入循环，否则赋值_reserved_bytes=new_reserved_bytes
 
     _arenas[chunk.core_id]->push_free_chunk(chunk.data, chunk.size);
+    int core_id = CpuInfo::get_current_core();
+    if (core_id == chunk.core_id) {
+        chunk_pool_local_core_free_count->increment(1);
+    } else {
+        chunk_pool_other_core_free_count->increment(1);
+    }
 }
 
 } // namespace doris

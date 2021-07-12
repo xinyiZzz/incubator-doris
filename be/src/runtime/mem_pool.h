@@ -213,6 +213,7 @@ private:
             int64_t aligned_allocated_bytes =
                     BitUtil::RoundUpToPowerOf2(info.allocated_bytes, alignment);
             if (aligned_allocated_bytes + size <= info.chunk.size) {
+                // 在当前块分配
                 // Ensure the requested alignment is respected.
                 int64_t padding = aligned_allocated_bytes - info.allocated_bytes;
                 uint8_t* result = info.chunk.data + aligned_allocated_bytes;
@@ -230,6 +231,7 @@ private:
         // guarantee alignment.
         //static_assert(
         //INITIAL_CHUNK_SIZE >= config::FLAGS_MEMORY_MAX_ALIGNMENT, "Min chunk size too low");
+        // 尝试找新块分配
         if (UNLIKELY(!find_chunk(size, CHECK_LIMIT_FIRST))) return NULL;
 
         ChunkInfo& info = chunks_[current_chunk_idx_];

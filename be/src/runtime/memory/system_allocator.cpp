@@ -52,6 +52,7 @@ void SystemAllocator::free(uint8_t* ptr, size_t length) {
 uint8_t* SystemAllocator::allocate_via_malloc(size_t length) {
     void* ptr = nullptr;
     // try to use a whole page instead of parts of one page
+    // return (uint8_t*)malloc(length);
     int res = posix_memalign(&ptr, PAGE_SIZE, length);
     if (res != 0) {
         char buf[64];
