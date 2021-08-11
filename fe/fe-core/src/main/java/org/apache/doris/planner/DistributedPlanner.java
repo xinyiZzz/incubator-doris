@@ -840,7 +840,7 @@ public class DistributedPlanner {
             childFragment.setOutputPartition(
                     DataPartition.hashPartitioned(setOperationNode.getMaterializedResultExprLists_().get(i)));
         }
-        setOperationNode.init(ctx_.getRootAnalyzer());
+//        setOperationNode.init(ctx_.getRootAnalyzer());
         return setOperationFragment;
     }
 

@@ -24,6 +24,7 @@ import org.apache.doris.analysis.SlotRef;
 import org.apache.doris.analysis.TupleDescriptor;
 import org.apache.doris.analysis.TupleId;
 import org.apache.doris.common.CheckedMath;
+import org.apache.doris.common.UserException;
 import org.apache.doris.thrift.TExceptNode;
 import org.apache.doris.thrift.TExplainLevel;
 import org.apache.doris.thrift.TExpr;
@@ -71,7 +72,7 @@ public abstract class SetOperationNode extends PlanNode {
     protected List<List<Expr>> constExprLists_ = Lists.newArrayList();
 
     // Materialized result/const exprs corresponding to materialized slots.
-    // Set in init() and substituted against the corresponding child's output smap.
+    // Set in () and substituted against the corresponding child's output smap.
     protected List<List<Expr>> materializedResultExprLists_ = Lists.newArrayList();
     protected List<List<Expr>> materializedConstExprLists_ = Lists.newArrayList();
 
@@ -123,6 +124,46 @@ public abstract class SetOperationNode extends PlanNode {
 
     public List<List<Expr>> getMaterializedConstExprLists_() {
         return materializedConstExprLists_;
+    }
+
+    @Override
+    public void finalize(Analyzer analyzer) throws UserException {
+        // except Node must not reorder the child
+        if (!(this instanceof ExceptNode)) {
+            computePassthrough(analyzer);
+        }
+        // drop resultExprs/constExprs that aren't getting materialized (= where the
+        // corresponding output slot isn't being materialized)
+        materializedResultExprLists_.clear();
+        Preconditions.checkState(resultExprLists_.size() == children.size());
+        List<SlotDescriptor> slots = analyzer.getDescTbl().getTupleDesc(tupleId_).getSlots();
+        for (int i = 0; i < resultExprLists_.size(); ++i) {
+            List<Expr> exprList = resultExprLists_.get(i);
+            List<Expr> newExprList = Lists.newArrayList();
+            Preconditions.checkState(exprList.size() == slots.size());
+            for (int j = 0; j < exprList.size(); ++j) {
+                if (slots.get(j).isMaterialized()) {
+                    newExprList.add(exprList.get(j));
+                }
+            }
+            materializedResultExprLists_.add(
+                    Expr.substituteList(newExprList, getChild(i).getOutputSmap(), analyzer, true));
+        }
+        Preconditions.checkState(
+                materializedResultExprLists_.size() == getChildren().size());
+
+        materializedConstExprLists_.clear();
+        for (List<Expr> exprList : constExprLists_) {
+            Preconditions.checkState(exprList.size() == slots.size());
+            List<Expr> newExprList = Lists.newArrayList();
+            for (int i = 0; i < exprList.size(); ++i) {
+                if (slots.get(i).isMaterialized()) {
+                    newExprList.add(exprList.get(i));
+                }
+            }
+            materializedConstExprLists_.add(newExprList);
+        }
+        super.finalize(analyzer);
     }
 
     @Override
@@ -180,7 +221,7 @@ public abstract class SetOperationNode extends PlanNode {
         // Pass through is only done for the simple case where the row has a single tuple. One
         // of the motivations for this is that the output of a UnionNode is a row with a
         // single tuple.
-        if (childTupleIds.size() != 1) {
+        if (childTupleIds.size() != 1) { // child只能有一个tuple
             return false;
         }
         Preconditions.checkState(!setOpResultExprs_.isEmpty());
@@ -195,10 +236,10 @@ public abstract class SetOperationNode extends PlanNode {
         Preconditions.checkState(
                 setOpTupleDescriptor.getSlots().size() == childExprList.size());
 
-        if (setOpResultExprs_.size() != childTupleDescriptor.getSlots().size()) {
+        if (setOpResultExprs_.size() != childTupleDescriptor.getSlots().size()) { // child tuple的slot个数 和 result slot个数相同，即tuple的所有slot都在union all的select中
             return false;
         }
-        if (setOpTupleDescriptor.getByteSize() != childTupleDescriptor.getByteSize()) {
+        if (setOpTupleDescriptor.getByteSize() != childTupleDescriptor.getByteSize()) { // slot的总长度相同，第一次init没有替换的原因就在这里，因为tuple 1的bytesize是在createPlanFragments中analyzer.getDescTbl().computeMemLayout();
             return false;
         }
 
@@ -262,41 +303,6 @@ public abstract class SetOperationNode extends PlanNode {
         Preconditions.checkState(conjuncts.isEmpty());
         computeTupleStatAndMemLayout(analyzer);
         computeStats(analyzer);
-        // except Node must not reorder the child
-        if (!(this instanceof ExceptNode)) {
-            computePassthrough(analyzer);
-        }
-        // drop resultExprs/constExprs that aren't getting materialized (= where the
-        // corresponding output slot isn't being materialized)
-        materializedResultExprLists_.clear();
-        Preconditions.checkState(resultExprLists_.size() == children.size());
-        List<SlotDescriptor> slots = analyzer.getDescTbl().getTupleDesc(tupleId_).getSlots();
-        for (int i = 0; i < resultExprLists_.size(); ++i) {
-            List<Expr> exprList = resultExprLists_.get(i);
-            List<Expr> newExprList = Lists.newArrayList();
-            Preconditions.checkState(exprList.size() == slots.size());
-            for (int j = 0; j < exprList.size(); ++j) {
-                if (slots.get(j).isMaterialized()) {
-                    newExprList.add(exprList.get(j));
-                }
-            }
-            materializedResultExprLists_.add(
-                    Expr.substituteList(newExprList, getChild(i).getOutputSmap(), analyzer, true));
-        }
-        Preconditions.checkState(
-                materializedResultExprLists_.size() == getChildren().size());
-
-        materializedConstExprLists_.clear();
-        for (List<Expr> exprList : constExprLists_) {
-            Preconditions.checkState(exprList.size() == slots.size());
-            List<Expr> newExprList = Lists.newArrayList();
-            for (int i = 0; i < exprList.size(); ++i) {
-                if (slots.get(i).isMaterialized()) {
-                    newExprList.add(exprList.get(i));
-                }
-            }
-            materializedConstExprLists_.add(newExprList);
-        }
     }
 
     protected void toThrift(TPlanNode msg, TPlanNodeType nodeType) {
