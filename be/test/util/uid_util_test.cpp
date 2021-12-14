@@ -29,6 +29,9 @@ public:
 };
 
 TEST_F(UidUtilTest, UniqueId) {
+    UniqueId id(-2200497997160037632, -7106864134149025544);
+    std::string hex_str = id.to_string();
+    std::cout << "std::cout*** " << hex_str << std::endl;
     {
         UniqueId id = UniqueId::gen_uid();
         std::string hex_str = id.to_string();
