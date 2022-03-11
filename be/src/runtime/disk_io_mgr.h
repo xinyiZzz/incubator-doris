@@ -243,7 +243,7 @@ public:
 
         // Updates this buffer to be owned by the new tracker. Consumption is
         // release from the current tracker and added to the new one.
-        void set_mem_tracker(std::shared_ptr<MemTracker> tracker);
+        void set_mem_tracker(MemTracker* tracker);
 
         // Returns the buffer to the IoMgr. This must be called for every buffer
         // returned by get_next()/read() that did not return an error. This is non-blocking.
@@ -263,7 +263,7 @@ public:
         RequestContext* _reader;
 
         // The current tracker this buffer is associated with.
-        std::shared_ptr<MemTracker> _mem_tracker;
+        MemTracker* _buffer_descriptor_mem_tracker;
 
         // Scan range that this buffer is for.
         ScanRange* _scan_range;
@@ -808,7 +808,7 @@ private:
     // Disk worker thread loop. This function retrieves the next range to process on
     // the disk queue and invokes read_range() or Write() depending on the type of Range().
     // There can be multiple threads per disk running this loop.
-    void work_loop(DiskQueue* queue);
+    void work_loop(DiskQueue* queue, std::shared_ptr<MemTracker> mem_tracker);
 
     // This is called from the disk thread to get the next range to process. It will
     // wait until a scan range and buffer are available, or a write range is available.

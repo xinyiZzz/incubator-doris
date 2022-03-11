@@ -25,6 +25,7 @@
 #include "runtime/mem_tracker.h"
 #include "runtime/memory/chunk.h"
 #include "runtime/memory/system_allocator.h"
+#include "runtime/thread_context.h"
 #include "util/bit_util.h"
 #include "util/cpu_info.h"
 #include "util/doris_metrics.h"
@@ -133,12 +134,11 @@ ChunkAllocator::ChunkAllocator(size_t reserve_limit)
 
 Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, bool check_limits) {
     // fast path: allocate from current core arena
-    if (tracker) {
-        if (check_limits) {
-            RETURN_IF_ERROR(tracker->try_consume_cache(size));
-        } else {
-            tracker->consume_cache(size);
-        }
+    MemTracker* reset_tracker = tracker ? tracker : thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker().get();
+    if (check_limits) {
+        RETURN_IF_ERROR(reset_tracker->try_consume_cache(size));
+    } else {
+        reset_tracker->consume_cache(size);
     }
 
     int core_id = CpuInfo::get_current_core();
@@ -149,7 +149,7 @@ Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, 
         DCHECK_GE(_reserved_bytes, 0);
         _reserved_bytes.fetch_sub(size);
         chunk_pool_local_core_alloc_count->increment(1);
-        if (tracker) _mem_tracker->release_cache(size);
+        _mem_tracker->release_cache(size);
         return Status::OK();
     }
     if (_reserved_bytes > size) {
@@ -162,7 +162,7 @@ Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, 
                 chunk_pool_other_core_alloc_count->increment(1);
                 // reset chunk's core_id to other
                 chunk->core_id = core_id % _arenas.size();
-                if (tracker) _mem_tracker->release_cache(size);
+                _mem_tracker->release_cache(size);
                 return Status::OK();
             }
         }
@@ -177,7 +177,7 @@ Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, 
     chunk_pool_system_alloc_count->increment(1);
     chunk_pool_system_alloc_cost_ns->increment(cost_ns);
     if (chunk->data == nullptr) {
-        if (tracker) tracker->release_cache(size);
+        reset_tracker->release_cache(size);
         return Status::MemoryAllocFailed(
                 fmt::format("ChunkAllocator failed to allocate chunk {} bytes", size));
     }
@@ -188,7 +188,11 @@ void ChunkAllocator::free(Chunk& chunk, MemTracker* tracker) {
     if (chunk.core_id == -1) {
         return;
     }
-    if (tracker) tracker->transfer_to(_mem_tracker.get(), chunk.size);
+    if (tracker) {
+        tracker->transfer_to(_mem_tracker.get(), chunk.size);
+    } else {
+        thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker()->transfer_to(_mem_tracker.get(), chunk.size);
+    }
     int64_t old_reserved_bytes = _reserved_bytes;
     int64_t new_reserved_bytes = 0;
     do {

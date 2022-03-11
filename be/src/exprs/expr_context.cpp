@@ -58,8 +58,6 @@ Status ExprContext::prepare(RuntimeState* state, const RowDescriptor& row_desc,
     _mem_tracker = tracker;
     DCHECK(_pool.get() == nullptr);
     _prepared = true;
-    // TODO: use param tracker to replace instance_mem_tracker, be careful about tracker's life cycle
-    // _pool.reset(new MemPool(new MemTracker(-1)));
     _pool.reset(new MemPool(_mem_tracker.get()));
     return _root->prepare(state, row_desc, this);
 }
