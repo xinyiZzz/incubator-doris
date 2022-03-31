@@ -29,6 +29,7 @@
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
 #include "runtime/runtime_state.h"
+#include "runtime/thread_context.h"
 #include "service/brpc.h"
 #include "util/brpc_client_cache.h"
 #include "util/md5.h"
@@ -101,6 +102,8 @@ void PInternalServiceImpl<T>::exec_plan_fragment(google::protobuf::RpcController
                                                  const PExecPlanFragmentRequest* request,
                                                  PExecPlanFragmentResult* response,
                                                  google::protobuf::Closure* done) {
+    // 
+    thread_local_ctx.get()->init();
     brpc::ClosureGuard closure_guard(done);
     auto st = Status::OK();
     bool compact = request->has_compact() ? request->compact() : false;

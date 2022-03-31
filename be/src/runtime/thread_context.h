@@ -85,6 +85,11 @@ public:
 public:
     ThreadContext() : _thread_id(std::this_thread::get_id()), _type(TaskType::UNKNOWN) {
         _thread_mem_tracker_mgr.reset(new ThreadMemTrackerMgr());
+        init();
+    }
+
+    void init() {
+        _thread_mem_tracker_mgr->init();
         std::stringstream ss;
         ss << _thread_id;
         _thread_id_str = ss.str();

@@ -61,15 +61,19 @@ inline thread_local bool start_thread_mem_tracker = false;
 // need to manually call cosume after stop_mem_tracker, and then start_mem_tracker.
 class ThreadMemTrackerMgr {
 public:
-    ThreadMemTrackerMgr() {
+    ThreadMemTrackerMgr() {}
+
+    ~ThreadMemTrackerMgr() {
+        clear_untracked_mems();
+        start_thread_mem_tracker = false;
+    }
+
+    // 丢失统计
+    void init() {
         _mem_trackers[0] = MemTracker::get_process_tracker();
         _untracked_mems[0] = 0;
         _tracker_id = 0;
         start_thread_mem_tracker = true;
-    }
-    ~ThreadMemTrackerMgr() {
-        clear_untracked_mems();
-        start_thread_mem_tracker = false;
     }
 
     void clear_untracked_mems() {
