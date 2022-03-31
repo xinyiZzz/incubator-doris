@@ -93,7 +93,7 @@ public:
     // Must be fast enough!
     // Thread update_tracker may be called very frequently, adding a memory copy will be slow.
     template <bool Existed>
-    int64_t update_tracker(const std::shared_ptr<MemTracker>& mem_tracker);
+    int64_t update_tracker(const std::shared_ptr<MemTracker> mem_tracker);
     void update_tracker_id(int64_t tracker_id);
 
     void add_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
@@ -163,7 +163,7 @@ private:
 };
 
 template <bool Existed>
-inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
+inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTracker> mem_tracker) {
     DCHECK(mem_tracker);
     _temp_tracker_id = mem_tracker->id();
     if (_temp_tracker_id == _tracker_id) {
