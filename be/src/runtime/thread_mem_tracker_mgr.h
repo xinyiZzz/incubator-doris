@@ -79,7 +79,7 @@ public:
     void clear_untracked_mems() {
         for (const auto& untracked_mem : _untracked_mems) {
             if (untracked_mem.second != 0) {
-                DCHECK(_mem_trackers[untracked_mem.first]);
+                DCHECK(_mem_trackers[untracked_mem.first]) << ", label: " << _mem_tracker_labels[untracked_mem.first];;
                 _mem_trackers[untracked_mem.first]->consume(untracked_mem.second);
             }
         }
@@ -102,7 +102,9 @@ public:
 
     void add_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
         _mem_trackers[mem_tracker->id()] = mem_tracker;
+        DCHECK(_mem_trackers[mem_tracker->id()]);
         _untracked_mems[mem_tracker->id()] = 0;
+        _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
     }
 
     inline ConsumeErrCallBackInfo update_consume_err_cb(const std::string& cancel_msg,
@@ -128,7 +130,7 @@ public:
     bool is_attach_task() { return _task_id != ""; }
 
     std::shared_ptr<MemTracker> mem_tracker() {
-        DCHECK(_mem_trackers[_tracker_id]);
+        DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
         return _mem_trackers[_tracker_id];
     }
 
@@ -157,6 +159,7 @@ private:
     int64_t _tracker_id;
     // phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
     std::unordered_map<int64_t, int64_t> _untracked_mems;
+    std::unordered_map<int64_t, std::string> _mem_tracker_labels;
 
     // Avoid memory allocation in functions and fall into an infinite loop
     int64_t _temp_tracker_id;
@@ -182,6 +185,7 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
             _mem_trackers[_temp_tracker_id] = mem_tracker;
             DCHECK(_mem_trackers[_temp_tracker_id]);
             _untracked_mems[_temp_tracker_id] = 0;
+            _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
         }
     }
 
@@ -222,7 +226,7 @@ inline void ThreadMemTrackerMgr::cache_consume(int64_t size) {
 }
 
 inline void ThreadMemTrackerMgr::noncache_consume() {
-    DCHECK(_mem_trackers[_tracker_id]);
+    DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
     Status st = _mem_trackers[_tracker_id]->try_consume(_untracked_mem);
     if (!st) {
         // The memory has been allocated, so when TryConsume fails, need to continue to complete
