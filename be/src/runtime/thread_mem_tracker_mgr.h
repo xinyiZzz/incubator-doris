@@ -80,7 +80,7 @@ public:
         for (const auto& untracked_mem : _untracked_mems) {
             if (untracked_mem.second != 0) {
                 DCHECK(_mem_trackers[untracked_mem.first]) << ", label: " << _mem_tracker_labels[untracked_mem.first];;
-                _mem_trackers[untracked_mem.first]->consume(untracked_mem.second);
+                get_tracker_id(untracked_mem.first)->consume(untracked_mem.second);
             }
         }
         _mem_trackers[_tracker_id]->consume(_untracked_mem);
@@ -131,7 +131,15 @@ public:
 
     std::shared_ptr<MemTracker> mem_tracker() {
         DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
-        return _mem_trackers[_tracker_id];
+        return get_tracker_id(_tracker_id);
+    }
+
+    std::shared_ptr<MemTracker>& get_tracker_id(int64_t tracker_id) {
+        if (_mem_trackers[tracker_id]) {
+            return _mem_trackers[tracker_id];
+        } else {
+            return _mem_trackers[0];
+        }
     }
 
 private:
@@ -227,11 +235,11 @@ inline void ThreadMemTrackerMgr::cache_consume(int64_t size) {
 
 inline void ThreadMemTrackerMgr::noncache_consume() {
     DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
-    Status st = _mem_trackers[_tracker_id]->try_consume(_untracked_mem);
+    Status st = get_tracker_id(_tracker_id)->try_consume(_untracked_mem);
     if (!st) {
         // The memory has been allocated, so when TryConsume fails, need to continue to complete
         // the consume to ensure the accuracy of the statistics.
-        _mem_trackers[_tracker_id]->consume(_untracked_mem);
+        get_tracker_id(_tracker_id)->consume(_untracked_mem);
         exceeded(_untracked_mem, st);
     }
     _untracked_mem = 0;
