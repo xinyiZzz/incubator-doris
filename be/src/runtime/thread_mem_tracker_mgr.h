@@ -152,9 +152,11 @@ private:
     // and the untracked mem is consumed only after the upper limit is reached or when the task is detached.
     // NOTE: flat_hash_map, int replaces string as key, all to improve the speed of map find,
     //  the expected speed is increased by more than 10 times.
-    phmap::flat_hash_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
+    // phmap::flat_hash_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
+    std::unordered_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
     int64_t _tracker_id;
-    phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
+    // phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
+    std::unordered_map<int64_t, int64_t> _untracked_mems;
 
     // Avoid memory allocation in functions and fall into an infinite loop
     int64_t _temp_tracker_id;
