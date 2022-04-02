@@ -61,21 +61,29 @@ inline thread_local bool start_thread_mem_tracker = false;
 // need to manually call cosume after stop_mem_tracker, and then start_mem_tracker.
 class ThreadMemTrackerMgr {
 public:
-    ThreadMemTrackerMgr() {
-        _mem_trackers[0] = MemTracker::get_process_tracker();
-        _untracked_mems[0] = 0;
-        _tracker_id = 0;
-        start_thread_mem_tracker = true;
-    }
+    ThreadMemTrackerMgr() {}
+
     ~ThreadMemTrackerMgr() {
         clear_untracked_mems();
         start_thread_mem_tracker = false;
     }
 
+    // 丢失统计
+    void init() {
+        _mem_trackers[0] = MemTracker::get_process_tracker();
+        _untracked_mems[0] = 0;
+        _tracker_id = 0;
+        start_thread_mem_tracker = true;
+    }
+
     void clear_untracked_mems() {
         for (const auto& untracked_mem : _untracked_mems) {
             if (untracked_mem.second != 0) {
-                DCHECK(_mem_trackers[untracked_mem.first]);
+                DCHECK(_mem_trackers[untracked_mem.first]) << ", label: " << _mem_tracker_labels[untracked_mem.first];
+                if (!_mem_trackers[untracked_mem.first]) {
+                    std::cout << "ThreadMemTrackerMgr::clear_untracked_mems "  << _mem_tracker_labels[untracked_mem.first] << std::endl;
+                    continue;
+                }
                 _mem_trackers[untracked_mem.first]->consume(untracked_mem.second);
             }
         }
@@ -98,7 +106,9 @@ public:
 
     void add_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
         _mem_trackers[mem_tracker->id()] = mem_tracker;
+        DCHECK(_mem_trackers[mem_tracker->id()]);
         _untracked_mems[mem_tracker->id()] = 0;
+        _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
     }
 
     inline ConsumeErrCallBackInfo update_consume_err_cb(const std::string& cancel_msg,
@@ -124,7 +134,11 @@ public:
     bool is_attach_task() { return _task_id != ""; }
 
     std::shared_ptr<MemTracker> mem_tracker() {
-        DCHECK(_mem_trackers[_tracker_id]);
+        DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
+        if (!_mem_trackers[_tracker_id]) {
+            std::cout << "ThreadMemTrackerMgr::mem_tracker "  << _mem_tracker_labels[_tracker_id] << std::endl;
+            return MemTracker::get_process_tracker();
+        }
         return _mem_trackers[_tracker_id];
     }
 
@@ -148,9 +162,12 @@ private:
     // and the untracked mem is consumed only after the upper limit is reached or when the task is detached.
     // NOTE: flat_hash_map, int replaces string as key, all to improve the speed of map find,
     //  the expected speed is increased by more than 10 times.
-    phmap::flat_hash_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
+    // phmap::flat_hash_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
+    std::unordered_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
     int64_t _tracker_id;
-    phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
+    // phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
+    std::unordered_map<int64_t, int64_t> _untracked_mems;
+    std::unordered_map<int64_t, std::string> _mem_tracker_labels;
 
     // Avoid memory allocation in functions and fall into an infinite loop
     int64_t _temp_tracker_id;
@@ -171,11 +188,19 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
     }
     if (Existed) {
         DCHECK(_mem_trackers.find(_temp_tracker_id) != _mem_trackers.end());
+        if (_mem_trackers.find(_temp_tracker_id) == _mem_trackers.end()) {
+            std::cout << "ThreadMemTrackerMgr::update_tracker "  << mem_tracker->label() << std::endl;
+            _mem_trackers[_temp_tracker_id] = mem_tracker;
+            DCHECK(_mem_trackers[_temp_tracker_id]);
+            _untracked_mems[_temp_tracker_id] = 0;
+            _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
+        }
     } else {
         if (_mem_trackers.find(_temp_tracker_id) == _mem_trackers.end()) {
             _mem_trackers[_temp_tracker_id] = mem_tracker;
             DCHECK(_mem_trackers[_temp_tracker_id]);
             _untracked_mems[_temp_tracker_id] = 0;
+            _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
         }
     }
 
@@ -216,7 +241,7 @@ inline void ThreadMemTrackerMgr::cache_consume(int64_t size) {
 }
 
 inline void ThreadMemTrackerMgr::noncache_consume() {
-    DCHECK(_mem_trackers[_tracker_id]);
+    DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
     Status st = _mem_trackers[_tracker_id]->try_consume(_untracked_mem);
     if (!st) {
         // The memory has been allocated, so when TryConsume fails, need to continue to complete
