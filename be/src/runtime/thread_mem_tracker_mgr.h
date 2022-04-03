@@ -137,7 +137,7 @@ public:
     std::shared_ptr<MemTracker> mem_tracker() {
         DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
         if (_mem_trackers.find(_tracker_id) == _mem_trackers.end()) {
-            std::cout << "ThreadMemTrackerMgr::mem_tracker "  << _mem_tracker_labels[_tracker_id] << std::endl;
+            std::cout << "ThreadMemTrackerMgr::mem_tracker "  << _mem_tracker_labels[_tracker_id] << ", label: " << _mem_tracker_labels[_tracker_id] << std::endl;
             return MemTracker::get_process_tracker();
         }
         return _mem_trackers[_tracker_id];
@@ -165,13 +165,13 @@ private:
     //  the expected speed is increased by more than 10 times.
     // phmap::flat_hash_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
     std::unordered_map<int64_t, std::shared_ptr<MemTracker>> _mem_trackers;
-    int64_t _tracker_id;
+    int64_t _tracker_id = 0;
     // phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
     std::unordered_map<int64_t, int64_t> _untracked_mems;
     std::unordered_map<int64_t, std::string> _mem_tracker_labels;
 
     // Avoid memory allocation in functions and fall into an infinite loop
-    int64_t _temp_tracker_id;
+    int64_t _temp_tracker_id = 0;
     ConsumeErrCallBackInfo _temp_consume_err_cb;
     std::shared_ptr<MemTracker> _temp_task_mem_tracker;
 
@@ -205,6 +205,8 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
         }
     }
 
+    DCHECK(_mem_trackers.find(_tracker_id) != _mem_trackers.end());
+    DCHECK(_mem_trackers[_tracker_id]) << _mem_tracker_labels[_tracker_id] << std::endl;
     _untracked_mems[_tracker_id] += _untracked_mem;
     _untracked_mem = 0;
     std::swap(_tracker_id, _temp_tracker_id);
@@ -218,9 +220,9 @@ inline void ThreadMemTrackerMgr::update_tracker_id(int64_t tracker_id) {
         _untracked_mem = 0;
         _tracker_id = tracker_id;
         if (_untracked_mems.find(_tracker_id) == _untracked_mems.end()) {
-            std::cout << "ThreadMemTrackerMgr::update_tracker_id "  << tracker_id << std::endl;
+            std::cout << "ThreadMemTrackerMgr::update_tracker_id " << tracker_id << " label " << _mem_tracker_labels[_tracker_id] << std::endl;
         }
-        DCHECK(_untracked_mems.find(_tracker_id) != _untracked_mems.end());
+        DCHECK(_untracked_mems.find(_tracker_id) != _untracked_mems.end()) << ", label: " << _mem_tracker_labels[_tracker_id];
     }
 }
 
@@ -249,7 +251,6 @@ inline void ThreadMemTrackerMgr::noncache_consume() {
     DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
     Status st = _mem_trackers[_tracker_id]->try_consume(_untracked_mem);
     if (!st) {
-        DCHECK(_mem_trackers.find(_tracker_id) != _mem_trackers.end());
         // The memory has been allocated, so when TryConsume fails, need to continue to complete
         // the consume to ensure the accuracy of the statistics.
         _mem_trackers[_tracker_id]->consume(_untracked_mem);
