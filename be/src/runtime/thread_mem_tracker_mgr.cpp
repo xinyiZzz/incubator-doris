@@ -25,6 +25,7 @@ namespace doris {
 void ThreadMemTrackerMgr::attach_task(const std::string& cancel_msg, const std::string& task_id,
                                       const TUniqueId& fragment_instance_id,
                                       const std::shared_ptr<MemTracker>& mem_tracker) {
+    DCHECK(switch_count == 0); // 
     _task_id = task_id;
     _fragment_instance_id = fragment_instance_id;
     _consume_err_cb.cancel_msg = cancel_msg;
@@ -57,6 +58,7 @@ void ThreadMemTrackerMgr::detach_task() {
     _mem_trackers[0] = MemTracker::get_process_tracker();
     _mem_tracker_labels.clear();
     _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
+    switch_count -= 1;
 }
 
 void ThreadMemTrackerMgr::exceeded_cancel_task(const std::string& cancel_details) {
