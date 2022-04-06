@@ -281,10 +281,12 @@ public:
                 _old_tracker_id =
                         thread_local_ctx.get()->_thread_mem_tracker_mgr->update_tracker<true>(
                                 mem_tracker);
+                thread_local_ctx.get()->_thread_mem_tracker_mgr->switch_count += 1;
             } else {
                 _old_tracker_id =
                         thread_local_ctx.get()->_thread_mem_tracker_mgr->update_tracker<false>(
                                 mem_tracker);
+                thread_local_ctx.get()->_thread_mem_tracker_mgr->switch_count += 1;
             }
 #endif
         }
@@ -293,6 +295,7 @@ public:
     ~SwitchThreadMemTracker() {
         if (config::memory_verbose_track) {
 #ifndef BE_TEST
+            thread_local_ctx.get()->_thread_mem_tracker_mgr->switch_count -= 1;
             thread_local_ctx.get()->_thread_mem_tracker_mgr->update_tracker_id(_old_tracker_id);
             DorisMetrics::instance()->switch_thread_mem_tracker_count->increment(1);
 #endif

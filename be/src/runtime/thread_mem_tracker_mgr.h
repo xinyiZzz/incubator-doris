@@ -70,10 +70,22 @@ public:
 
     // 丢失统计
     void init() {
-        _mem_trackers[0] = MemTracker::get_process_tracker();
-        _untracked_mems[0] = 0;
+        // if (switch_count != 0) {
+        //     for (auto m: _mem_tracker_labels) {
+        //         std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
+        //     }
+        // }
+        // DCHECK(switch_count == 0);
+        _untracked_mem = 0;
         _tracker_id = 0;
+        _mem_trackers.clear();
+        _mem_trackers[0] = MemTracker::get_process_tracker();
+        _untracked_mems.clear();
+        _untracked_mems[0] = 0;
+        _mem_tracker_labels.clear();
+        _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
         start_thread_mem_tracker = true;
+        // switch_count = 0;
     }
 
     void clear_untracked_mems() {
@@ -143,6 +155,8 @@ public:
         return _mem_trackers[_tracker_id];
     }
 
+    int64_t switch_count = 0;
+
 private:
     // If tryConsume fails due to task mem tracker exceeding the limit, the task must be canceled
     void exceeded_cancel_task(const std::string& cancel_details);
@@ -169,7 +183,7 @@ private:
     // phmap::flat_hash_map<int64_t, int64_t> _untracked_mems;
     std::unordered_map<int64_t, int64_t> _untracked_mems;
     std::unordered_map<int64_t, std::string> _mem_tracker_labels;
-    int64_t switch_count = 0;
+    // int64_t switch_count = 0;
 
     // Avoid memory allocation in functions and fall into an infinite loop
     int64_t _temp_tracker_id = 0;
@@ -184,7 +198,7 @@ private:
 template <bool Existed>
 inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
     DCHECK(mem_tracker);
-    switch_count += 1;
+    // switch_count += 1;
     _temp_tracker_id = mem_tracker->id();
     if (_temp_tracker_id == _tracker_id) {
         return _tracker_id;
@@ -217,7 +231,13 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
 }
 
 inline void ThreadMemTrackerMgr::update_tracker_id(int64_t tracker_id) {
-    switch_count -= 1;
+    // switch_count -= 1;
+    if (switch_count < 0) {
+        for (auto m: _mem_tracker_labels) {
+            std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
+        }
+    }
+    DCHECK(switch_count >= 0);
     if (tracker_id != _tracker_id) {
         _untracked_mems[_tracker_id] += _untracked_mem;
         _untracked_mem = 0;
