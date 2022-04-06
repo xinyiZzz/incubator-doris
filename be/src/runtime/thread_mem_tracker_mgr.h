@@ -89,12 +89,6 @@ public:
     }
 
     void clear_untracked_mems() {
-        if (switch_count != 0) {
-            for (auto m: _mem_tracker_labels) {
-                std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
-            }
-        }
-        DCHECK(switch_count == 0);
         for (const auto& untracked_mem : _untracked_mems) {
             if (untracked_mem.second != 0) {
                 DCHECK(_mem_trackers[untracked_mem.first]) << ", label: " << _mem_tracker_labels[untracked_mem.first];
@@ -238,12 +232,12 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
 
 inline void ThreadMemTrackerMgr::update_tracker_id(int64_t tracker_id) {
     // switch_count -= 1;
-    // if (switch_count < 0) {
-    //     for (auto m: _mem_tracker_labels) {
-    //         std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
-    //     }
-    // }
-    // DCHECK(switch_count >= 0);
+    if (switch_count < 0) {
+        for (auto m: _mem_tracker_labels) {
+            std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
+        }
+    }
+    DCHECK(switch_count >= 0);
     if (tracker_id != _tracker_id) {
         _untracked_mems[_tracker_id] += _untracked_mem;
         _untracked_mem = 0;

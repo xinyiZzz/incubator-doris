@@ -161,7 +161,7 @@ private:
 // The func provided by pthread and std::thread doesn't help either.
 //
 // So, kudu Class-scoped static thread local implementation was introduced. Solve the above problem by
-// Thread-scopedthread local + Class-scoped thread local.
+// Thread-scoped thread local + Class-scoped thread local.
 //
 // This may look very trick, but it's the best way I can find.
 //
@@ -288,6 +288,10 @@ public:
                                 mem_tracker);
                 thread_local_ctx.get()->_thread_mem_tracker_mgr->switch_count += 1;
             }
+            std::thread::id tid = std::this_thread::get_id();
+            std::stringstream ss;
+            ss << tid;
+            _tid = ss.str();
 #endif
         }
     }
@@ -296,6 +300,10 @@ public:
         if (config::memory_verbose_track) {
 #ifndef BE_TEST
             thread_local_ctx.get()->_thread_mem_tracker_mgr->switch_count -= 1;
+            std::thread::id tid = std::this_thread::get_id();
+            std::stringstream ss;
+            ss << tid;
+            DCHECK(_tid == ss.str()) << " tid: " << ss.str();
             thread_local_ctx.get()->_thread_mem_tracker_mgr->update_tracker_id(_old_tracker_id);
             DorisMetrics::instance()->switch_thread_mem_tracker_count->increment(1);
 #endif
@@ -304,6 +312,7 @@ public:
 
 protected:
     int64_t _old_tracker_id = 0;
+    std::string _tid;
 };
 
 class SwitchThreadMemTrackerEndClear : public SwitchThreadMemTracker<false> {

@@ -50,6 +50,13 @@ void ThreadMemTrackerMgr::attach_task(const std::string& cancel_msg, const std::
 }
 
 void ThreadMemTrackerMgr::detach_task() {
+    // switch_count -= 1;
+    if (switch_count != 0) {
+        for (auto m: _mem_tracker_labels) {
+            std::cout << "_mem_tracker_labels: " << m.first << ", " << m.second << std::endl;
+        }
+    }
+    DCHECK(switch_count == 0);
     _task_id = "";
     _fragment_instance_id = TUniqueId();
     _consume_err_cb.init();
@@ -63,7 +70,6 @@ void ThreadMemTrackerMgr::detach_task() {
     _mem_trackers[0] = MemTracker::get_process_tracker();
     _mem_tracker_labels.clear();
     _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
-    // switch_count -= 1;
 }
 
 void ThreadMemTrackerMgr::exceeded_cancel_task(const std::string& cancel_details) {
