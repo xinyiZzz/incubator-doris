@@ -103,11 +103,12 @@ public:
     void update_tracker_id(int64_t tracker_id);
 
     void add_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
-        DCHECK(_mem_trackers.find(mem_tracker->id()) == _mem_trackers.end());
-        _mem_trackers[mem_tracker->id()] = mem_tracker;
-        DCHECK(_mem_trackers[mem_tracker->id()]);
-        _untracked_mems[mem_tracker->id()] = 0;
-        _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
+        if (_mem_trackers.find(mem_tracker->id()) == _mem_trackers.end()) {
+            _mem_trackers[mem_tracker->id()] = mem_tracker;
+            DCHECK(_mem_trackers[mem_tracker->id()]);
+            _untracked_mems[mem_tracker->id()] = 0;
+            _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
+        }
     }
 
     inline ConsumeErrCallBackInfo update_consume_err_cb(const std::string& cancel_msg,
