@@ -32,6 +32,10 @@
 #undef arraysize
 #endif
 
+#ifdef ARRAY_SIZE
+#undef ARRAY_SIZE
+#endif
+
 #undef OVERRIDE
 #undef FINAL
 
@@ -51,6 +55,8 @@
 #include <brpc/protocol.h>
 #include <brpc/reloadable_flags.h>
 #include <brpc/server.h>
+#include <bthread/bthread.h>
+#include <bthread/types.h>
 #include <butil/containers/flat_map.h>
 #include <butil/containers/flat_map_inl.h>
 #include <butil/endpoint.h>

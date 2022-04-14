@@ -29,7 +29,7 @@
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
 #include "runtime/runtime_state.h"
-#include "service/brpc.h"
+#include "runtime/thread_context.h"
 #include "util/brpc_client_cache.h"
 #include "util/md5.h"
 #include "util/proto_util.h"
@@ -42,16 +42,24 @@ namespace doris {
 
 DEFINE_GAUGE_METRIC_PROTOTYPE_2ARG(add_batch_task_queue_size, MetricUnit::NOUNIT);
 
+bthread_key_t btls_key;
+
+static void thread_context_deleter(void* d) {
+    delete static_cast<ThreadContext*>(d);
+}
+
 template <typename T>
 PInternalServiceImpl<T>::PInternalServiceImpl(ExecEnv* exec_env)
         : _exec_env(exec_env), _tablet_worker_pool(config::number_tablet_writer_threads, 10240) {
     REGISTER_HOOK_METRIC(add_batch_task_queue_size,
                          [this]() { return _tablet_worker_pool.get_queue_size(); });
+    DCHECK_EQ(0, bthread_key_create(&btls_key, thread_context_deleter));
 }
 
 template <typename T>
 PInternalServiceImpl<T>::~PInternalServiceImpl() {
     DEREGISTER_HOOK_METRIC(add_batch_task_queue_size);
+    DCHECK_EQ(0, bthread_key_delete(btls_key));
 }
 
 template <typename T>
@@ -101,6 +109,7 @@ void PInternalServiceImpl<T>::exec_plan_fragment(google::protobuf::RpcController
                                                  const PExecPlanFragmentRequest* request,
                                                  PExecPlanFragmentResult* response,
                                                  google::protobuf::Closure* done) {
+    SCOPED_SWITCH_BTHREAD();
     brpc::ClosureGuard closure_guard(done);
     auto st = Status::OK();
     bool compact = request->has_compact() ? request->compact() : false;

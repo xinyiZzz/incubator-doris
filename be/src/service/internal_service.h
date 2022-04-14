@@ -18,6 +18,7 @@
 #pragma once
 
 #include "common/status.h"
+#include "service/brpc.h"
 #include "gen_cpp/internal_service.pb.h"
 #include "runtime/cache/result_cache.h"
 #include "util/priority_thread_pool.hpp"
@@ -29,6 +30,8 @@ class Controller;
 namespace doris {
 
 class ExecEnv;
+
+extern bthread_key_t btls_key;
 
 template <typename T>
 class PInternalServiceImpl : public T {

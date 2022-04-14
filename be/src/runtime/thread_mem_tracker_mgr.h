@@ -61,16 +61,32 @@ inline thread_local bool start_thread_mem_tracker = false;
 // need to manually call cosume after stop_mem_tracker, and then start_mem_tracker.
 class ThreadMemTrackerMgr {
 public:
-    ThreadMemTrackerMgr() {
-        _mem_trackers[0] = MemTracker::get_process_tracker();
-        _untracked_mems[0] = 0;
-        _tracker_id = 0;
-        _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
-        start_thread_mem_tracker = true;
-    }
+    ThreadMemTrackerMgr() {}
+
     ~ThreadMemTrackerMgr() {
         clear_untracked_mems();
         start_thread_mem_tracker = false;
+    }
+
+    // After thread initialization, calling `init` again must call `clear_untracked_mems` first
+    // to avoid memory tracking loss.
+    void init(bool clear = true) {
+        if (clear) clear_untracked_mems();
+        _tracker_id = 0;
+        _mem_trackers.clear();
+        _mem_trackers[0] = MemTracker::get_process_tracker();
+        _untracked_mems.clear();
+        _untracked_mems[0] = 0;
+        _mem_tracker_labels.clear();
+        _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
+    }
+
+    void init_bthread(bool clear = true) {
+        init(clear);
+        _mem_trackers[1] = MemTracker::get_brpc_server_tracker();
+        _untracked_mems[1] = 0;
+        _mem_tracker_labels[1] = MemTracker::get_brpc_server_tracker()->label();
+        _tracker_id = 1;
     }
 
     void clear_untracked_mems() {
@@ -78,11 +94,7 @@ public:
             if (untracked_mem.second != 0) {
                 DCHECK(_mem_trackers[untracked_mem.first])
                         << ", label: " << _mem_tracker_labels[untracked_mem.first];
-                if (_mem_trackers[untracked_mem.first]) {
-                    _mem_trackers[untracked_mem.first]->consume(untracked_mem.second);
-                } else {
-                    MemTracker::get_process_tracker()->consume(untracked_mem.second);
-                }
+                _mem_trackers[untracked_mem.first]->consume(untracked_mem.second);
             }
         }
         mem_tracker()->consume(_untracked_mem);
@@ -110,8 +122,8 @@ public:
         _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
     }
 
-    ConsumeErrCallBackInfo update_consume_err_cb(const std::string& cancel_msg,
-                                                        bool cancel_task, ERRCALLBACK cb_func) {
+    ConsumeErrCallBackInfo update_consume_err_cb(const std::string& cancel_msg, bool cancel_task,
+                                                 ERRCALLBACK cb_func) {
         _temp_consume_err_cb = _consume_err_cb;
         _consume_err_cb.cancel_msg = cancel_msg;
         _consume_err_cb.cancel_task = cancel_task;
@@ -133,13 +145,12 @@ public:
     bool is_attach_task() { return _task_id != ""; }
 
     std::shared_ptr<MemTracker> mem_tracker() {
+        DCHECK(_mem_trackers.find(_tracker_id) != _mem_trackers.end());
         DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
-        if (_mem_trackers[_tracker_id]) {
-            return _mem_trackers[_tracker_id];
-        } else {
-            return MemTracker::get_process_tracker();
-        }
+        return _mem_trackers[_tracker_id];
     }
+
+    int64_t switch_count = 0;
 
 private:
     // If tryConsume fails due to task mem tracker exceeding the limit, the task must be canceled
@@ -194,6 +205,8 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
         }
     }
 
+    DCHECK(_mem_trackers.find(_tracker_id) != _mem_trackers.end());
+    DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
     _untracked_mems[_tracker_id] += _untracked_mem;
     _untracked_mem = 0;
     std::swap(_tracker_id, _temp_tracker_id);
@@ -202,6 +215,7 @@ inline int64_t ThreadMemTrackerMgr::update_tracker(const std::shared_ptr<MemTrac
 }
 
 inline void ThreadMemTrackerMgr::update_tracker_id(int64_t tracker_id) {
+    DCHECK(switch_count >= 0);
     if (tracker_id != _tracker_id) {
         _untracked_mems[_tracker_id] += _untracked_mem;
         _untracked_mem = 0;

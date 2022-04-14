@@ -21,8 +21,6 @@
 
 namespace doris {
 
-#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
-
 struct AuthInfo {
     std::string user;
     std::string passwd;
