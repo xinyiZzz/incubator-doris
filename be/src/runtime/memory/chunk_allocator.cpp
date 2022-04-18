@@ -135,7 +135,7 @@ ChunkAllocator::ChunkAllocator(size_t reserve_limit)
 Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, bool check_limits) {
     MemTracker* reset_tracker =
             tracker ? tracker
-                    : thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker().get();
+                    : tls_ctx()->_thread_mem_tracker_mgr->mem_tracker().get();
     // In advance, transfer the memory ownership of allocate from ChunkAllocator::tracker to the parameter tracker.
     // Next, if the allocate is successful, it will exit normally;
     // if the allocate fails, return this part of the memory to the parameter tracker.
@@ -178,7 +178,7 @@ Status ChunkAllocator::allocate(size_t size, Chunk* chunk, MemTracker* tracker, 
         chunk->data = SystemAllocator::allocate(size);
         // The allocated chunk is consumed in the tls mem tracker, we want to consume in the ChunkAllocator tracker,
         // transfer memory ownership. TODO(zxy) replace with switch tls tracker
-        thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker()->transfer_to(_mem_tracker.get(), size);
+        tls_ctx()->_thread_mem_tracker_mgr->mem_tracker()->transfer_to(_mem_tracker.get(), size);
     }
     chunk_pool_system_alloc_count->increment(1);
     chunk_pool_system_alloc_cost_ns->increment(cost_ns);
@@ -209,7 +209,7 @@ void ChunkAllocator::free(const Chunk& chunk, MemTracker* tracker) {
                 // tracker are different, transfer memory ownership.
                 if (tracker)
                     tracker->transfer_to(
-                            thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker().get(),
+                            tls_ctx()->_thread_mem_tracker_mgr->mem_tracker().get(),
                             chunk.size);
             }
             chunk_pool_system_free_count->increment(1);
@@ -223,7 +223,7 @@ void ChunkAllocator::free(const Chunk& chunk, MemTracker* tracker) {
     if (tracker) {
         tracker->transfer_to(_mem_tracker.get(), chunk.size);
     } else {
-        thread_local_ctx.get()->_thread_mem_tracker_mgr->mem_tracker()->transfer_to(
+        tls_ctx()->_thread_mem_tracker_mgr->mem_tracker()->transfer_to(
                 _mem_tracker.get(), chunk.size);
     }
     _arenas[chunk.core_id]->push_free_chunk(chunk.data, chunk.size);
