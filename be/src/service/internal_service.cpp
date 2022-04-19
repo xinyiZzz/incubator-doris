@@ -177,6 +177,7 @@ void PInternalServiceImpl<T>::tablet_writer_cancel(google::protobuf::RpcControll
 
 template <typename T>
 Status PInternalServiceImpl<T>::_exec_plan_fragment(const std::string& ser_request, bool compact) {
+    SCOPED_SWITCH_BTHREAD();
     TExecPlanFragmentParams t_request;
     {
         const uint8_t* buf = (const uint8_t*)ser_request.data();
@@ -434,6 +435,7 @@ void PInternalServiceImpl<T>::fold_constant_expr(google::protobuf::RpcController
 template <typename T>
 Status PInternalServiceImpl<T>::_fold_constant_expr(const std::string& ser_request,
                                                     PConstantExprResult* response) {
+    SCOPED_SWITCH_BTHREAD();
     TFoldConstantParams t_request;
     {
         const uint8_t* buf = (const uint8_t*)ser_request.data();
