@@ -63,7 +63,8 @@ void ThreadMemTrackerMgr::detach_task() {
     _task_id = "";
     _fragment_instance_id = TUniqueId();
     _consume_err_cb.init();
-    init(true);
+    clear_untracked_mems();
+    init();
 }
 
 void ThreadMemTrackerMgr::exceeded_cancel_task(const std::string& cancel_details) {

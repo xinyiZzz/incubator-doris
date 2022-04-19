@@ -67,9 +67,9 @@ public:
 
     // After thread initialization, calling `init` again must call `clear_untracked_mems` first
     // to avoid memory tracking loss.
-    void init(bool clear = true);
+    void init();
 
-    void init_bthread(bool clear = true);
+    void init_bthread();
 
     void clear_untracked_mems();
 
@@ -149,10 +149,7 @@ private:
     ConsumeErrCallBackInfo _consume_err_cb;
 };
 
-inline void ThreadMemTrackerMgr::init(bool clear) {
-    if (clear) {
-        clear_untracked_mems();
-    }
+inline void ThreadMemTrackerMgr::init() {
     _tracker_id = 0;
     _mem_trackers.clear();
     _mem_trackers[0] = MemTracker::get_process_tracker();
@@ -162,8 +159,8 @@ inline void ThreadMemTrackerMgr::init(bool clear) {
     _mem_tracker_labels[0] = MemTracker::get_process_tracker()->label();
 }
 
-inline void ThreadMemTrackerMgr::init_bthread(bool clear) {
-    init(clear);
+inline void ThreadMemTrackerMgr::init_bthread() {
+    init();
     _mem_trackers[1] = MemTracker::get_brpc_server_tracker();
     _untracked_mems[1] = 0;
     _mem_tracker_labels[1] = MemTracker::get_brpc_server_tracker()->label();
@@ -256,16 +253,23 @@ inline void ThreadMemTrackerMgr::noncache_consume() {
 
 inline void ThreadMemTrackerMgr::add_tracker(const std::shared_ptr<MemTracker>& mem_tracker) {
     if (_mem_trackers.find(mem_tracker->id()) == _mem_trackers.end()) {
-        std::cout << "void add_tracker: " << mem_tracker->label() << std::endl;
         _mem_trackers[mem_tracker->id()] = mem_tracker;
         DCHECK(_mem_trackers[mem_tracker->id()]);
         _untracked_mems[mem_tracker->id()] = 0;
         _mem_tracker_labels[_temp_tracker_id] = mem_tracker->label();
+    } else {
+        std::cout << "void add_tracker: " << mem_tracker->label() << std::endl;
     }
 }
 
 inline std::shared_ptr<MemTracker> ThreadMemTrackerMgr::mem_tracker() {
     DCHECK(_mem_trackers.find(_tracker_id) != _mem_trackers.end());
+    if (_mem_trackers.find(_tracker_id) == _mem_trackers.end()) {
+        std::cout << "ThreadMemTrackerMgr::mem_tracker1: " << _mem_tracker_labels[_tracker_id] << std::endl;
+    }
+    if (!_mem_trackers[_tracker_id]) {
+        std::cout << "ThreadMemTrackerMgr::mem_tracker2: " << _mem_tracker_labels[_tracker_id] << std::endl;
+    }
     DCHECK(_mem_trackers[_tracker_id]) << ", label: " << _mem_tracker_labels[_tracker_id];
     return _mem_trackers[_tracker_id];
 }

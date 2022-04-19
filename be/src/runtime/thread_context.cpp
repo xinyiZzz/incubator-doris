@@ -111,10 +111,10 @@ SwitchThreadMemTracker<Existed>::~SwitchThreadMemTracker() {
     if (config::memory_verbose_track) {
 #ifndef NDEBUG
         tls_ctx()->_thread_mem_tracker_mgr->switch_count -= 1;
+        DorisMetrics::instance()->switch_thread_mem_tracker_count->increment(1);
 #endif
 #ifndef BE_TEST
         tls_ctx()->_thread_mem_tracker_mgr->update_tracker_id(_old_tracker_id);
-        DorisMetrics::instance()->switch_thread_mem_tracker_count->increment(1);
 #endif
     }
 }
@@ -137,16 +137,20 @@ SwitchBthread::SwitchBthread() {
     if (tls == nullptr) {
         // Create thread-local data on demand.
         tls = new ThreadContext;
-        tls->_thread_mem_tracker_mgr->init_bthread(false);
+        tls->_thread_mem_tracker_mgr->init_bthread();
         // set the data so that next time bthread_getspecific in the thread returns the data.
         DCHECK_EQ(0, bthread_setspecific(btls_key, tls));
+    } else {
+        tls->_thread_mem_tracker_mgr->init_bthread();
     }
 }
 
 SwitchBthread::~SwitchBthread() {
     DCHECK(tls != nullptr);
-    tls->_thread_mem_tracker_mgr->init_bthread(true);
-    DorisMetrics::instance()->switch_pthread_count->increment(1);
+    tls->_thread_mem_tracker_mgr->clear_untracked_mems();
+#ifndef NDEBUG
+        DorisMetrics::instance()->switch_pthread_count->increment(1);
+#endif
 }
 
 template class SwitchThreadMemTracker<true>;

@@ -97,7 +97,7 @@ public:
 public:
     ThreadContext() : _thread_id(std::this_thread::get_id()), _type(TaskType::UNKNOWN) {
         _thread_mem_tracker_mgr.reset(new ThreadMemTrackerMgr());
-        _thread_mem_tracker_mgr->init(false);
+        _thread_mem_tracker_mgr->init();
         start_thread_mem_tracker = true;
         std::stringstream ss;
         ss << _thread_id;
@@ -193,8 +193,9 @@ private:
 inline thread_local ThreadContextPtr thread_local_ctx;
 
 static ThreadContext* tls_ctx() {
-    if (static_cast<ThreadContext*>(bthread_getspecific(btls_key)) != nullptr) {
-        return static_cast<ThreadContext*>(bthread_getspecific(btls_key));
+    ThreadContext* tls = static_cast<ThreadContext*>(bthread_getspecific(btls_key));
+    if (tls != nullptr) {
+        return tls;
     } else {
         return thread_local_ctx.get();
     }
