@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <parallel_hashmap/phmap.h>
+
 #include <cstdint>
 #include <memory>
 #include <mutex>
@@ -39,6 +41,11 @@ enum class MemTrackerLevel { OVERVIEW = 0, TASK, INSTANCE, VERBOSE };
 
 class MemTracker;
 class RuntimeState;
+
+using TrackersMap = phmap::parallel_flat_hash_map<
+        std::string, std::shared_ptr<MemTracker>, phmap::priv::hash_default_hash<std::string>,
+        phmap::priv::hash_default_eq<std::string>,
+        std::allocator<std::pair<const std::string, std::shared_ptr<MemTracker>>>, 12, std::mutex>;
 
 /// A MemTracker tracks memory consumption; it contains an optional limit
 /// and can be arranged into a tree structure such that the consumption tracked
@@ -97,8 +104,8 @@ public:
     // Gets a shared_ptr to the "process" tracker, creating it if necessary.
     static std::shared_ptr<MemTracker> get_process_tracker();
     static MemTracker* get_raw_process_tracker();
-    // Gets a shared_ptr to the "brpc server" tracker, creating it if necessary.
-    static std::shared_ptr<MemTracker> get_brpc_server_tracker();
+    //
+    static std::shared_ptr<MemTracker> get_temporary_mem_tracker(const std::string& label);
 
     Status check_sys_mem_info(int64_t bytes) {
         if (MemInfo::initialized() && MemInfo::current_mem() + bytes >= MemInfo::mem_limit()) {
@@ -466,8 +473,6 @@ private:
 
     // Creates the process tracker.
     static void create_process_tracker();
-    // Creates the brpc server tracker.
-    static void create_brpc_server_tracker();
 
     // Limit on memory consumption, in bytes. If limit_ == -1, there is no consumption limit.
     int64_t _limit;

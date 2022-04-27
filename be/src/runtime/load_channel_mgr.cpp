@@ -96,7 +96,7 @@ Status LoadChannelMgr::init(int64_t process_mem_limit) {
 }
 
 Status LoadChannelMgr::open(const PTabletWriterOpenRequest& params) {
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
     UniqueId load_id(params.id());
     std::shared_ptr<LoadChannel> channel;
     {
@@ -129,7 +129,7 @@ static void dummy_deleter(const CacheKey& key, void* value) {}
 
 Status LoadChannelMgr::add_batch(const PTabletWriterAddBatchRequest& request,
                                  PTabletWriterAddBatchResult* response) {
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
     UniqueId load_id(request.id());
     // 1. get load channel
     std::shared_ptr<LoadChannel> channel;
@@ -212,7 +212,7 @@ void LoadChannelMgr::_handle_mem_exceed_limit() {
 }
 
 Status LoadChannelMgr::cancel(const PTabletWriterCancelRequest& params) {
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
     UniqueId load_id(params.id());
     std::shared_ptr<LoadChannel> cancelled_channel;
     {
@@ -255,6 +255,7 @@ Status LoadChannelMgr::_start_bg_worker() {
 Status LoadChannelMgr::_start_load_channels_clean() {
     std::vector<std::shared_ptr<LoadChannel>> need_delete_channels;
     LOG(INFO) << "cleaning timed out load channels";
+    LOG(INFO) << "there are " << _load_channels.size() << " running load channels";
     time_t now = time(nullptr);
     {
         std::vector<UniqueId> need_delete_channel_ids;
@@ -264,6 +265,7 @@ Status LoadChannelMgr::_start_load_channels_clean() {
         for (auto& kv : _load_channels) {
             VLOG_CRITICAL << "load channel[" << i++ << "]: " << *(kv.second);
             time_t last_updated_time = kv.second->last_updated_time();
+            LOG(INFO) << "_load_channels last_updated_time " << kv.second->last_updated_time();
             if (difftime(now, last_updated_time) >= kv.second->timeout()) {
                 need_delete_channel_ids.emplace_back(kv.first);
                 need_delete_channels.emplace_back(kv.second);

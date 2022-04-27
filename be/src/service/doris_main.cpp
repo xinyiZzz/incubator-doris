@@ -353,7 +353,7 @@ int main(int argc, char** argv) {
         return -1;
     }
     if (doris::config::track_new_delete) {
-        init_hook();
+        doris::TcmallocHook::init_hook();
     }
 #endif
 

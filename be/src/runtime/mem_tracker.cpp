@@ -60,17 +60,16 @@ MemTracker* MemTracker::get_raw_process_tracker() {
     return raw_process_tracker;
 }
 
-// Track memory for all brpc server responses.
-static std::shared_ptr<MemTracker> brpc_server_tracker;
-static GoogleOnceType brpc_server_tracker_once = GOOGLE_ONCE_INIT;
+static TrackersMap _temporary_mem_trackers;
 
-void MemTracker::create_brpc_server_tracker() {
-    brpc_server_tracker = MemTracker::create_tracker(-1, "Brpc", get_process_tracker(), MemTrackerLevel::OVERVIEW);
-}
-
-std::shared_ptr<MemTracker> MemTracker::get_brpc_server_tracker() {
-    GoogleOnceInit(&brpc_server_tracker_once, &MemTracker::create_brpc_server_tracker);
-    return brpc_server_tracker;
+std::shared_ptr<MemTracker> MemTracker::get_temporary_mem_tracker(const std::string& label) {
+    // First time this label registered, make a new object, otherwise do nothing.
+    // Avoid using locks to resolve erase conflicts.
+    _temporary_mem_trackers.try_emplace_l(
+            label, [](std::shared_ptr<MemTracker>) {},
+            MemTracker::create_tracker(-1, fmt::format("[Temporary]-{}", label), nullptr,
+                                       MemTrackerLevel::OVERVIEW));
+    return _temporary_mem_trackers[label];
 }
 
 void MemTracker::list_process_trackers(std::vector<std::shared_ptr<MemTracker>>* trackers) {

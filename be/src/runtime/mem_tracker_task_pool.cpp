@@ -33,8 +33,7 @@ std::shared_ptr<MemTracker> MemTrackerTaskPool::register_task_mem_tracker_impl(
     _task_mem_trackers.try_emplace_l(
             task_id, [](std::shared_ptr<MemTracker>) {},
             MemTracker::create_tracker(mem_limit, label, parent, MemTrackerLevel::TASK));
-    std::shared_ptr<MemTracker> tracker = get_task_mem_tracker(task_id);
-    return tracker;
+    return get_task_mem_tracker(task_id);
 }
 
 std::shared_ptr<MemTracker> MemTrackerTaskPool::register_query_mem_tracker(
