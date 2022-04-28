@@ -430,6 +430,10 @@ public:
     static const std::string COUNTER_NAME;
 
 private:
+    static std::shared_ptr<MemTracker> create_tracker_impl(
+            int64_t byte_limit, const std::string& label, const std::shared_ptr<MemTracker>& parent,
+            MemTrackerLevel level, RuntimeProfile* profile);
+
     /// 'byte_limit' < 0 means no limit
     /// 'label' is the label used in the usage string (log_usage())
     MemTracker(int64_t byte_limit, const std::string& label,
@@ -491,8 +495,6 @@ private:
 
     // Consume size smaller than mem_tracker_consume_min_size_bytes will continue to accumulate
     // to avoid frequent calls to consume/release of MemTracker.
-    // TODO(zxy) It may be more performant to use thread_local static, which is inherently thread-safe.
-    // Test after introducing TCMalloc hook
     std::atomic<int64_t> _untracked_mem = 0;
 
     std::vector<MemTracker*> _all_trackers;   // this tracker plus all of its ancestors

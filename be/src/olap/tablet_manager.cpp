@@ -196,7 +196,9 @@ Status TabletManager::_add_tablet_to_map_unlocked(TTabletId tablet_id,
     tablet_map_t& tablet_map = _get_tablet_map(tablet_id);
     tablet_map[tablet_id] = tablet;
     _add_tablet_to_partition(tablet);
+#ifndef NDEBUG
     _mem_tracker_logic->consume(tablet->tablet_meta()->mem_size());
+#endif
 
     VLOG_NOTICE << "add tablet to map successfully."
                 << " tablet_id=" << tablet_id;
@@ -1238,7 +1240,9 @@ Status TabletManager::_drop_tablet_directly_unlocked(TTabletId tablet_id, bool k
     }
 
     dropped_tablet->deregister_tablet_from_dir();
+#ifndef NDEBUG
     _mem_tracker_logic->release(dropped_tablet->tablet_meta()->mem_size());
+#endif
     return Status::OK();
 }
 

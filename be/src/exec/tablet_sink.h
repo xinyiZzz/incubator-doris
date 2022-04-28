@@ -314,7 +314,7 @@ private:
 class IndexChannel {
 public:
     IndexChannel(OlapTableSink* parent, int64_t index_id) : _parent(parent), _index_id(index_id) {
-        _index_channel_tracker = MemTracker::create_tracker(-1, "IndexChannel");
+        _index_channel_tracker = MemTracker::create_tracker(-1, "IndexChannel:"  + std::to_string(_index_id));
     }
     ~IndexChannel();
 

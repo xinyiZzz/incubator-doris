@@ -56,6 +56,8 @@
 // Count the memory in the scope to a temporary tracker with the specified label name.
 // This is very useful when debugging. You can find the position where the tracker statistics are
 // inaccurate through the temporary tracker layer by layer. As well as finding memory hotspots.
+// TODO(zxy) track specifies the memory for each line in the code segment, instead of manually adding
+// a switch temporary tracker to each line. Maybe there are open source tools to do this?
 #define SCOPED_SWITCH_TEMPORARY_THREAD_LOCAL_MEM_TRACKER(label)                  \
     auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<false>( \
             MemTracker::get_temporary_mem_tracker(label), false)
