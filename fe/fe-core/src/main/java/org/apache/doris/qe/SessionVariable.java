@@ -319,7 +319,7 @@ public class SessionVariable implements Serializable, Writable {
     public String preferJoinMethod = "broadcast";
 
     @VariableMgr.VarAttr(name = ENABLE_FOLD_CONSTANT_BY_BE)
-    private boolean enableFoldConstantByBe = false;
+    private boolean enableFoldConstantByBe = true;
 
     /*
      * the parallel exec instance num for one Fragment in one BE
@@ -408,7 +408,7 @@ public class SessionVariable implements Serializable, Writable {
     @VariableMgr.VarAttr(name = RUNTIME_FILTER_MAX_IN_NUM)
     private int runtimeFilterMaxInNum = 1024;
     @VariableMgr.VarAttr(name = ENABLE_VECTORIZED_ENGINE)
-    public boolean enableVectorizedEngine = false;
+    public boolean enableVectorizedEngine = true;
     @VariableMgr.VarAttr(name = ENABLE_PARALLEL_OUTFILE)
     public boolean enableParallelOutfile = false;
 
