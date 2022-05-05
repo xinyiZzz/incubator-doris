@@ -101,7 +101,7 @@ void BlockReader::_init_agg_state(const ReaderParams& read_params) {
         AggregateFunctionPtr function = AggregateFunctionSimpleFactory::instance().get(
                 agg_name, argument_types, params,
                 _next_row.block->get_data_type(idx)->is_nullable());
-        DCHECK(function != nullptr);
+        DCHECK(function != nullptr) << "agg_name: " << agg_name << ",is_nullable: " << _next_row.block->get_data_type(idx)->is_nullable();
         _agg_functions.push_back(function);
         // create aggregate data
         AggregateDataPtr place = new char[function->size_of_data()];

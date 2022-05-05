@@ -87,7 +87,9 @@ Status Compaction::do_compaction_impl(int64_t permits) {
     // The test results show that merger is low-memory-footprint, there is no need to tracker its mem pool
     Merger::Statistics stats;
     Status res;
+    std::cout << "config::enable_vectorized_compaction: " << config::enable_vectorized_compaction << std::endl;
     if (config::enable_vectorized_compaction) {
+        std::cout << "config::enable_vectorized_compaction 222: " << config::enable_vectorized_compaction << std::endl;
         res = Merger::vmerge_rowsets(_tablet, compaction_type(), _input_rs_readers,
                                      _output_rs_writer.get(), &stats);
     } else {
