@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "util/md5.h"
 #include "util/stack_util.h"
 
 namespace doris {
@@ -35,6 +36,43 @@ inline void request_row_batch_transfer_attachment(Params* brpc_request,
     closure->cntl.request_attachment().swap(attachment);
 }
 
+// Transfer RowBatch in ProtoBuf Request to Controller Attachment.
+// This can avoid reaching the upper limit of the ProtoBuf Request length (2G),
+// and it is expected that performance can be improved.
+template <typename Params, typename Closure>
+inline void request_row_batch_transfer_attachment_http(Params* brpc_request,
+                                                       const std::string& tuple_data,
+                                                       Closure* closure) {
+    auto row_batch = brpc_request->mutable_row_batch();
+    row_batch->set_tuple_data("");
+    brpc_request->set_transfer_by_attachment(true);
+    butil::IOBuf attachment;
+
+    std::string req_str;
+    brpc_request->SerializeToString(&req_str);
+    int64_t req_str_size = req_str.size();
+    attachment.append(&req_str_size, sizeof(req_str_size));
+    attachment.append(req_str);
+
+    int64_t tuple_data_size = tuple_data.size();
+    attachment.append(&tuple_data_size, sizeof(tuple_data_size));
+    attachment.append(tuple_data);
+
+    closure->cntl.request_attachment().swap(attachment);
+
+    Md5Digest digest;
+    digest.update(req_str.data(), req_str.size());
+    digest.digest();
+    Md5Digest digest1;
+    digest1.update(tuple_data.data(), tuple_data.size());
+    digest1.digest();
+    std::cout << "send sizeof(req_str_size): " << sizeof(req_str_size) << std::endl;
+    std::cout << "send attachment.size(): " << attachment.size()
+              << ", req_str.size: " << req_str_size << ", req_str: " << digest.hex()
+              << ", tuple_data.size: " << tuple_data_size << ", tuple_data: " << digest1.hex()
+              << std::endl;
+}
+
 // Transfer Block in ProtoBuf Request to Controller Attachment.
 // This can avoid reaching the upper limit of the ProtoBuf Request length (2G),
 // and it is expected that performance can be improved.
@@ -47,6 +85,36 @@ inline void request_block_transfer_attachment(Params* brpc_request,
     butil::IOBuf attachment;
     attachment.append(column_values);
     closure->cntl.request_attachment().swap(attachment);
+}
+
+// Controller Attachment transferred to RowBatch in ProtoBuf Request.
+template <typename Params>
+inline void attachment_transfer_request_row_batch_http(const Params* brpc_request,
+                                                       brpc::Controller* cntl) {
+    const butil::IOBuf& io_buf = cntl->request_attachment();
+
+    int64_t req_str_size;
+    io_buf.copy_to(&req_str_size, sizeof(req_str_size), 0);
+    std::string req_str;
+    io_buf.copy_to(&req_str, req_str_size, sizeof(req_str_size));
+    Params* req = const_cast<Params*>(brpc_request);
+    req->ParseFromString(req_str);
+
+    int64_t tuple_data_size;
+    io_buf.copy_to(&tuple_data_size, sizeof(tuple_data_size), sizeof(req_str_size) + req_str_size);
+    auto rb = req->mutable_row_batch();
+    io_buf.copy_to(rb->mutable_tuple_data(), tuple_data_size,
+                   sizeof(tuple_data_size) + sizeof(req_str_size) + req_str_size);
+
+    Md5Digest digest;
+    digest.update(req_str.data(), req_str_size);
+    digest.digest();
+    Md5Digest digest1;
+    digest1.update(rb->mutable_tuple_data()->data(), tuple_data_size);
+    digest1.digest();
+    std::cout << "revice io_buf.size(): " << io_buf.size() << ", req_str.size: " << req_str_size
+              << ", req_str " << digest.hex() << ", tuple_data.size: " << tuple_data_size
+              << ", tuple_data " << digest1.hex() << std::endl;
 }
 
 // Controller Attachment transferred to RowBatch in ProtoBuf Request.

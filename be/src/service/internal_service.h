@@ -40,6 +40,11 @@ public:
                        ::doris::PTransmitDataResult* response,
                        ::google::protobuf::Closure* done) override;
 
+    void transmit_data_http(::google::protobuf::RpcController* controller,
+                       const ::doris::PEchoRequest* request,
+                       ::doris::PTransmitDataResult* response,
+                       ::google::protobuf::Closure* done) override;
+
     void exec_plan_fragment(google::protobuf::RpcController* controller,
                             const PExecPlanFragmentRequest* request,
                             PExecPlanFragmentResult* result,

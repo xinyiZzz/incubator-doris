@@ -42,32 +42,39 @@ public:
     BrpcClientCache();
     virtual ~BrpcClientCache();
 
-    std::shared_ptr<T> get_client(const butil::EndPoint& endpoint) {
-        return get_client(butil::endpoint2str(endpoint).c_str());
+    std::shared_ptr<T> get_client(const butil::EndPoint& endpoint,
+                                  const std::string& protocol = "baidu_std") {
+        return get_client(butil::endpoint2str(endpoint).c_str(), protocol);
     }
 
 #ifdef BE_TEST
-    virtual std::shared_ptr<T> get_client(const TNetworkAddress& taddr) {
+    virtual std::shared_ptr<T> get_client(const TNetworkAddress& taddr,
+                                          const std::string& protocol = "baidu_std") {
         std::string host_port = fmt::format("{}:{}", taddr.hostname, taddr.port);
-        return get_client(host_port);
+        return get_client(host_port, protocol);
     }
 #else
-    std::shared_ptr<T> get_client(const TNetworkAddress& taddr) {
+    std::shared_ptr<T> get_client(const TNetworkAddress& taddr,
+                                  const std::string& protocol = "baidu_std") {
         std::string host_port = fmt::format("{}:{}", taddr.hostname, taddr.port);
-        return get_client(host_port);
+        return get_client(host_port, protocol);
     }
 #endif
 
-    std::shared_ptr<T> get_client(const std::string& host, int port) {
+    std::shared_ptr<T> get_client(const std::string& host, int port,
+                                  const std::string& protocol = "baidu_std") {
         std::string host_port = fmt::format("{}:{}", host, port);
-        return get_client(host_port);
+        return get_client(host_port, protocol);
     }
 
-    std::shared_ptr<T> get_client(const std::string& host_port) {
+    std::shared_ptr<T> get_client(const std::string& host_port,
+                                  const std::string& protocol = "baidu_std") {
         std::shared_ptr<T> stub_ptr;
-        auto get_value = [&stub_ptr](typename StubMap<T>::mapped_type& v) { stub_ptr = v; };
-        if (LIKELY(_stub_map.if_contains(host_port, get_value))) {
-            return stub_ptr;
+        if (protocol == "baidu_std") {
+            auto get_value = [&stub_ptr](typename StubMap<T>::mapped_type& v) { stub_ptr = v; };
+            if (LIKELY(_stub_map.if_contains(host_port, get_value))) {
+                return stub_ptr;
+            }
         }
 
         // new one stub and insert into map
@@ -75,6 +82,7 @@ public:
         if constexpr (std::is_same_v<T, PFunctionService_Stub>) {
             options.protocol = config::function_service_protocol;
         }
+        options.protocol = protocol;
         std::unique_ptr<brpc::Channel> channel(new brpc::Channel());
         int ret_code = 0;
         if (host_port.find("://") == std::string::npos) {
@@ -88,8 +96,10 @@ public:
         }
         auto stub = std::make_shared<T>(channel.release(),
                                         google::protobuf::Service::STUB_OWNS_CHANNEL);
-        _stub_map.try_emplace_l(
-                host_port, [&stub](typename StubMap<T>::mapped_type& v) { stub = v; }, stub);
+        if (protocol == "baidu_std") {
+            _stub_map.try_emplace_l(
+                    host_port, [&stub](typename StubMap<T>::mapped_type& v) { stub = v; }, stub);
+        }
         return stub;
     }
 
@@ -158,4 +168,5 @@ private:
 
 using InternalServiceClientCache = BrpcClientCache<PBackendService_Stub>;
 using FunctionServiceClientCache = BrpcClientCache<PFunctionService_Stub>;
+// using HttpServiceClientCache = BrpcClientCache<PBackendService_Stub>;
 } // namespace doris

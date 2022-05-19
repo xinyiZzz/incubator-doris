@@ -21,6 +21,7 @@
 #include "runtime/data_stream_sender.h"
 
 #include <arpa/inet.h>
+#include <gflags/gflags.h>
 
 #include <algorithm>
 #include <iostream>
@@ -73,6 +74,7 @@ DataStreamSender::Channel::Channel(DataStreamSender* parent, const RowDescriptor
           _send_query_statistics_with_every_batch(send_query_statistics_with_every_batch) {
     std::string localhost = BackendOptions::get_localhost();
     _is_local = _brpc_dest_addr.hostname == localhost && _brpc_dest_addr.port == config::brpc_port;
+    _brpc_url = "http://" + _brpc_dest_addr.hostname + ":" + std::to_string(_brpc_dest_addr.port);
     if (_is_local) {
         VLOG_NOTICE << "will use local exechange, dest_node_id:" << _dest_node_id;
     }
@@ -115,7 +117,9 @@ Status DataStreamSender::Channel::init(RuntimeState* state) {
     _need_close = (_fragment_instance_id.hi != -1 && _fragment_instance_id.lo != -1);
     if (_need_close) {
         _brpc_stub = state->exec_env()->brpc_internal_client_cache()->get_client(_brpc_dest_addr);
-        if (!_brpc_stub) {
+        _brpc_http_stub =
+                state->exec_env()->brpc_internal_client_cache()->get_client(_brpc_url, "http");
+        if (!_brpc_stub || !_brpc_http_stub) {
             std::string msg = fmt::format("Get rpc stub failed, dest_addr={}:{}",
                                           _brpc_dest_addr.hostname, _brpc_dest_addr.port);
             LOG(WARNING) << msg;
@@ -150,11 +154,18 @@ Status DataStreamSender::Channel::send_batch(PRowBatch* batch, bool eos) {
     _closure->cntl.set_timeout_ms(_brpc_timeout_ms);
 
     if (_parent->_transfer_data_by_brpc_attachment && _brpc_request.has_row_batch()) {
-        request_row_batch_transfer_attachment<PTransmitDataParams,
-                                              RefCountClosure<PTransmitDataResult>>(
+        request_row_batch_transfer_attachment_http<PTransmitDataParams,
+                                                   RefCountClosure<PTransmitDataResult>>(
                 &_brpc_request, _parent->_tuple_data_buffer, _closure);
+        _closure->cntl.http_request().uri() =
+                _brpc_url + "/PInternalServiceImpl/transmit_data_http";
+        _closure->cntl.http_request().set_method(brpc::HTTP_METHOD_POST);
+        _closure->cntl.http_request().set_content_type("application/json");
+        _brpc_http_stub->transmit_data_http(&_closure->cntl, NULL, &_closure->result, _closure);
+    } else {
+        _brpc_stub->transmit_data(&_closure->cntl, &_brpc_request, &_closure->result, _closure);
     }
-    _brpc_stub->transmit_data(&_closure->cntl, &_brpc_request, &_closure->result, _closure);
+
     if (batch != nullptr) {
         _brpc_request.release_row_batch();
     }

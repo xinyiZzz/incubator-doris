@@ -86,6 +86,32 @@ void PInternalServiceImpl::transmit_data(google::protobuf::RpcController* cntl_b
     }
 }
 
+void PInternalServiceImpl::transmit_data_http(google::protobuf::RpcController* cntl_base,
+                                         const PEchoRequest* request,
+                                         PTransmitDataResult* response,
+                                         google::protobuf::Closure* done) {
+    SCOPED_SWITCH_BTHREAD();
+    PTransmitDataParams* request_new = new PTransmitDataParams();
+    brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
+    attachment_transfer_request_row_batch_http<PTransmitDataParams>(request_new, cntl);
+    VLOG_ROW << "transmit data: fragment_instance_id=" << print_id(request_new->finst_id())
+             << " node=" << request_new->node_id();
+    // The response is accessed when done->Run is called in transmit_data(),
+    // give response a default value to avoid null pointers in high concurrency.
+    Status st;
+    st.to_protobuf(response->mutable_status());
+    st = _exec_env->stream_mgr()->transmit_data(request_new, &done);
+    if (!st.ok()) {
+        LOG(WARNING) << "transmit_data failed, message=" << st.get_error_msg()
+                     << ", fragment_instance_id=" << print_id(request_new->finst_id())
+                     << ", node=" << request_new->node_id();
+    }
+    if (done != nullptr) {
+        st.to_protobuf(response->mutable_status());
+        done->Run();
+    }
+}
+
 void PInternalServiceImpl::tablet_writer_open(google::protobuf::RpcController* controller,
                                               const PTabletWriterOpenRequest* request,
                                               PTabletWriterOpenResult* response,

@@ -212,7 +212,9 @@ protected:
 
         PTransmitDataParams _brpc_request;
         std::shared_ptr<PBackendService_Stub> _brpc_stub = nullptr;
+        std::shared_ptr<PBackendService_Stub> _brpc_http_stub = nullptr;
         RefCountClosure<PTransmitDataResult>* _closure = nullptr;
+        std::string _brpc_url;
         int32_t _brpc_timeout_ms = 500;
         // whether the dest can be treated as query statistics transfer chain.
         bool _is_transfer_chain;
