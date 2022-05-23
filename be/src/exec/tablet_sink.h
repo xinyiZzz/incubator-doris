@@ -529,9 +529,6 @@ protected:
     // Save the status of close() method
     Status _close_status;
 
-    // TODO(cmy): this should be removed after we switch to rpc attachment by default.
-    bool _transfer_data_by_brpc_attachment = false;
-
     // FIND_TABLET_EVERY_ROW is used for both hash and random distribution info, which indicates that we
     // should compute tablet index for every row
     // FIND_TABLET_EVERY_BATCH is only used for random distribution info, which indicates that we should

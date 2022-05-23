@@ -79,9 +79,6 @@ public:
         int ret_code = 0;
         if (host_port.find("://") == std::string::npos) {
             ret_code = channel->Init(host_port.c_str(), &options);
-        } else {
-            ret_code =
-                    channel->Init(host_port.c_str(), config::rpc_load_balancer.c_str(), &options);
         }
         if (ret_code) {
             return nullptr;
@@ -91,6 +88,26 @@ public:
         _stub_map.try_emplace_l(
                 host_port, [&stub](typename StubMap<T>::mapped_type& v) { stub = v; }, stub);
         return stub;
+    }
+
+    std::shared_ptr<T> get_new_client_no_cache(const std::string& host_port,
+                                               const std::string& protocol = "baidu_std",
+                                               const std::string& connect_type = "") {
+        brpc::ChannelOptions options;
+        options.protocol = protocol;
+        if (connect_type != "") options.connection_type = connect_type;
+        std::unique_ptr<brpc::Channel> channel(new brpc::Channel());
+        int ret_code = 0;
+        if (host_port.find("://") == std::string::npos) {
+            ret_code = channel->Init(host_port.c_str(), &options);
+        } else {
+            ret_code =
+                    channel->Init(host_port.c_str(), config::rpc_load_balancer.c_str(), &options);
+        }
+        if (ret_code) {
+            return nullptr;
+        }
+        return std::make_shared<T>(channel.release(), google::protobuf::Service::STUB_OWNS_CHANNEL);
     }
 
     size_t size() { return _stub_map.size(); }
@@ -158,4 +175,5 @@ private:
 
 using InternalServiceClientCache = BrpcClientCache<PBackendService_Stub>;
 using FunctionServiceClientCache = BrpcClientCache<PFunctionService_Stub>;
+// using HttpServiceClientCache = BrpcClientCache<PBackendService_Stub>;
 } // namespace doris

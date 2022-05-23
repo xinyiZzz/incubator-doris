@@ -66,8 +66,18 @@ void PInternalServiceImpl::transmit_data(google::protobuf::RpcController* cntl_b
                                          PTransmitDataResult* response,
                                          google::protobuf::Closure* done) {
     SCOPED_SWITCH_BTHREAD();
+    std::string query_id;
+    if (request->has_query_id()) {
+        query_id = print_id(request->query_id());
+        TUniqueId finst_id;
+        finst_id.__set_hi(request->finst_id().hi());
+        finst_id.__set_lo(request->finst_id().lo());
+        SCOPED_ATTACH_TASK_THREAD(
+                ThreadContext::TaskType::QUERY, query_id, finst_id,
+                _exec_env->task_pool_mem_tracker_registry()->get_task_mem_tracker(query_id));
+    }
     VLOG_ROW << "transmit data: fragment_instance_id=" << print_id(request->finst_id())
-             << " node=" << request->node_id();
+             << " query_id=" << query_id << " node=" << request->node_id();
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
     attachment_transfer_request_row_batch<PTransmitDataParams>(request, cntl);
     // The response is accessed when done->Run is called in transmit_data(),
@@ -79,6 +89,43 @@ void PInternalServiceImpl::transmit_data(google::protobuf::RpcController* cntl_b
         LOG(WARNING) << "transmit_data failed, message=" << st.get_error_msg()
                      << ", fragment_instance_id=" << print_id(request->finst_id())
                      << ", node=" << request->node_id();
+    }
+    if (done != nullptr) {
+        st.to_protobuf(response->mutable_status());
+        done->Run();
+    }
+}
+
+void PInternalServiceImpl::transmit_data_by_http(google::protobuf::RpcController* cntl_base,
+                                                 const PEchoRequest* request,
+                                                 PTransmitDataResult* response,
+                                                 google::protobuf::Closure* done) {
+    SCOPED_SWITCH_BTHREAD();
+    PTransmitDataParams* request_raw = new PTransmitDataParams();
+    brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
+    attachment_extract_request_contain_row_batch<PTransmitDataParams>(request_raw, cntl);
+
+    std::string query_id;
+    if (request_raw->has_query_id()) {
+        query_id = print_id(request_raw->query_id());
+        TUniqueId finst_id;
+        finst_id.__set_hi(request_raw->finst_id().hi());
+        finst_id.__set_lo(request_raw->finst_id().lo());
+        SCOPED_ATTACH_TASK_THREAD(
+                ThreadContext::TaskType::QUERY, query_id, finst_id,
+                _exec_env->task_pool_mem_tracker_registry()->get_task_mem_tracker(query_id));
+    }
+    VLOG_ROW << "transmit data: fragment_instance_id=" << print_id(request_raw->finst_id())
+             << " query_id=" << query_id << " node=" << request_raw->node_id();
+    // The response is accessed when done->Run is called in transmit_data(),
+    // give response a default value to avoid null pointers in high concurrency.
+    Status st;
+    st.to_protobuf(response->mutable_status());
+    st = _exec_env->stream_mgr()->transmit_data(request_raw, &done);
+    if (!st.ok()) {
+        LOG(WARNING) << "transmit_data failed, message=" << st.get_error_msg()
+                     << ", fragment_instance_id=" << print_id(request_raw->finst_id())
+                     << ", node=" << request_raw->node_id();
     }
     if (done != nullptr) {
         st.to_protobuf(response->mutable_status());
@@ -460,8 +507,18 @@ void PInternalServiceImpl::transmit_block(google::protobuf::RpcController* cntl_
                                           PTransmitDataResult* response,
                                           google::protobuf::Closure* done) {
     SCOPED_SWITCH_BTHREAD();
-    VLOG_ROW << "transmit data: fragment_instance_id=" << print_id(request->finst_id())
-             << " node=" << request->node_id();
+    std::string query_id;
+    if (request->has_query_id()) {
+        query_id = print_id(request->query_id());
+        TUniqueId finst_id;
+        finst_id.__set_hi(request->finst_id().hi());
+        finst_id.__set_lo(request->finst_id().lo());
+        SCOPED_ATTACH_TASK_THREAD(
+                ThreadContext::TaskType::QUERY, query_id, finst_id,
+                _exec_env->task_pool_mem_tracker_registry()->get_task_mem_tracker(query_id));
+    }
+    VLOG_ROW << "transmit block: fragment_instance_id=" << print_id(request->finst_id())
+             << " query_id=" << query_id << " node=" << request->node_id();
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
     attachment_transfer_request_block<PTransmitDataParams>(request, cntl);
     // The response is accessed when done->Run is called in transmit_block(),
@@ -473,6 +530,44 @@ void PInternalServiceImpl::transmit_block(google::protobuf::RpcController* cntl_
         LOG(WARNING) << "transmit_block failed, message=" << st.get_error_msg()
                      << ", fragment_instance_id=" << print_id(request->finst_id())
                      << ", node=" << request->node_id();
+    }
+    if (done != nullptr) {
+        st.to_protobuf(response->mutable_status());
+        done->Run();
+    }
+}
+
+void PInternalServiceImpl::transmit_block_by_http(google::protobuf::RpcController* cntl_base,
+                                                  const PEchoRequest* request,
+                                                  PTransmitDataResult* response,
+                                                  google::protobuf::Closure* done) {
+    SCOPED_SWITCH_BTHREAD();
+    PTransmitDataParams* request_raw = new PTransmitDataParams();
+    brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
+    attachment_extract_request_contain_block<PTransmitDataParams>(request_raw, cntl);
+
+    std::string query_id;
+    if (request_raw->has_query_id()) {
+        query_id = print_id(request_raw->query_id());
+        TUniqueId finst_id;
+        finst_id.__set_hi(request_raw->finst_id().hi());
+        finst_id.__set_lo(request_raw->finst_id().lo());
+        SCOPED_ATTACH_TASK_THREAD(
+                ThreadContext::TaskType::QUERY, query_id, finst_id,
+                _exec_env->task_pool_mem_tracker_registry()->get_task_mem_tracker(query_id));
+    }
+    VLOG_ROW << "transmit block: fragment_instance_id=" << print_id(request_raw->finst_id())
+             << " query_id=" << query_id << " node=" << request_raw->node_id();
+
+    // The response is accessed when done->Run is called in transmit_block(),
+    // give response a default value to avoid null pointers in high concurrency.
+    Status st;
+    st.to_protobuf(response->mutable_status());
+    st = _exec_env->vstream_mgr()->transmit_block(request_raw, &done);
+    if (!st.ok()) {
+        LOG(WARNING) << "transmit_block failed, message=" << st.get_error_msg()
+                     << ", fragment_instance_id=" << request_raw->finst_id()
+                     << ", node=" << request_raw->node_id();
     }
     if (done != nullptr) {
         st.to_protobuf(response->mutable_status());

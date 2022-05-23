@@ -36,6 +36,9 @@
 
 namespace doris::vectorized {
 
+// constexpr size_t MAX_BRPC_REQUEST_TRANSFER_SIZE = 1 << 30; // 1GB
+constexpr size_t MAX_BRPC_REQUEST_TRANSFER_SIZE = 1 << 10; // 1GB
+
 Status VDataStreamSender::Channel::init(RuntimeState* state) {
     _be_number = state->be_number();
 
@@ -51,6 +54,9 @@ Status VDataStreamSender::Channel::init(RuntimeState* state) {
     _finst_id.set_hi(_fragment_instance_id.hi);
     _finst_id.set_lo(_fragment_instance_id.lo);
     _brpc_request.set_allocated_finst_id(&_finst_id);
+    _query_id.set_hi(state->query_id().hi);
+    _query_id.set_lo(state->query_id().lo);
+    _brpc_request.set_allocated_query_id(&_query_id);
     _brpc_request.set_node_id(_dest_node_id);
     _brpc_request.set_sender_id(_parent->_sender_id);
     _brpc_request.set_be_number(_be_number);
@@ -68,6 +74,7 @@ Status VDataStreamSender::Channel::init(RuntimeState* state) {
     // to build a camouflaged empty channel. the ip and port is '0.0.0.0:0"
     // so the empty channel not need call function close_internal()
     _need_close = (_fragment_instance_id.hi != -1 && _fragment_instance_id.lo != -1);
+    _state = state;
     return Status::OK();
 }
 
@@ -138,13 +145,29 @@ Status VDataStreamSender::Channel::send_block(PBlock* block, bool eos) {
     _closure->ref();
     _closure->cntl.set_timeout_ms(_brpc_timeout_ms);
 
-    if (_brpc_request.has_block()) {
-        request_block_transfer_attachment<PTransmitDataParams,
-                                          RefCountClosure<PTransmitDataResult>>(
+    if (_brpc_request.has_block() && _parent->_column_values_buffer.size() >= MAX_BRPC_REQUEST_TRANSFER_SIZE) {
+        request_embed_attachment_contain_block<PTransmitDataParams,
+                                               RefCountClosure<PTransmitDataResult>>(
                 &_brpc_request, _parent->_column_values_buffer, _closure);
+        std::string brpc_url;
+        brpc_url =
+                "http://" + _brpc_dest_addr.hostname + ":" + std::to_string(_brpc_dest_addr.port);
+        std::shared_ptr<PBackendService_Stub> _brpc_http_stub =
+                _state->exec_env()->brpc_internal_client_cache()->get_new_client_no_cache(brpc_url,
+                                                                                          "http");
+        _closure->cntl.http_request().uri() =
+                brpc_url + "/PInternalServiceImpl/transmit_block_by_http";
+        _closure->cntl.http_request().set_method(brpc::HTTP_METHOD_POST);
+        _closure->cntl.http_request().set_content_type("application/json");
+        _brpc_http_stub->transmit_block_by_http(&_closure->cntl, NULL, &_closure->result, _closure);
+    } else {
+        if (_brpc_request.has_block()) {
+            request_block_transfer_attachment<PTransmitDataParams,
+                                              RefCountClosure<PTransmitDataResult>>(
+                    &_brpc_request, _parent->_column_values_buffer, _closure);
+        }
+        _brpc_stub->transmit_block(&_closure->cntl, &_brpc_request, &_closure->result, _closure);
     }
-
-    _brpc_stub->transmit_block(&_closure->cntl, &_brpc_request, &_closure->result, _closure);
     if (block != nullptr) {
         _brpc_request.release_block();
     }

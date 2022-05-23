@@ -48,9 +48,7 @@ namespace stream_load {
 
 NodeChannel::NodeChannel(OlapTableSink* parent, IndexChannel* index_channel, int64_t node_id)
         : _parent(parent), _index_channel(index_channel), _node_id(node_id) {
-    if (_parent->_transfer_data_by_brpc_attachment) {
-        _tuple_data_buffer_ptr = &_tuple_data_buffer;
-    }
+    _tuple_data_buffer_ptr = &_tuple_data_buffer;
     _node_channel_tracker = MemTracker::create_tracker(
             -1, fmt::format("NodeChannel:indexID={}:threadId={}",
                             std::to_string(_index_channel->_index_id), tls_ctx()->thread_id_str()));
@@ -515,7 +513,7 @@ void NodeChannel::try_send_batch(RuntimeState* state) {
         CHECK(_pending_batches_num == 0) << _pending_batches_num;
     }
 
-    if (_parent->_transfer_data_by_brpc_attachment && request.has_row_batch()) {
+    if (request.has_row_batch()) {
         request_row_batch_transfer_attachment<PTabletWriterAddBatchRequest,
                                               ReusableClosure<PTabletWriterAddBatchResult>>(
                 &request, _tuple_data_buffer, _add_batch_closure);
@@ -648,7 +646,6 @@ OlapTableSink::OlapTableSink(ObjectPool* pool, const RowDescriptor& row_desc,
     } else {
         *status = Status::OK();
     }
-    _transfer_data_by_brpc_attachment = config::transfer_data_by_brpc_attachment;
 }
 
 OlapTableSink::~OlapTableSink() {

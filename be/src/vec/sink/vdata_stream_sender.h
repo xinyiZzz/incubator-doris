@@ -183,6 +183,7 @@ public:
         }
         // release this before request desctruct
         _brpc_request.release_finst_id();
+        _brpc_request.release_query_id();
     }
 
     // Initialize channel.
@@ -274,6 +275,7 @@ private:
     TNetworkAddress _brpc_dest_addr;
 
     PUniqueId _finst_id;
+    PUniqueId _query_id;
     PBlock _pb_block;
     PTransmitDataParams _brpc_request;
     std::shared_ptr<PBackendService_Stub> _brpc_stub = nullptr;
@@ -282,6 +284,7 @@ private:
     // whether the dest can be treated as query statistics transfer chain.
     bool _is_transfer_chain;
     bool _send_query_statistics_with_every_batch;
+    RuntimeState* _state;
 
     size_t _capacity;
     bool _is_local;
