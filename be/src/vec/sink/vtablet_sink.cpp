@@ -17,6 +17,9 @@
 
 #include "vec/sink/vtablet_sink.h"
 
+// #include "runtime/exec_env.h"
+// #include "runtime/runtime_state.h"
+#include "util/brpc_client_cache.h"
 #include "runtime/thread_context.h"
 #include "util/debug/sanitizer_scopes.h"
 #include "util/doris_metrics.h"
@@ -231,8 +234,14 @@ void VNodeChannel::try_send_block(RuntimeState* state) {
     if (block.rows() > 0) {
         SCOPED_ATOMIC_TIMER(&_serialize_batch_ns);
         size_t uncompressed_bytes = 0, compressed_bytes = 0;
+        if (config::brpc_request_embed_attachment_send_by_http &&
+            block.content_uncompressed_bytes(request.mutable_block()) > MIN_HTTP_BRPC_SIZE) {
+            _column_values_buffer_ptr = &_column_values_buffer;
+        } else {
+            _column_values_buffer_ptr = nullptr;
+        }
         Status st = block.serialize(request.mutable_block(), &uncompressed_bytes, &compressed_bytes,
-                                    &_column_values_buffer);
+                                    _column_values_buffer_ptr);
         if (!st.ok()) {
             cancel(fmt::format("{}, err: {}", channel_info(), st.get_error_msg()));
             _add_block_closure->clear_in_flight();
@@ -273,13 +282,27 @@ void VNodeChannel::try_send_block(RuntimeState* state) {
         CHECK(_pending_batches_num == 0) << _pending_batches_num;
     }
 
-    if (request.has_block()) {
-        request_block_transfer_attachment<PTabletWriterAddBlockRequest,
-                                          ReusableClosure<PTabletWriterAddBlockResult>>(
+    if (_column_values_buffer_ptr != nullptr && _column_values_buffer.size() != 0 &&
+        request.has_block()) {
+        request_embed_attachment_contain_block<PTabletWriterAddBlockRequest,
+                                               ReusableClosure<PTabletWriterAddBlockResult>>(
                 &request, _column_values_buffer, _add_block_closure);
+        std::string brpc_url;
+        brpc_url = "http://" + _node_info.host + ":" + std::to_string(_node_info.brpc_port);
+        std::shared_ptr<PBackendService_Stub> _brpc_http_stub =
+                _state->exec_env()->brpc_internal_client_cache()->get_new_client_no_cache(brpc_url,
+                                                                                          "http");
+        _add_block_closure->cntl.http_request().uri() =
+                brpc_url + "/PInternalServiceImpl/tablet_writer_add_block_by_http";
+        _add_block_closure->cntl.http_request().set_method(brpc::HTTP_METHOD_POST);
+        _add_block_closure->cntl.http_request().set_content_type("application/json");
+        _brpc_http_stub->tablet_writer_add_block_by_http(
+                &_add_block_closure->cntl, NULL, &_add_block_closure->result, _add_block_closure);
+    } else {
+        _add_block_closure->cntl.http_request().Clear();
+        _stub->tablet_writer_add_block(&_add_block_closure->cntl, &request,
+                                       &_add_block_closure->result, _add_block_closure);
     }
-    _stub->tablet_writer_add_block(&_add_block_closure->cntl, &request, &_add_block_closure->result,
-                                   _add_block_closure);
 
     _next_packet_seq++;
 }

@@ -191,6 +191,9 @@ public:
     /// Approximate number of allocated bytes in memory - for profiling and limits.
     size_t allocated_bytes() const;
 
+    // calc uncompressed size for allocation
+    size_t content_uncompressed_bytes(PBlock* pblock) const;
+
     operator bool() const { return !!columns(); }
     bool operator!() const { return !this->operator bool(); }
 

@@ -341,6 +341,18 @@ size_t Block::allocated_bytes() const {
     return res;
 }
 
+size_t Block::content_uncompressed_bytes(PBlock* pblock) const {
+    size_t res = 0;
+    for (const auto& c : *this) {
+        PColumnMeta* pcm = pblock->add_column_metas();
+        c.to_pb_column_meta(pcm);
+        // get serialized size
+        res += c.type->get_uncompressed_serialized_bytes(*(c.column));
+    }
+
+    return res;
+}
+
 std::string Block::dump_names() const {
     std::stringstream out;
     for (auto it = data.begin(); it != data.end(); ++it) {
@@ -644,19 +656,20 @@ Status Block::filter_block(Block* block, int filter_column_id, int column_to_kee
 
 Status Block::serialize(PBlock* pblock, size_t* uncompressed_bytes, size_t* compressed_bytes,
                         std::string* allocated_buf) const {
-    // calc uncompressed size for allocation
-    size_t content_uncompressed_size = 0;
-    for (const auto& c : *this) {
-        PColumnMeta* pcm = pblock->add_column_metas();
-        c.to_pb_column_meta(pcm);
-        // get serialized size
-        content_uncompressed_size += c.type->get_uncompressed_serialized_bytes(*(c.column));
-    }
-
+    size_t content_uncompressed_size = content_uncompressed_bytes(pblock);
     // serialize data values
     // when data type is HLL, content_uncompressed_size maybe larger than real size.
-    allocated_buf->resize(content_uncompressed_size);
-    char* buf = allocated_buf->data();
+    char* buf = nullptr;
+    std::string* mutable_column_value = nullptr;
+    if (allocated_buf != nullptr) {
+        allocated_buf->resize(content_uncompressed_size);
+        buf = allocated_buf->data();
+    } else {
+        mutable_column_value = pblock->mutable_column_values();
+        mutable_column_value->resize(content_uncompressed_size);
+        buf = mutable_column_value->data();
+    }
+    
     for (const auto& c : *this) {
         buf = c.type->serialize(*(c.column), buf);
     }
