@@ -22,9 +22,12 @@
 
 namespace doris {
 
-// 2G * 0.9
-// 2G:
-// 0.9:
+// When the tuple/block data is greater than 2G * 0.9, embed the tuple/block data
+// and the request serialization string in the attachment, and use "http" brpc.
+// "http"brpc requires that only one of request and attachment be non-null.
+//
+// 2G: In the default "baidu_std" brpcd, the upper limit of request and attachment size is 2G.
+// 0.9: Reserve a buffer of 0.1 for embedding request serialization strings, etc.
 constexpr size_t MIN_HTTP_BRPC_SIZE = (1ULL << 5) * 0.9;
 
 // TODO(zxy) delete in 1.2 version
