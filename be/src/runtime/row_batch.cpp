@@ -277,8 +277,8 @@ Status RowBatch::serialize(PRowBatch* output_batch, size_t* uncompressed_size,
             can_compress = false;
             std::exception_ptr p = std::current_exception();
             LOG(WARNING) << "Try to alloc " << max_compressed_size
-                         << " bytes for compression scratch failed. "
-                         << (p ? p.__cxa_exception_type()->name() : "null");
+                         << " bytes for compression scratch failed. reason: "
+                         << (p ? p.__cxa_exception_type()->name() : "unknown");
         }
     }
     if (can_compress) {
