@@ -24,7 +24,8 @@ namespace doris {
 // "http"brpc requires that only one of request and attachment be non-null.
 //
 // 2G: In the default "baidu_std" brpcd, upper limit of the request and attachment length is 2G.
-constexpr size_t MIN_HTTP_BRPC_SIZE = (1ULL << 31);
+// constexpr size_t MIN_HTTP_BRPC_SIZE = (1ULL << 31);
+constexpr size_t MIN_HTTP_BRPC_SIZE = (1ULL << 2);
 
 // TODO(zxy) delete in v1.3 version
 // Transfer RowBatch in ProtoBuf Request to Controller Attachment.
