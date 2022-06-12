@@ -41,7 +41,7 @@ std::shared_ptr<MemTracker> MemTrackerTaskPool::register_query_mem_tracker(
     VLOG_FILE << "Register Query memory tracker, query id: " << query_id
               << " limit: " << PrettyPrinter::print(mem_limit, TUnit::BYTES);
     return register_task_mem_tracker_impl(query_id, mem_limit,
-                                          fmt::format("Query&queryId={}", query_id),
+                                          fmt::format("Query#queryId={}", query_id),
                                           ExecEnv::GetInstance()->query_pool_mem_tracker());
 }
 
@@ -51,7 +51,7 @@ std::shared_ptr<MemTracker> MemTrackerTaskPool::register_load_mem_tracker(
     VLOG_FILE << "Register Load memory tracker, load id: " << load_id
               << " limit: " << PrettyPrinter::print(mem_limit, TUnit::BYTES);
     return register_task_mem_tracker_impl(load_id, mem_limit,
-                                          fmt::format("Load&loadId={}", load_id),
+                                          fmt::format("Load#loadId={}", load_id),
                                           ExecEnv::GetInstance()->load_pool_mem_tracker());
 }
 
