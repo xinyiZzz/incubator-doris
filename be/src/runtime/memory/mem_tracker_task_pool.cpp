@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 
 #include "common/config.h"
 #include "runtime/exec_env.h"
@@ -23,21 +23,22 @@
 
 namespace doris {
 
-std::shared_ptr<MemTracker> MemTrackerTaskPool::register_task_mem_tracker_impl(
-        const std::string& task_id, int64_t mem_limit, const std::string& label,
-        std::shared_ptr<MemTracker> parent) {
+MemTrackerLimiter* MemTrackerTaskPool::register_task_mem_tracker_impl(const std::string& task_id,
+                                                                      int64_t mem_limit,
+                                                                      const std::string& label,
+                                                                      MemTrackerLimiter* parent) {
     DCHECK(!task_id.empty());
     // First time this task_id registered, make a new object, otherwise do nothing.
     // Combine create_tracker and emplace into one operation to avoid the use of locks
     // Name for task MemTrackers. '$0' is replaced with the task id.
     _task_mem_trackers.try_emplace_l(
-            task_id, [](std::shared_ptr<MemTracker>) {},
-            MemTracker::create_tracker(mem_limit, label, parent, MemTrackerLevel::TASK));
+            task_id, [](MemTrackerLimiter*) {},
+            MemTrackerLimiter::create_tracker(mem_limit, label, parent));
     return get_task_mem_tracker(task_id);
 }
 
-std::shared_ptr<MemTracker> MemTrackerTaskPool::register_query_mem_tracker(
-        const std::string& query_id, int64_t mem_limit) {
+MemTrackerLimiter* MemTrackerTaskPool::register_query_mem_tracker(const std::string& query_id,
+                                                                  int64_t mem_limit) {
     VLOG_FILE << "Register Query memory tracker, query id: " << query_id
               << " limit: " << PrettyPrinter::print(mem_limit, TUnit::BYTES);
     return register_task_mem_tracker_impl(query_id, mem_limit,
@@ -45,8 +46,8 @@ std::shared_ptr<MemTracker> MemTrackerTaskPool::register_query_mem_tracker(
                                           ExecEnv::GetInstance()->query_pool_mem_tracker());
 }
 
-std::shared_ptr<MemTracker> MemTrackerTaskPool::register_load_mem_tracker(
-        const std::string& load_id, int64_t mem_limit) {
+MemTrackerLimiter* MemTrackerTaskPool::register_load_mem_tracker(const std::string& load_id,
+                                                                 int64_t mem_limit) {
     // In load, the query id of the fragment is executed, which is the same as the load id of the load channel.
     VLOG_FILE << "Register Load memory tracker, load id: " << load_id
               << " limit: " << PrettyPrinter::print(mem_limit, TUnit::BYTES);
@@ -55,12 +56,11 @@ std::shared_ptr<MemTracker> MemTrackerTaskPool::register_load_mem_tracker(
                                           ExecEnv::GetInstance()->load_pool_mem_tracker());
 }
 
-std::shared_ptr<MemTracker> MemTrackerTaskPool::get_task_mem_tracker(const std::string& task_id) {
+MemTrackerLimiter* MemTrackerTaskPool::get_task_mem_tracker(const std::string& task_id) {
     DCHECK(!task_id.empty());
-    std::shared_ptr<MemTracker> tracker = nullptr;
+    MemTrackerLimiter* tracker = nullptr;
     // Avoid using locks to resolve erase conflicts
-    _task_mem_trackers.if_contains(task_id,
-                                   [&tracker](std::shared_ptr<MemTracker> v) { tracker = v; });
+    _task_mem_trackers.if_contains(task_id, [&tracker](MemTrackerLimiter* v) { tracker = v; });
     return tracker;
 }
 
@@ -68,11 +68,9 @@ void MemTrackerTaskPool::logout_task_mem_tracker() {
     std::vector<std::string> expired_tasks;
     for (auto it = _task_mem_trackers.begin(); it != _task_mem_trackers.end(); it++) {
         if (!it->second) {
-            // when parallel querying, after phmap _task_mem_trackers.erase,
-            // there have been cases where the key still exists in _task_mem_trackers.
             // https://github.com/apache/incubator-doris/issues/10006
             expired_tasks.emplace_back(it->first);
-        } else if (it->second.use_count() == 1) {
+        } else if (it->second->is_leaf() == true) {
             // No RuntimeState uses this task MemTracker, it is only referenced by this map, delete it
             if (config::memory_leak_detection && it->second->consumption() != 0) {
                 // If consumption is not equal to 0 before query mem tracker is destructed,
@@ -83,14 +81,13 @@ void MemTrackerTaskPool::logout_task_mem_tracker() {
                 //
                 // The second case should be eliminated in theory, but it has not been done so far, so the query memory leak
                 // cannot be located, and the value of the query pool mem tracker statistics will be inaccurate.
-                //
-                // In order to ensure that the query pool mem tracker is the sum of all currently running query mem trackers,
-                // the effect of the ended query mem tracker on the query pool mem tracker should be cleared, that is,
-                // the negative number of the current value of consume.
                 LOG(WARNING) << "Task memory tracker memory leak:" << it->second->debug_string();
             }
+            // In order to ensure that the query pool mem tracker is the sum of all currently running query mem trackers,
+            // the effect of the ended query mem tracker on the query pool mem tracker should be cleared, that is,
+            // the negative number of the current value of consume.
             it->second->parent()->consume_local(-it->second->consumption(),
-                                                MemTracker::get_process_tracker().get());
+                                                MemTrackerLimiter::get_process_tracker());
             expired_tasks.emplace_back(it->first);
         } else {
             // Log limit exceeded query tracker.
@@ -103,15 +100,11 @@ void MemTrackerTaskPool::logout_task_mem_tracker() {
         }
     }
     for (auto tid : expired_tasks) {
-        // This means that after all RuntimeState is destructed,
-        // there are still task mem trackers that are get or register.
-        // The only known case: after an load task ends all fragments on a BE,`tablet_writer_open` is still
-        // called to create a channel, and the load task tracker will be re-registered in the channel open.
-        // https://github.com/apache/incubator-doris/issues/9905
         if (!_task_mem_trackers[tid]) {
             _task_mem_trackers.erase(tid);
             VLOG_FILE << "Deregister null task mem tracker, task id: " << tid;
-        } else if (_task_mem_trackers[tid].use_count() == 1) {
+        } else {
+            delete _task_mem_trackers[tid];
             _task_mem_trackers.erase(tid);
             VLOG_FILE << "Deregister not used task mem tracker, task id: " << tid;
         }

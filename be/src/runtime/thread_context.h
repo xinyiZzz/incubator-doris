@@ -26,63 +26,47 @@
 
 #include "common/logging.h"
 #include "gen_cpp/PaloInternalService_types.h" // for TQueryType
-#include "runtime/thread_mem_tracker_mgr.h"
+#include "runtime/memory/thread_mem_tracker_mgr.h"
 #include "runtime/threadlocal.h"
 
 // Attach to task when thread starts
 #define SCOPED_ATTACH_TASK_THREAD(type, ...) \
     auto VARNAME_LINENUM(attach_task_thread) = AttachTaskThread(type, ##__VA_ARGS__)
-// Be careful to stop the thread mem tracker, because the actual order of malloc and free memory
-// may be different from the order of execution of instructions, which will cause the position of
-// the memory track to be unexpected.
-#define STOP_THREAD_LOCAL_MEM_TRACKER(scope) \
-    auto VARNAME_LINENUM(stop_tracker) = doris::StopThreadMemTracker(scope)
+
 // Switch thread mem tracker during task execution.
 // After the non-query thread switches the mem tracker, if the thread will not switch the mem
 // tracker again in the short term, can consider manually clear_untracked_mems.
 // The query thread will automatically clear_untracked_mems when detach_task.
-#define SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(mem_tracker) \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<false>(mem_tracker, false)
+//
 // `detach task/~switch bthread` will clear cached trackers and unconsumed tracks.
 // Used after `attach task/switch bthread` to avoid cached trackers not being destroyed in time.
-#define SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker) \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<false>(mem_tracker, true);
-#define SCOPED_SWITCH_THREAD_LOCAL_EXISTED_MEM_TRACKER(mem_tracker) \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<true>(mem_tracker, false)
-#define SCOPED_SWITCH_TASK_THREAD_LOCAL_EXISTED_MEM_TRACKER(mem_tracker) \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<true>(mem_tracker, true)
-// Count the memory in the scope to a temporary tracker with the specified label name.
-// This is very useful when debugging. You can find the position where the tracker statistics are
-// inaccurate through the temporary tracker layer by layer. As well as finding memory hotspots.
-// TODO(zxy) track specifies the memory for each line in the code segment, instead of manually adding
-// a switch temporary tracker to each line. Maybe there are open source tools to do this?
-#define SCOPED_SWITCH_TEMPORARY_THREAD_LOCAL_MEM_TRACKER(label)                  \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTracker<false>( \
-            MemTracker::get_temporary_mem_tracker(label), false)
+//
 // After the non-query thread switches the mem tracker, if the thread will not switch the mem
 // tracker again in the short term, can consider manually clear_untracked_mems.
 // The query thread will automatically clear_untracked_mems when detach_task.
-#define SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_END_CLEAR(mem_tracker) \
-    auto VARNAME_LINENUM(switch_tracker) = doris::SwitchThreadMemTrackerEndClear(mem_tracker)
-#define SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_ERR_CB(action_type, ...) \
-    auto VARNAME_LINENUM(witch_tracker_cb) =                            \
+#define SCOPED_CONSUME_THREAD_MEM_TRACKER(mem_tracker) \
+    auto VARNAME_LINENUM(switch_tracker) = doris::AddThreadMemTrackerConsumer(mem_tracker)
+
+//
+#define SCOPED_SWITCH_THREAD_MEM_TRACKER_ERR_CB(action_type, ...) \
+    auto VARNAME_LINENUM(witch_tracker_cb) =                   \
             doris::SwitchThreadMemTrackerErrCallBack(action_type, ##__VA_ARGS__)
-#define SCOPED_SWITCH_BTHREAD() auto VARNAME_LINENUM(switch_bthread) = SwitchBthread()
-// Before switching the same tracker multiple times, add tracker as early as possible,
-// and then call `SCOPED_SWITCH_TASK_THREAD_LOCAL_EXISTED_MEM_TRACKER` to reduce one map find.
-// For example, in the exec_node open phase `add tracker`, it is no longer necessary to determine
-// whether the tracker exists in TLS when switching the tracker in the exec_node get_next phase.
-// TODO(zxy): Duplicate add tracker is currently prohibited, because it will,
-// 1. waste time 2. `_untracked_mems[mem_tracker->id()] = 0` will cause the memory track to be lost.
-// Some places may have to repeat the add tracker. optimize after.
-#define ADD_THREAD_LOCAL_MEM_TRACKER(mem_tracker) \
-    doris::tls_ctx()->_thread_mem_tracker_mgr->add_tracker(mem_tracker)
-#define CONSUME_THREAD_LOCAL_MEM_TRACKER(size) \
-    doris::tls_ctx()->_thread_mem_tracker_mgr->noncache_try_consume(size)
-#define RELEASE_THREAD_LOCAL_MEM_TRACKER(size) \
-    doris::tls_ctx()->_thread_mem_tracker_mgr->noncache_try_consume(-size)
-#define STOP_CHECK_LIMIT_THREAD_LOCAL_MEM_TRACKER() \
-    auto VARNAME_LINENUM(switch_bthread) = StopCheckLimitThreadMemTracker()
+
+//
+#define SCOPED_TLS_SWITCH_BTHREAD() auto VARNAME_LINENUM(switch_bthread) = SwitchBthread()
+
+//
+#define CONSUME_THREAD_MEM_TRACKER(size) doris::tls_ctx()->_thread_mem_tracker_mgr->cache_consume(size)
+#define RELEASE_THREAD_MEM_TRACKER(size) \
+    doris::tls_ctx()->_thread_mem_tracker_mgr->cache_consume(-size)
+
+//
+#define STOP_CHECK_THREAD_MEM_TRACKER_LIMIT() \
+    auto VARNAME_LINENUM(switch_bthread) = StopCheckTLSMemTrackerLimit()
+// Be careful to stop the thread mem tracker, because the actual order of malloc and free memory
+// may be different from the order of execution of instructions, which will cause the position of
+// the memory track to be unexpected.
+#define STOP_CONSUME_THREAD_MEM_TRACKER() start_thread_mem_tracker = false
 
 namespace doris {
 
@@ -121,12 +105,11 @@ public:
     }
 
     void attach(const TaskType& type, const std::string& task_id,
-                const TUniqueId& fragment_instance_id,
-                const std::shared_ptr<doris::MemTracker>& mem_tracker) {
+                const TUniqueId& fragment_instance_id, MemTrackerLimiter* mem_tracker) {
         std::string new_tracker_label = mem_tracker == nullptr ? "null" : mem_tracker->label();
         DCHECK((_type == TaskType::UNKNOWN || _type == TaskType::BRPC) && _task_id == "")
-                << ",new tracker label: " << new_tracker_label
-                << ",old tracker label: " << _thread_mem_tracker_mgr->mem_tracker()->label();
+                << ",new tracker label: " << new_tracker_label << ",old tracker label: "
+                << _thread_mem_tracker_mgr->limiter_mem_tracker()->label();
         DCHECK(type != TaskType::UNKNOWN);
         _type = type;
         _task_id = task_id;
@@ -158,7 +141,7 @@ public:
         if (start_thread_mem_tracker) {
             _thread_mem_tracker_mgr->cache_consume(size);
         } else {
-            MemTracker::get_process_tracker()->consume(size);
+            MemTrackerLimiter::get_process_tracker()->consume(size);
         }
     }
 
@@ -166,7 +149,7 @@ public:
         if (start_thread_mem_tracker) {
             _thread_mem_tracker_mgr->cache_consume(-size);
         } else {
-            MemTracker::get_process_tracker()->release(size);
+            MemTrackerLimiter::get_process_tracker()->release(size);
         }
     }
 
@@ -214,6 +197,7 @@ public:
 
     ThreadContext* get();
 
+    // TCMalloc hook is triggered during ThreadContext construction, which may lead to deadlock.
     bool _init = false;
 
 private:
@@ -227,12 +211,7 @@ static ThreadContext* tls_ctx() {
     if (tls != nullptr) {
         return tls;
     } else {
-        if (thread_local_ctx._init) {
-            return thread_local_ctx.get();
-        } else {
-            // TCMalloc hook is triggered during ThreadContext construction, which may lead to deadlock.
-            return nullptr;
-        }
+        return thread_local_ctx.get();
     }
 }
 
@@ -240,20 +219,16 @@ class AttachTaskThread {
 public:
     explicit AttachTaskThread(const ThreadContext::TaskType& type, const std::string& task_id,
                               const TUniqueId& fragment_instance_id = TUniqueId(),
-                              const std::shared_ptr<doris::MemTracker>& mem_tracker = nullptr);
+                              MemTrackerLimiter* mem_tracker = nullptr);
 
-    explicit AttachTaskThread(const ThreadContext::TaskType& type,
-                              const std::shared_ptr<doris::MemTracker>& mem_tracker);
+    explicit AttachTaskThread(const ThreadContext::TaskType& type, MemTrackerLimiter* mem_tracker);
 
-    explicit AttachTaskThread(const TQueryType::type& query_type,
-                              const std::shared_ptr<doris::MemTracker>& mem_tracker);
+    explicit AttachTaskThread(const TQueryType::type& query_type, MemTrackerLimiter* mem_tracker);
 
-    explicit AttachTaskThread(const TQueryType::type& query_type,
-                              const std::shared_ptr<doris::MemTracker>& mem_tracker,
+    explicit AttachTaskThread(const TQueryType::type& query_type, MemTrackerLimiter* mem_tracker,
                               const std::string& task_id, const TUniqueId& fragment_instance_id);
 
-    explicit AttachTaskThread(const RuntimeState* runtime_state,
-                              const std::shared_ptr<doris::MemTracker>& mem_tracker);
+    explicit AttachTaskThread(const RuntimeState* runtime_state, MemTrackerLimiter* mem_tracker);
 
     const ThreadContext::TaskType query_to_task_type(const TQueryType::type& query_type) {
         switch (query_type) {
@@ -270,50 +245,18 @@ public:
     ~AttachTaskThread();
 };
 
-class StopThreadMemTracker {
+class AddThreadMemTrackerConsumer {
 public:
-    explicit StopThreadMemTracker(const bool scope = true) : _scope(scope) {
-        start_thread_mem_tracker = false;
-    }
+    explicit AddThreadMemTrackerConsumer(MemTrackerObserve* mem_tracker);
 
-    ~StopThreadMemTracker() {
-        if (_scope == true) start_thread_mem_tracker = true;
-    }
-
-private:
-    bool _scope = true;
-};
-
-template <bool Existed>
-class SwitchThreadMemTracker {
-public:
-    explicit SwitchThreadMemTracker(const std::shared_ptr<doris::MemTracker>& mem_tracker,
-                                    bool in_task = true);
-
-    ~SwitchThreadMemTracker();
-
-protected:
-#ifdef USE_MEM_TRACKER
-    int64_t _old_tracker_id = 0;
-#endif
-};
-
-class SwitchThreadMemTrackerEndClear : public SwitchThreadMemTracker<false> {
-public:
-    explicit SwitchThreadMemTrackerEndClear(const std::shared_ptr<doris::MemTracker>& mem_tracker)
-            : SwitchThreadMemTracker<false>(mem_tracker, false) {}
-
-    ~SwitchThreadMemTrackerEndClear() {
-        tls_ctx()->_thread_mem_tracker_mgr->clear_untracked_mems();
-    }
+    ~AddThreadMemTrackerConsumer();
 };
 
 class SwitchThreadMemTrackerErrCallBack {
 public:
-    explicit SwitchThreadMemTrackerErrCallBack(const std::string& action_type,
-                                               bool cancel_work = true,
-                                               ERRCALLBACK err_call_back_func = nullptr,
-                                               bool log_limit_exceeded = true);
+    explicit SwitchThreadMemTrackerErrCallBack(const std::string& action_type, bool cancel_work = true,
+                                            ERRCALLBACK err_call_back_func = nullptr,
+                                            bool log_limit_exceeded = true);
 
     ~SwitchThreadMemTrackerErrCallBack();
 
@@ -335,15 +278,13 @@ private:
 #endif
 };
 
-class StopCheckLimitThreadMemTracker {
+class StopCheckTLSMemTrackerLimit {
 public:
-    explicit StopCheckLimitThreadMemTracker() {
+    explicit StopCheckTLSMemTrackerLimit() {
         tls_ctx()->_thread_mem_tracker_mgr->update_check_limit(false);
     }
 
-    ~StopCheckLimitThreadMemTracker() {
-        tls_ctx()->_thread_mem_tracker_mgr->update_check_limit(true);
-    }
+    ~StopCheckTLSMemTrackerLimit() { tls_ctx()->_thread_mem_tracker_mgr->update_check_limit(true); }
 };
 
 } // namespace doris

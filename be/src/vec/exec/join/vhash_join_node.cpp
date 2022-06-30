@@ -999,7 +999,7 @@ void HashJoinNode::_hash_table_build_thread(RuntimeState* state, std::promise<St
 
 Status HashJoinNode::_hash_table_build(RuntimeState* state) {
     RETURN_IF_ERROR(child(1)->open(state));
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_ERR_CB("Hash join, while constructing the hash table.");
+    SCOPED_SWITCH_THREAD_MEM_TRACKER_ERR_CB("Hash join, while constructing the hash table.");
     SCOPED_TIMER(_build_timer);
     MutableBlock mutable_block(child(1)->row_desc().tuple_descriptors());
 

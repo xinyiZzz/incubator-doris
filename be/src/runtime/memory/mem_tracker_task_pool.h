@@ -17,9 +17,16 @@
 
 #pragma once
 
-#include "runtime/mem_tracker.h"
+#include <parallel_hashmap/phmap.h>
+
+#include "runtime/memory/mem_tracker_limiter.h"
 
 namespace doris {
+
+using TaskTrackersMap = phmap::parallel_flat_hash_map<
+        std::string, MemTrackerLimiter*, phmap::priv::hash_default_hash<std::string>,
+        phmap::priv::hash_default_eq<std::string>,
+        std::allocator<std::pair<const std::string, MemTrackerLimiter*>>, 12, std::mutex>;
 
 // Global task pool for query MemTrackers. Owned by ExecEnv.
 class MemTrackerTaskPool {
@@ -30,16 +37,13 @@ public:
     // memory usage of all tasks executing. The first time this is called for a task,
     // a new MemTracker object is created with the pool tracker as its parent.
     // Newly created trackers will always have a limit of -1.
-    std::shared_ptr<MemTracker> register_task_mem_tracker_impl(const std::string& task_id,
-                                                               int64_t mem_limit,
-                                                               const std::string& label,
-                                                               std::shared_ptr<MemTracker> parent);
-    std::shared_ptr<MemTracker> register_query_mem_tracker(const std::string& query_id,
-                                                           int64_t mem_limit);
-    std::shared_ptr<MemTracker> register_load_mem_tracker(const std::string& load_id,
-                                                          int64_t mem_limit);
+    MemTrackerLimiter* register_task_mem_tracker_impl(const std::string& task_id, int64_t mem_limit,
+                                                      const std::string& label,
+                                                      MemTrackerLimiter* parent);
+    MemTrackerLimiter* register_query_mem_tracker(const std::string& query_id, int64_t mem_limit);
+    MemTrackerLimiter* register_load_mem_tracker(const std::string& load_id, int64_t mem_limit);
 
-    std::shared_ptr<MemTracker> get_task_mem_tracker(const std::string& task_id);
+    MemTrackerLimiter* get_task_mem_tracker(const std::string& task_id);
 
     // Remove the mem tracker that has ended the query.
     void logout_task_mem_tracker();
@@ -48,7 +52,7 @@ private:
     // All per-task MemTracker objects.
     // The life cycle of task memtracker in the process is the same as task runtime state,
     // MemTrackers will be removed from this map after query finish or cancel.
-    TrackersMap _task_mem_trackers;
+    TaskTrackersMap _task_mem_trackers;
 };
 
 } // namespace doris

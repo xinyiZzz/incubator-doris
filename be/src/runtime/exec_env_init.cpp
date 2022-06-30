@@ -40,7 +40,7 @@
 #include "runtime/load_channel_mgr.h"
 #include "runtime/load_path_mgr.h"
 #include "runtime/mem_tracker.h"
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/result_queue_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
@@ -184,15 +184,13 @@ Status ExecEnv::_init_mem_tracker() {
                      << ". Using physical memory instead";
         global_memory_limit_bytes = MemInfo::physical_mem();
     }
-    MemTracker::get_process_tracker()->set_limit(global_memory_limit_bytes);
-    _query_pool_mem_tracker = MemTracker::create_tracker(global_memory_limit_bytes, "QueryPool",
-                                                         MemTracker::get_process_tracker(),
-                                                         MemTrackerLevel::OVERVIEW);
+    MemTrackerLimiter::get_process_tracker()->update_limit(global_memory_limit_bytes);
+    _query_pool_mem_tracker = MemTrackerLimiter::create_tracker(global_memory_limit_bytes, "QueryPool",
+                                                         MemTrackerLimiter::get_process_tracker());
     REGISTER_HOOK_METRIC(query_mem_consumption,
                          [this]() { return _query_pool_mem_tracker->consumption(); });
-    _load_pool_mem_tracker = MemTracker::create_tracker(global_memory_limit_bytes, "LoadPool",
-                                                        MemTracker::get_process_tracker(),
-                                                        MemTrackerLevel::OVERVIEW);
+    _load_pool_mem_tracker = MemTrackerLimiter::create_tracker(global_memory_limit_bytes, "LoadPool",
+                                                        MemTrackerLimiter::get_process_tracker());
     REGISTER_HOOK_METRIC(load_mem_consumption,
                          [this]() { return _load_pool_mem_tracker->consumption(); });
     LOG(INFO) << "Using global memory limit: "

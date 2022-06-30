@@ -231,7 +231,7 @@ void VSetOperationNode::hash_table_init() {
 //build a hash table from child(0)
 Status VSetOperationNode::hash_table_build(RuntimeState* state) {
     RETURN_IF_ERROR(child(0)->open(state));
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_ERR_CB(
+    SCOPED_SWITCH_THREAD_MEM_TRACKER_ERR_CB(
             "Vec Set Operation Node, while constructing the hash table");
     Block block;
     MutableBlock mutable_block(child(0)->row_desc().tuple_descriptors());

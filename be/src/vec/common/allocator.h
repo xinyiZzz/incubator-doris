@@ -136,13 +136,13 @@ public:
         } else if (old_size >= MMAP_THRESHOLD && new_size >= MMAP_THRESHOLD) {
             /// Resize mmap'd memory region.
             // CurrentMemoryTracker::realloc(old_size, new_size);
-            CONSUME_THREAD_LOCAL_MEM_TRACKER(new_size - old_size);
+            CONSUME_THREAD_MEM_TRACKER(new_size - old_size);
 
             // On apple and freebsd self-implemented mremap used (common/mremap.h)
             buf = clickhouse_mremap(buf, old_size, new_size, MREMAP_MAYMOVE, PROT_READ | PROT_WRITE,
                                     mmap_flags, -1, 0);
             if (MAP_FAILED == buf) {
-                RELEASE_THREAD_LOCAL_MEM_TRACKER(new_size - old_size);
+                RELEASE_THREAD_MEM_TRACKER(new_size - old_size);
                 doris::vectorized::throwFromErrno("Allocator: Cannot mremap memory chunk from " +
                                                           std::to_string(old_size) + " to " +
                                                           std::to_string(new_size) + ".",
@@ -206,10 +206,10 @@ private:
                                 alignment, size),
                         doris::TStatusCode::VEC_BAD_ARGUMENTS);
 
-            CONSUME_THREAD_LOCAL_MEM_TRACKER(size);
+            CONSUME_THREAD_MEM_TRACKER(size);
             buf = mmap(get_mmap_hint(), size, PROT_READ | PROT_WRITE, mmap_flags, -1, 0);
             if (MAP_FAILED == buf) {
-                RELEASE_THREAD_LOCAL_MEM_TRACKER(size);
+                RELEASE_THREAD_MEM_TRACKER(size);
                 doris::vectorized::throwFromErrno(fmt::format("Allocator: Cannot mmap {}.", size),
                                                   doris::TStatusCode::VEC_CANNOT_ALLOCATE_MEMORY);
             }
@@ -247,7 +247,7 @@ private:
                 doris::vectorized::throwFromErrno(fmt::format("Allocator: Cannot munmap {}.", size),
                                                   doris::TStatusCode::VEC_CANNOT_MUNMAP);
             } else {
-                RELEASE_THREAD_LOCAL_MEM_TRACKER(size);
+                RELEASE_THREAD_MEM_TRACKER(size);
             }
         } else {
             ::free(buf);

@@ -20,7 +20,7 @@
 #include "common/status.h"
 #include "olap/options.h"
 #include "runtime/mem_tracker.h"
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 #include "util/threadpool.h"
 
 namespace doris {
@@ -72,6 +72,8 @@ class ClientCache;
 
 class HeartbeatFlags;
 
+static bool exec_env_existed = false;
+
 // Execution environment for queries/plan fragments.
 // Contains all required global structures, and handles to
 // singleton services. Clients must call StartServices exactly
@@ -87,6 +89,7 @@ public:
     /// we return the most recently created instance.
     static ExecEnv* GetInstance() {
         static ExecEnv s_exec_env;
+        exec_env_existed = true;
         return &s_exec_env;
     }
 
@@ -114,8 +117,8 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<MemTracker> query_pool_mem_tracker() { return _query_pool_mem_tracker; }
-    std::shared_ptr<MemTracker> load_pool_mem_tracker() { return _load_pool_mem_tracker; }
+    MemTrackerLimiter* query_pool_mem_tracker() { return _query_pool_mem_tracker; }
+    MemTrackerLimiter* load_pool_mem_tracker() { return _load_pool_mem_tracker; }
     MemTrackerTaskPool* task_pool_mem_tracker_registry() {
         return _task_pool_mem_tracker_registry.get();
     }
@@ -183,9 +186,9 @@ private:
     ThreadResourceMgr* _thread_mgr = nullptr;
 
     // The ancestor for all querys tracker.
-    std::shared_ptr<MemTracker> _query_pool_mem_tracker = nullptr;
+    MemTrackerLimiter* _query_pool_mem_tracker = nullptr;
     // The ancestor for all load tracker.
-    std::shared_ptr<MemTracker> _load_pool_mem_tracker = nullptr;
+    MemTrackerLimiter* _load_pool_mem_tracker = nullptr;
     std::unique_ptr<MemTrackerTaskPool> _task_pool_mem_tracker_registry;
 
     // The following two thread pools are used in different scenarios.
