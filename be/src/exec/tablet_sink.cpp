@@ -444,7 +444,7 @@ int NodeChannel::try_send_and_fetch_status(RuntimeState* state,
 }
 
 void NodeChannel::try_send_batch(RuntimeState* state) {
-    SCOPED_ATTACH_TASK_THREAD(state, _node_channel_tracker);
+    SCOPED_ATTACH_TASK_THREAD(state);
     SCOPED_ATOMIC_TIMER(&_actual_consume_ns);
     AddBatchReq send_batch;
     {
@@ -1261,7 +1261,7 @@ Status OlapTableSink::_validate_data(RuntimeState* state, RowBatch* batch, Bitma
 
 void OlapTableSink::_send_batch_process(RuntimeState* state) {
     SCOPED_TIMER(_non_blocking_send_timer);
-    SCOPED_ATTACH_TASK_THREAD(state, _mem_tracker);
+    SCOPED_ATTACH_TASK_THREAD(state);
     do {
         int running_channels_num = 0;
         for (auto index_channel : _channels) {

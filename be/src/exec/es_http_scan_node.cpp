@@ -423,7 +423,7 @@ static std::string get_host_port(const std::vector<TNetworkAddress>& es_hosts) {
 }
 
 void EsHttpScanNode::scanner_worker(int start_idx, int length, std::promise<Status>& p_status) {
-    SCOPED_ATTACH_TASK_THREAD(_runtime_state, mem_tracker());
+    SCOPED_ATTACH_TASK_THREAD(_runtime_state);
     // Clone expr context
     std::vector<ExprContext*> scanner_expr_ctxs;
     DCHECK(start_idx < length);

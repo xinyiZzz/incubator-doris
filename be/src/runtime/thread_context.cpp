@@ -69,15 +69,14 @@ AttachTaskThread::AttachTaskThread(const TQueryType::type& query_type,
 #endif
 }
 
-AttachTaskThread::AttachTaskThread(const RuntimeState* runtime_state,
-                                   MemTrackerLimiter* mem_tracker) {
+AttachTaskThread::AttachTaskThread(RuntimeState* runtime_state) {
     DCHECK(print_id(runtime_state->query_id()) != "");
     DCHECK(runtime_state->fragment_instance_id() != TUniqueId());
-    DCHECK(mem_tracker);
+    DCHECK(runtime_state->query_mem_tracker());
 #ifdef USE_MEM_TRACKER
     tls_ctx()->attach(query_to_task_type(runtime_state->query_type()),
                       print_id(runtime_state->query_id()), runtime_state->fragment_instance_id(),
-                      mem_tracker);
+                      runtime_state->query_mem_tracker());
 #endif
 }
 

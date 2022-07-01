@@ -228,7 +228,7 @@ public:
     explicit AttachTaskThread(const TQueryType::type& query_type, MemTrackerLimiter* mem_tracker,
                               const std::string& task_id, const TUniqueId& fragment_instance_id);
 
-    explicit AttachTaskThread(const RuntimeState* runtime_state, MemTrackerLimiter* mem_tracker);
+    explicit AttachTaskThread(RuntimeState* runtime_state);
 
     const ThreadContext::TaskType query_to_task_type(const TQueryType::type& query_type) {
         switch (query_type) {

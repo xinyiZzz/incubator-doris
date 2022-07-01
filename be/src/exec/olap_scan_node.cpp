@@ -1395,7 +1395,7 @@ Status OlapScanNode::normalize_bloom_filter_predicate(SlotDescriptor* slot) {
 
 void OlapScanNode::transfer_thread(RuntimeState* state) {
     // scanner open pushdown to scanThread
-    SCOPED_ATTACH_TASK_THREAD(state, mem_tracker());
+    SCOPED_ATTACH_TASK_THREAD(state);
     Status status = Status::OK();
     for (auto scanner : _olap_scanners) {
         status = Expr::clone_if_not_exists(_conjunct_ctxs, state, scanner->conjunct_ctxs());
@@ -1564,7 +1564,7 @@ void OlapScanNode::transfer_thread(RuntimeState* state) {
 }
 
 void OlapScanNode::scanner_thread(OlapScanner* scanner) {
-    SCOPED_ATTACH_TASK_THREAD(_runtime_state, mem_tracker());
+    SCOPED_ATTACH_TASK_THREAD(_runtime_state);
     ADD_THREAD_LOCAL_MEM_TRACKER(scanner->mem_tracker());
     Thread::set_self_name("olap_scanner");
     if (UNLIKELY(_transfer_done)) {

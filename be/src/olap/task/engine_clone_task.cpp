@@ -57,9 +57,9 @@ EngineCloneTask::EngineCloneTask(const TCloneReq& clone_req, const TMasterInfo& 
           _res_status(res_status),
           _signature(signature),
           _master_info(master_info) {
-    _mem_tracker = MemTracker::create_tracker(
+    _mem_tracker.reset(MemTrackerLimiter::create_tracker(
             -1, "EngineCloneTask#tabletId=" + std::to_string(_clone_req.tablet_id),
-            StorageEngine::instance()->clone_mem_tracker(), MemTrackerLevel::TASK);
+            StorageEngine::instance()->clone_mem_tracker()));
 }
 
 Status EngineCloneTask::execute() {

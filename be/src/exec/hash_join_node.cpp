@@ -179,7 +179,7 @@ Status HashJoinNode::close(RuntimeState* state) {
 }
 
 void HashJoinNode::build_side_thread(RuntimeState* state, std::promise<Status>* status) {
-    SCOPED_ATTACH_TASK_THREAD(state, mem_tracker());
+    SCOPED_ATTACH_TASK_THREAD(state);
     status->set_value(construct_hash_table(state));
 }
 

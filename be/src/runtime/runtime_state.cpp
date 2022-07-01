@@ -239,9 +239,9 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
         DCHECK(false);
     }
 
-    _instance_mem_tracker = MemTracker::create_tracker(
+    _instance_mem_tracker = MemTrackerLimiter::create_tracker(
             bytes_limit, "RuntimeState:instance:" + print_id(_fragment_instance_id),
-            _query_mem_tracker, MemTrackerLevel::INSTANCE, &_profile);
+            _query_mem_tracker, &_profile);
 
     RETURN_IF_ERROR(init_buffer_poolstate());
 
@@ -262,7 +262,7 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
 }
 
 Status RuntimeState::init_instance_mem_tracker() {
-    _instance_mem_tracker = MemTracker::create_tracker(-1, "RuntimeState");
+    _instance_mem_tracker = MemTrackerLimiter::create_tracker(-1, "RuntimeState");
     return Status::OK();
 }
 

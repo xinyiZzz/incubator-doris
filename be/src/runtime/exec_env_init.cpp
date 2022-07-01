@@ -185,11 +185,11 @@ Status ExecEnv::_init_mem_tracker() {
         global_memory_limit_bytes = MemInfo::physical_mem();
     }
     MemTrackerLimiter::get_process_tracker()->update_limit(global_memory_limit_bytes);
-    _query_pool_mem_tracker = MemTrackerLimiter::create_tracker(global_memory_limit_bytes, "QueryPool",
+    _query_pool_mem_tracker = MemTrackerLimiter::create_tracker(-1, "QueryPool",
                                                          MemTrackerLimiter::get_process_tracker());
     REGISTER_HOOK_METRIC(query_mem_consumption,
                          [this]() { return _query_pool_mem_tracker->consumption(); });
-    _load_pool_mem_tracker = MemTrackerLimiter::create_tracker(global_memory_limit_bytes, "LoadPool",
+    _load_pool_mem_tracker = MemTrackerLimiter::create_tracker(-1, "LoadPool",
                                                         MemTrackerLimiter::get_process_tracker());
     REGISTER_HOOK_METRIC(load_mem_consumption,
                          [this]() { return _load_pool_mem_tracker->consumption(); });
