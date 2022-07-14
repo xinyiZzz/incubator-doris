@@ -44,12 +44,11 @@ Status SetOperationNode::prepare(RuntimeState* state) {
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     _tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_id);
     DCHECK(_tuple_desc != nullptr);
-    _build_pool.reset(new MemPool(mem_tracker().get()));
+    _build_pool.reset(new MemPool(mem_tracker()));
     _build_timer = ADD_TIMER(runtime_profile(), "BuildTime");
     _probe_timer = ADD_TIMER(runtime_profile(), "ProbeTime");
     for (size_t i = 0; i < _child_expr_lists.size(); ++i) {
-        RETURN_IF_ERROR(Expr::prepare(_child_expr_lists[i], state, child(i)->row_desc(),
-                                      expr_mem_tracker()));
+        RETURN_IF_ERROR(Expr::prepare(_child_expr_lists[i], state, child(i)->row_desc()));
         DCHECK_EQ(_child_expr_lists[i].size(), _tuple_desc->slots().size());
     }
     _build_tuple_size = child(0)->row_desc().tuple_descriptors().size();

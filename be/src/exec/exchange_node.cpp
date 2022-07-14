@@ -70,8 +70,7 @@ Status ExchangeNode::prepare(RuntimeState* state) {
             config::exchg_node_buffer_size_bytes, _runtime_profile.get(), _is_merging,
             _sub_plan_query_statistics_recvr);
     if (_is_merging) {
-        RETURN_IF_ERROR(_sort_exec_exprs.prepare(state, _row_descriptor, _row_descriptor,
-                                                 expr_mem_tracker()));
+        RETURN_IF_ERROR(_sort_exec_exprs.prepare(state, _row_descriptor, _row_descriptor));
         // AddExprCtxsToFree(_sort_exec_exprs);
     }
     return Status::OK();
@@ -80,7 +79,6 @@ Status ExchangeNode::prepare(RuntimeState* state) {
 Status ExchangeNode::open(RuntimeState* state) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
-    ADD_THREAD_LOCAL_MEM_TRACKER(_stream_recvr->mem_tracker());
     RETURN_IF_ERROR(ExecNode::open(state));
     if (_is_merging) {
         RETURN_IF_ERROR(_sort_exec_exprs.open(state));

@@ -47,7 +47,7 @@ Status VResultSink::prepare_exprs(RuntimeState* state) {
     RETURN_IF_ERROR(
             VExpr::create_expr_trees(state->obj_pool(), _t_output_expr, &_output_vexpr_ctxs));
     // Prepare the exprs to run.
-    RETURN_IF_ERROR(VExpr::prepare(_output_vexpr_ctxs, state, _row_desc, _expr_mem_tracker));
+    RETURN_IF_ERROR(VExpr::prepare(_output_vexpr_ctxs, state, _row_desc));
     return Status::OK();
 }
 Status VResultSink::prepare(RuntimeState* state) {

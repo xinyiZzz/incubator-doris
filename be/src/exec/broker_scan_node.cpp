@@ -343,7 +343,7 @@ Status BrokerScanNode::scanner_scan(const TBrokerScanRange& scan_range,
                    // 1. too many batches in queue, or
                    // 2. at least one batch in queue and memory exceed limit.
                    (_batch_queue.size() >= _max_buffered_batches ||
-                    (mem_tracker()->any_limit_exceeded() && !_batch_queue.empty()))) {
+                    (tls_ctx()->_thread_mem_tracker_mgr->limiter_mem_tracker()->any_limit_exceeded() && !_batch_queue.empty()))) {
                 _queue_writer_cond.wait_for(l, std::chrono::seconds(1));
             }
             // Process already set failed, so we just return OK

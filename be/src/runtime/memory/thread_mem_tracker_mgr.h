@@ -129,6 +129,7 @@ public:
         //         std::to_string(_tracker_id), std::to_string(_untracked_mem), _task_id,
         //         fmt::to_string(mem_trackers_buf), fmt::to_string(untracked_mems_buf),
         //         fmt::to_string(mem_tracker_labels_buf));
+        return "";
     }
 
 private:

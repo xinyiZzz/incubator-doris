@@ -38,7 +38,7 @@ MemTable::MemTable(int64_t tablet_id, Schema* schema, const TabletSchema* tablet
           _tablet_schema(tablet_schema),
           _slot_descs(slot_descs),
           _keys_type(keys_type),
-          _mem_tracker(MemTracker::create_tracker(fmt::format("MemTable:tabletId={}", std::to_string(_tablet->tablet_id())))),
+          _mem_tracker(std::make_unique<MemTracker>(fmt::format("MemTable:tabletId={}", std::to_string(_tablet->tablet_id())))),
           _writer_mem_tracker(writer_mem_tracker),
           _buffer_mem_pool(new MemPool(_mem_tracker.get())),
           _table_mem_pool(new MemPool(_mem_tracker.get())),

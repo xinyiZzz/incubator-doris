@@ -95,7 +95,7 @@ template <class BloomFilterAdaptor>
 class BloomFilterFuncBase : public IBloomFilterFuncBase {
 public:
     BloomFilterFuncBase() : _inited(false) {
-        _mem_tracker = std::make_unique<MemTracker>("BloomFilterFunc");
+        _tracker = std::make_unique<MemTracker>("BloomFilterFunc");
     }
 
     virtual ~BloomFilterFuncBase() {

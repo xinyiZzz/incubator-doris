@@ -145,9 +145,9 @@ Status AnalyticEvalNode::prepare(RuntimeState* state) {
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     DCHECK(child(0)->row_desc().is_prefix_of(row_desc()));
     _child_tuple_desc = child(0)->row_desc().tuple_descriptors()[0];
-    _curr_tuple_pool.reset(new MemPool(mem_tracker().get()));
-    _prev_tuple_pool.reset(new MemPool(mem_tracker().get()));
-    _mem_pool.reset(new MemPool(mem_tracker().get()));
+    _curr_tuple_pool.reset(new MemPool(mem_tracker()));
+    _prev_tuple_pool.reset(new MemPool(mem_tracker()));
+    _mem_pool.reset(new MemPool(mem_tracker()));
 
     _evaluation_timer = ADD_TIMER(runtime_profile(), "EvaluationTime");
     DCHECK_EQ(_result_tuple_desc->slots().size(), _evaluators.size());
@@ -156,7 +156,7 @@ Status AnalyticEvalNode::prepare(RuntimeState* state) {
         doris_udf::FunctionContext* ctx;
         RETURN_IF_ERROR(_evaluators[i]->prepare(
                 state, child(0)->row_desc(), _mem_pool.get(), _intermediate_tuple_desc->slots()[i],
-                _result_tuple_desc->slots()[i], mem_tracker(), &ctx));
+                _result_tuple_desc->slots()[i], &ctx));
         _fn_ctxs.push_back(ctx);
         state->obj_pool()->add(ctx);
     }
@@ -170,13 +170,13 @@ Status AnalyticEvalNode::prepare(RuntimeState* state) {
 
         if (_partition_by_eq_expr_ctx != nullptr) {
             RETURN_IF_ERROR(
-                    _partition_by_eq_expr_ctx->prepare(state, cmp_row_desc, expr_mem_tracker()));
+                    _partition_by_eq_expr_ctx->prepare(state, cmp_row_desc));
             //AddExprCtxToFree(_partition_by_eq_expr_ctx);
         }
 
         if (_order_by_eq_expr_ctx != nullptr) {
             RETURN_IF_ERROR(
-                    _order_by_eq_expr_ctx->prepare(state, cmp_row_desc, expr_mem_tracker()));
+                    _order_by_eq_expr_ctx->prepare(state, cmp_row_desc));
             //AddExprCtxToFree(_order_by_eq_expr_ctx);
         }
     }
@@ -205,7 +205,7 @@ Status AnalyticEvalNode::open(RuntimeState* state) {
                 "Failed to acquire initial read buffer for analytic function "
                 "evaluation. Reducing query concurrency or increasing the memory limit may "
                 "help this query to complete successfully.");
-        RETURN_LIMIT_EXCEEDED(mem_tracker(), state, msg);
+        RETURN_LIMIT_EXCEEDED(tls_ctx()->_thread_mem_tracker_mgr->limiter_mem_tracker(), state, msg);
     }
 
     DCHECK_EQ(_evaluators.size(), _fn_ctxs.size());

@@ -807,15 +807,15 @@ Status HashJoinNode::prepare(RuntimeState* state) {
     _build_buckets_counter = ADD_COUNTER(runtime_profile(), "BuildBuckets", TUnit::UNIT);
 
     RETURN_IF_ERROR(
-            VExpr::prepare(_build_expr_ctxs, state, child(1)->row_desc(), expr_mem_tracker()));
+            VExpr::prepare(_build_expr_ctxs, state, child(1)->row_desc()));
     RETURN_IF_ERROR(
-            VExpr::prepare(_probe_expr_ctxs, state, child(0)->row_desc(), expr_mem_tracker()));
+            VExpr::prepare(_probe_expr_ctxs, state, child(0)->row_desc()));
 
     // _vother_join_conjuncts are evaluated in the context of the rows produced by this node
     if (_vother_join_conjunct_ptr) {
         RETURN_IF_ERROR(
                 (*_vother_join_conjunct_ptr)
-                        ->prepare(state, _row_desc_for_other_join_conjunt, expr_mem_tracker()));
+                        ->prepare(state, _row_desc_for_other_join_conjunt));
     }
     // right table data types
     _right_table_data_types = VectorizedUtils::get_data_types(child(1)->row_desc());

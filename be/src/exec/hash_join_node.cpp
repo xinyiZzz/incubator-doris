@@ -99,7 +99,7 @@ Status HashJoinNode::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(ExecNode::prepare(state));
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
 
-    _build_pool.reset(new MemPool(mem_tracker().get()));
+    _build_pool.reset(new MemPool(mem_tracker()));
     _build_timer = ADD_TIMER(runtime_profile(), "BuildTime");
     _push_down_timer = ADD_TIMER(runtime_profile(), "PushDownTime");
     _push_compute_timer = ADD_TIMER(runtime_profile(), "PushDownComputeTime");
@@ -114,13 +114,13 @@ Status HashJoinNode::prepare(RuntimeState* state) {
     // build and probe exprs are evaluated in the context of the rows produced by our
     // right and left children, respectively
     RETURN_IF_ERROR(
-            Expr::prepare(_build_expr_ctxs, state, child(1)->row_desc(), expr_mem_tracker()));
+            Expr::prepare(_build_expr_ctxs, state, child(1)->row_desc()));
     RETURN_IF_ERROR(
-            Expr::prepare(_probe_expr_ctxs, state, child(0)->row_desc(), expr_mem_tracker()));
+            Expr::prepare(_probe_expr_ctxs, state, child(0)->row_desc()));
 
     // _other_join_conjuncts are evaluated in the context of the rows produced by this node
     RETURN_IF_ERROR(
-            Expr::prepare(_other_join_conjunct_ctxs, state, _row_descriptor, expr_mem_tracker()));
+            Expr::prepare(_other_join_conjunct_ctxs, state, _row_descriptor));
 
     _result_tuple_row_size = _row_descriptor.tuple_descriptors().size() * sizeof(Tuple*);
 

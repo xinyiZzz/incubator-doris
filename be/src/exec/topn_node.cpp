@@ -61,9 +61,8 @@ Status TopNNode::prepare(RuntimeState* state) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
     RETURN_IF_ERROR(ExecNode::prepare(state));
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
-    _tuple_pool.reset(new MemPool(mem_tracker().get()));
-    RETURN_IF_ERROR(_sort_exec_exprs.prepare(state, child(0)->row_desc(), _row_descriptor,
-                                             expr_mem_tracker()));
+    _tuple_pool.reset(new MemPool(mem_tracker()));
+    RETURN_IF_ERROR(_sort_exec_exprs.prepare(state, child(0)->row_desc(), _row_descriptor));
     // AddExprCtxsToFree(_sort_exec_exprs);
 
     _tuple_row_less_than.reset(
@@ -233,7 +232,7 @@ void TopNNode::push_down_predicate(RuntimeState* state, std::list<ExprContext*>*
         if ((*iter)->root()->is_bound(&_tuple_ids)) {
             // LOG(INFO) << "push down success expr is " << (*iter)->debug_string();
             // (*iter)->get_child(0)->prepare(state, row_desc());
-            (*iter)->prepare(state, row_desc(), _expr_mem_tracker);
+            (*iter)->prepare(state, row_desc());
             (*iter)->open(state);
             _conjunct_ctxs.push_back(*iter);
             iter = expr_ctxs->erase(iter);

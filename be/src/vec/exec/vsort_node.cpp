@@ -43,8 +43,7 @@ Status VSortNode::prepare(RuntimeState* state) {
     _runtime_profile->add_info_string("TOP-N", _limit == -1 ? "false" : "true");
     RETURN_IF_ERROR(ExecNode::prepare(state));
     SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
-    RETURN_IF_ERROR(_vsort_exec_exprs.prepare(state, child(0)->row_desc(), _row_descriptor,
-                                              expr_mem_tracker()));
+    RETURN_IF_ERROR(_vsort_exec_exprs.prepare(state, child(0)->row_desc(), _row_descriptor));
     return Status::OK();
 }
 

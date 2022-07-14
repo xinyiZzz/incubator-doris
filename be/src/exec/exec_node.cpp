@@ -696,7 +696,7 @@ Status ExecNode::claim_buffer_reservation(RuntimeState* state) {
 
     ss << print_plan_node_type(_type) << " id=" << _id << " ptr=" << this;
     RETURN_IF_ERROR(buffer_pool->RegisterClient(ss.str(), state->instance_buffer_reservation(),
-                                                mem_tracker(), buffer_pool->GetSystemBytesLimit(),
+                                                buffer_pool->GetSystemBytesLimit(),
                                                 runtime_profile(), &_buffer_pool_client));
 
     state->initial_reservations()->Claim(&_buffer_pool_client, _resource_profile.min_reservation);

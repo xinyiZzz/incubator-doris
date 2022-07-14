@@ -30,8 +30,8 @@
 #include "runtime/threadlocal.h"
 
 // Attach to task when thread starts
-#define SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(...) \
-    auto VARNAME_LINENUM(attach_task_thread) = AttachTaskThread(##__VA_ARGS__)
+#define SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(mem_tracker, ...) \
+    auto VARNAME_LINENUM(attach_task_thread) = AttachTaskThread(mem_tracker, ##__VA_ARGS__)
 
 // Switch thread mem tracker during task execution.
 // After the non-query thread switches the mem tracker, if the thread will not switch the mem

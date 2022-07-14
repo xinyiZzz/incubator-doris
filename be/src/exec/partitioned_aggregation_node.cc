@@ -850,7 +850,7 @@ Status PartitionedAggregationNode::Partition::Spill(bool more_aggregate_rows) {
     // TODO(ml): enable spill
     std::stringstream msg;
     msg << "New partitioned Aggregation in spill";
-    RETURN_LIMIT_EXCEEDED(parent->state_->instance_mem_tracker(), parent->state_, msg.str());
+    RETURN_LIMIT_EXCEEDED(tls_ctx()->_thread_mem_tracker_mgr->limiter_mem_tracker(), parent->state_, msg.str());
 
     RETURN_IF_ERROR(SerializeStreamForSpilling());
 

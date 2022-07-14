@@ -58,8 +58,7 @@ Status VExchangeNode::prepare(RuntimeState* state) {
             _sub_plan_query_statistics_recvr);
 
     if (_is_merging) {
-        RETURN_IF_ERROR(_vsort_exec_exprs.prepare(state, _row_descriptor, _row_descriptor,
-                                                  expr_mem_tracker()));
+        RETURN_IF_ERROR(_vsort_exec_exprs.prepare(state, _row_descriptor, _row_descriptor));
     }
     return Status::OK();
 }
@@ -67,7 +66,6 @@ Status VExchangeNode::open(RuntimeState* state) {
     START_AND_SCOPE_SPAN(state->get_tracer(), span, "VExchangeNode::open");
     SCOPED_TIMER(_runtime_profile->total_time_counter());
     SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
-    ADD_THREAD_LOCAL_MEM_TRACKER(_stream_recvr->mem_tracker());
     RETURN_IF_ERROR(ExecNode::open(state));
 
     if (_is_merging) {

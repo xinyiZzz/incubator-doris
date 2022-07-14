@@ -69,8 +69,7 @@ Status MergeNode::prepare(RuntimeState* state) {
 
     // Prepare const expr lists.
     for (int i = 0; i < _const_result_expr_ctx_lists.size(); ++i) {
-        RETURN_IF_ERROR(Expr::prepare(_const_result_expr_ctx_lists[i], state, row_desc(),
-                                      expr_mem_tracker()));
+        RETURN_IF_ERROR(Expr::prepare(_const_result_expr_ctx_lists[i], state, row_desc()));
         DCHECK_EQ(_const_result_expr_ctx_lists[i].size(), _tuple_desc->slots().size());
     }
 
@@ -84,8 +83,7 @@ Status MergeNode::prepare(RuntimeState* state) {
 
     // Prepare result expr lists.
     for (int i = 0; i < _result_expr_ctx_lists.size(); ++i) {
-        RETURN_IF_ERROR(Expr::prepare(_result_expr_ctx_lists[i], state, child(i)->row_desc(),
-                                      expr_mem_tracker()));
+        RETURN_IF_ERROR(Expr::prepare(_result_expr_ctx_lists[i], state, child(i)->row_desc()));
         // DCHECK_EQ(_result_expr_ctx_lists[i].size(), _tuple_desc->slots().size());
         DCHECK_EQ(_result_expr_ctx_lists[i].size(), _materialized_slots.size());
     }

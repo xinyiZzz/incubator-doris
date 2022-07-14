@@ -77,7 +77,7 @@ Status UnionNode::prepare(RuntimeState* state) {
     _codegend_union_materialize_batch_fns.resize(_child_expr_lists.size());
     // Prepare const expr lists.
     for (const std::vector<ExprContext*>& exprs : _const_expr_lists) {
-        RETURN_IF_ERROR(Expr::prepare(exprs, state, row_desc(), expr_mem_tracker()));
+        RETURN_IF_ERROR(Expr::prepare(exprs, state, row_desc()));
         // TODO(zc)
         // AddExprCtxsToFree(exprs);
         DCHECK_EQ(exprs.size(), _tuple_desc->slots().size());
@@ -85,8 +85,7 @@ Status UnionNode::prepare(RuntimeState* state) {
 
     // Prepare result expr lists.
     for (int i = 0; i < _child_expr_lists.size(); ++i) {
-        RETURN_IF_ERROR(Expr::prepare(_child_expr_lists[i], state, child(i)->row_desc(),
-                                      expr_mem_tracker()));
+        RETURN_IF_ERROR(Expr::prepare(_child_expr_lists[i], state, child(i)->row_desc()));
         // TODO(zc)
         // AddExprCtxsToFree(_child_expr_lists[i]);
         DCHECK_EQ(_child_expr_lists[i].size(), _tuple_desc->slots().size());

@@ -387,7 +387,7 @@ private:
 
 template <typename Row>
 void IndexChannel::add_row(const Row& tuple, int64_t tablet_id) {
-    SCOPED_THREAD_CONSUME_MEM_TRACKER(_index_channel_tracker);
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_index_channel_tracker.get());
     auto it = _channels_by_tablet.find(tablet_id);
     DCHECK(it != _channels_by_tablet.end()) << "unknown tablet, tablet_id=" << tablet_id;
     for (const auto& channel : it->second) {

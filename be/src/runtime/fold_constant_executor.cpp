@@ -181,7 +181,7 @@ Status FoldConstantExecutor::_init(const TQueryGlobals& query_globals) {
     _runtime_profile->set_name("FoldConstantExpr");
     SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_runtime_state);
     _mem_tracker = std::make_unique<MemTracker>("FoldConstantExpr");
-    _mem_pool.reset(new MemPool(_mem_tracker));
+    _mem_pool.reset(new MemPool(_mem_tracker.get()));
 
     return Status::OK();
 }
