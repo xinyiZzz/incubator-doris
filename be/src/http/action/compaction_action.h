@@ -41,9 +41,7 @@ class CompactionAction : public HttpHandler {
 public:
     CompactionAction(CompactionActionType type) : _type(type) {
         _compaction_mem_tracker =
-                type == RUN_COMPACTION ? MemTracker::create_tracker(-1, "ManualCompaction", nullptr,
-                                                                    MemTrackerLevel::VERBOSE)
-                                       : nullptr;
+                type == RUN_COMPACTION ? std::make_unique<MemTracker>("ManualCompaction") : nullptr;
     }
 
     virtual ~CompactionAction() {}
@@ -76,7 +74,7 @@ private:
     /// whether there is manual compaction running
     static bool _is_compaction_running;
     /// memory tracker
-    std::shared_ptr<MemTracker> _compaction_mem_tracker;
+    std::unique_ptr<MemTracker> _compaction_mem_tracker;
 };
 
 } // end namespace doris

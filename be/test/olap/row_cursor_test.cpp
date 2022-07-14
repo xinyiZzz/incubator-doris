@@ -24,7 +24,7 @@
 #include "olap/schema.h"
 #include "olap/tablet_schema.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "util/logging.h"
 #include "util/types.h"
 

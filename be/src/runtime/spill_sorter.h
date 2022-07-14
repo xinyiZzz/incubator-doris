@@ -93,7 +93,7 @@ public:
     // and retrieve rows from an intermediate merger.
     SpillSorter(const TupleRowComparator& compare_less_than,
                 const std::vector<ExprContext*>& sort_tuple_slot_expr_ctxs,
-                RowDescriptor* output_row_desc, const std::shared_ptr<MemTracker>& mem_tracker,
+                RowDescriptor* output_row_desc, MemTracker* mem_tracker,
                 RuntimeProfile* profile, RuntimeState* state);
 
     ~SpillSorter();
@@ -171,7 +171,7 @@ private:
     std::vector<ExprContext*> _sort_tuple_slot_expr_ctxs;
 
     // Mem tracker for batches created during merge. Not owned by SpillSorter.
-    std::shared_ptr<MemTracker> _mem_tracker;
+    MemTracker* _mem_tracker;
 
     // Descriptor for the sort tuple. Input rows are materialized into 1 tuple before
     // sorting. Not owned by the SpillSorter.

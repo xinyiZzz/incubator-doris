@@ -26,13 +26,13 @@ namespace doris {
 EngineChecksumTask::EngineChecksumTask(TTabletId tablet_id, TSchemaHash schema_hash,
                                        TVersion version, uint32_t* checksum)
         : _tablet_id(tablet_id), _schema_hash(schema_hash), _version(version), _checksum(checksum) {
-    _mem_tracker = MemTracker::create_tracker(
+    _mem_tracker.reset(std::make_unique<MemTrackerLimiter>(
             -1, "EngineChecksumTask#tabletId=" + std::to_string(tablet_id),
-            StorageEngine::instance()->consistency_mem_tracker(), MemTrackerLevel::TASK);
+            StorageEngine::instance()->consistency_mem_tracker()));
 }
 
 Status EngineChecksumTask::execute() {
-    SCOPED_ATTACH_TASK_THREAD(ThreadContext::TaskType::STORAGE, _mem_tracker);
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_mem_tracker.get(), ThreadContext::TaskType::STORAGE);
     return _compute_checksum();
 } // execute
 

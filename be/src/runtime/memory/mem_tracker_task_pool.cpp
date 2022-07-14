@@ -29,11 +29,11 @@ MemTrackerLimiter* MemTrackerTaskPool::register_task_mem_tracker_impl(const std:
                                                                       MemTrackerLimiter* parent) {
     DCHECK(!task_id.empty());
     // First time this task_id registered, make a new object, otherwise do nothing.
-    // Combine create_tracker and emplace into one operation to avoid the use of locks
+    // Combine new tracker and emplace into one operation to avoid the use of locks
     // Name for task MemTrackers. '$0' is replaced with the task id.
     _task_mem_trackers.try_emplace_l(
             task_id, [](MemTrackerLimiter*) {},
-            MemTrackerLimiter::create_tracker(mem_limit, label, parent));
+            std::make_unique<MemTrackerLimiter>(mem_limit, label, parent));
     return get_task_mem_tracker(task_id);
 }
 
@@ -88,7 +88,7 @@ void MemTrackerTaskPool::logout_task_mem_tracker() {
             // the effect of the ended query mem tracker on the query pool mem tracker should be cleared, that is,
             // the negative number of the current value of consume.
             it->second->parent()->consume_local(-it->second->consumption(),
-                                                MemTrackerLimiter::get_process_tracker());
+                                                MemTrackerLimiter::get_process_tracker_limiter());
             expired_tasks.emplace_back(it->first);
         } else {
             // Log limit exceeded query tracker.

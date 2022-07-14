@@ -15,43 +15,41 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "runtime/thread_mem_tracker_mgr.h"
+#include "runtime/memory/thread_mem_tracker_mgr.h"
 
 #include "runtime/exec_env.h"
 #include "runtime/fragment_mgr.h"
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 #include "service/backend_options.h"
 
 namespace doris {
 
 void ThreadMemTrackerMgr::attach_task(const std::string& cancel_msg, const std::string& task_id,
                                       const TUniqueId& fragment_instance_id,
-                                      const std::shared_ptr<MemTracker>& mem_tracker) {
+                                      MemTrackerLimiter* mem_tracker) {
     DCHECK(switch_count == 0) << print_debug_string();
-    clear_untracked_mems();
-    init();
-    _task_id = task_id;
-    _fragment_instance_id = fragment_instance_id;
-    _consume_err_cb.cancel_msg = cancel_msg;
     if (mem_tracker == nullptr) {
 #ifdef BE_TEST
         if (ExecEnv::GetInstance()->task_pool_mem_tracker_registry() == nullptr) {
             return;
         }
 #endif
-        std::shared_ptr<MemTracker> tracker =
+        mem_tracker =
                 ExecEnv::GetInstance()->task_pool_mem_tracker_registry()->get_task_mem_tracker(
                         task_id);
-        update_tracker<false>(tracker);
-    } else {
-        update_tracker<false>(mem_tracker);
     }
+    DCHECK(_trackers_stack.size() == 0);
+    DCHECK(_trackers_login_count.size() == 0);
+    _task_id = task_id;
+    _fragment_instance_id = fragment_instance_id;
+    _consume_err_cb.cancel_msg = cancel_msg;
+    _limiter_tracker = mem_tracker;
 }
 
 void ThreadMemTrackerMgr::detach_task() {
     DCHECK(switch_count == 0) << print_debug_string();
     _fragment_instance_id = TUniqueId();
-    clear_untracked_mems();
+    flush_cache<false>();
     init();
 }
 
@@ -69,14 +67,13 @@ void ThreadMemTrackerMgr::exceeded(int64_t mem_usage, Status st) {
     }
     if (is_attach_task()) {
         if (_consume_err_cb.cancel_task) {
-            auto rst = _mem_trackers[_tracker_id]->mem_limit_exceeded(
+            auto rst = _limiter_tracker->mem_limit_exceeded(
                     nullptr,
                     fmt::format("Task mem limit exceeded and cancel it, msg:{}",
                                 _consume_err_cb.cancel_msg),
                     mem_usage, st);
             exceeded_cancel_task(rst.to_string());
             _consume_err_cb.cancel_task = false; // Make sure it will only be canceled once
-            _consume_err_cb.log_limit_exceeded = false;
         }
     }
 }

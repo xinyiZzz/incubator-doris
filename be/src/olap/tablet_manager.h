@@ -202,7 +202,7 @@ private:
     };
 
     // trace the memory use by meta of tablet
-    std::shared_ptr<MemTracker> _mem_tracker;
+    std::unique_ptr<MemTrackerLimiter> _mem_tracker;
 
     const int32_t _tablets_shards_size;
     const int32_t _tablets_shards_mask;

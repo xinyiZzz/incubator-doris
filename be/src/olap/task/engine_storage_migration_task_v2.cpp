@@ -18,7 +18,7 @@
 #include "olap/task/engine_storage_migration_task_v2.h"
 
 #include "olap/storage_migration_v2.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 
 namespace doris {
 
@@ -26,12 +26,12 @@ using std::to_string;
 
 EngineStorageMigrationTaskV2::EngineStorageMigrationTaskV2(const TStorageMigrationReqV2& request)
         : _storage_migration_req(request) {
-    _mem_tracker = MemTracker::create_tracker(
+    _mem_tracker = std::make_unique<MemTrackerLimiter>(
             config::memory_limitation_per_thread_for_storage_migration_bytes,
             fmt::format("EngineStorageMigrationTaskV2#baseTabletId{}:newTabletId{}",
                         std::to_string(_storage_migration_req.base_tablet_id),
                         std::to_string(_storage_migration_req.new_tablet_id)),
-            StorageEngine::instance()->storage_migration_mem_tracker(), MemTrackerLevel::TASK);
+            StorageEngine::instance()->storage_migration_mem_tracker());
 }
 
 Status EngineStorageMigrationTaskV2::execute() {

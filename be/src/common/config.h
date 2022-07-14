@@ -654,6 +654,9 @@ CONF_Bool(memory_verbose_track, "false");
 // the level equal or lower than mem_tracker_level will show in web page
 CONF_mInt16(mem_tracker_level, "0");
 
+// Whether to show observe mem tracker statistics in web page
+CONF_mInt16(show_observe_tracker, "false");
+
 // The minimum length when TCMalloc Hook consumes/releases MemTracker, consume size
 // smaller than this value will continue to accumulate. specified as number of bytes.
 // Decreasing this value will increase the frequency of consume/release.

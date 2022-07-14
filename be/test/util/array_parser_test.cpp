@@ -22,7 +22,7 @@
 
 #include "olap/tablet_schema.h"
 #include "olap/types.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/string_value.h"
 #include "testutil/array_utils.h"
 

@@ -27,7 +27,7 @@
 #include "gen_cpp/internal_service.pb.h"
 #include "runtime/exec_env.h"
 #include "runtime/large_int_value.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/runtime_state.h"
 #include "runtime/thread_context.h"
 #include "runtime/tuple_row.h"
@@ -51,7 +51,7 @@ Status FoldConstantExecutor::fold_constant_expr(const TFoldConstantParams& param
     // init
     RETURN_IF_ERROR(_init(query_globals));
     // only after init operation, _mem_tracker is ready
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
 
     for (const auto& m : expr_map) {
         PExprResultMap pexpr_result_map;
@@ -103,7 +103,7 @@ Status FoldConstantExecutor::fold_constant_vexpr(const TFoldConstantParams& para
     // init
     RETURN_IF_ERROR(_init(query_globals));
     // only after init operation, _mem_tracker is ready
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
 
     for (const auto& m : expr_map) {
         PExprResultMap pexpr_result_map;
@@ -179,16 +179,16 @@ Status FoldConstantExecutor::_init(const TQueryGlobals& query_globals) {
 
     _runtime_profile = _runtime_state->runtime_profile();
     _runtime_profile->set_name("FoldConstantExpr");
-    _mem_tracker = MemTracker::create_tracker(-1, "FoldConstantExpr",
-                                              _runtime_state->instance_mem_tracker());
-    _mem_pool.reset(new MemPool(_mem_tracker.get()));
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_runtime_state);
+    _mem_tracker = std::make_unique<MemTracker>("FoldConstantExpr");
+    _mem_pool.reset(new MemPool(_mem_tracker));
 
     return Status::OK();
 }
 
 template <typename Context>
 Status FoldConstantExecutor::_prepare_and_open(Context* ctx) {
-    RETURN_IF_ERROR(ctx->prepare(_runtime_state.get(), RowDescriptor(), _mem_tracker));
+    RETURN_IF_ERROR(ctx->prepare(_runtime_state.get(), RowDescriptor()));
     return ctx->open(_runtime_state.get());
 }
 

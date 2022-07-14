@@ -41,7 +41,7 @@ Status SetOperationNode::init(const TPlanNode& tnode, RuntimeState* state) {
 Status SetOperationNode::prepare(RuntimeState* state) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
     RETURN_IF_ERROR(ExecNode::prepare(state));
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     _tuple_desc = state->desc_tbl().get_tuple_descriptor(_tuple_id);
     DCHECK(_tuple_desc != nullptr);
     _build_pool.reset(new MemPool(mem_tracker().get()));
@@ -136,8 +136,8 @@ bool SetOperationNode::equals(TupleRow* row, TupleRow* other) {
 Status SetOperationNode::open(RuntimeState* state) {
     RETURN_IF_ERROR(ExecNode::open(state));
     SCOPED_TIMER(_runtime_profile->total_time_counter());
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_ERR_CB(
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_UPDATE_MEM_EXCEED_LIMIT_CB(
             "SetOperation, while constructing the hash table.");
     RETURN_IF_CANCELLED(state);
     // open result expr lists.

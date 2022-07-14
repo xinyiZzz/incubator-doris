@@ -24,7 +24,7 @@
 
 #include "olap/schema.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "testutil/test_util.h"
 #include "util/hash_util.hpp"
 #include "util/priority_thread_pool.hpp"

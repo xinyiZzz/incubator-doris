@@ -19,8 +19,6 @@
 
 #include "common/status.h"
 #include "olap/options.h"
-#include "runtime/mem_tracker.h"
-#include "runtime/mem_tracker_task_pool.h"
 #include "util/threadpool.h"
 
 namespace doris {
@@ -44,7 +42,7 @@ class FragmentMgr;
 class ResultCache;
 class LoadPathMgr;
 class LoadStreamMgr;
-class MemTracker;
+class MemTrackerLimiter;
 class StorageEngine;
 class MemTrackerTaskPool;
 class PriorityThreadPool;
@@ -115,8 +113,8 @@ public:
         return nullptr;
     }
 
-    std::shared_ptr<MemTracker> query_pool_mem_tracker() { return _query_pool_mem_tracker; }
-    std::shared_ptr<MemTracker> load_pool_mem_tracker() { return _load_pool_mem_tracker; }
+    MemTrackerLimiter* query_pool_mem_tracker() { return _query_pool_mem_tracker.get(); }
+    MemTrackerLimiter* load_pool_mem_tracker() { return _load_pool_mem_tracker.get(); }
     MemTrackerTaskPool* task_pool_mem_tracker_registry() {
         return _task_pool_mem_tracker_registry.get();
     }
@@ -184,9 +182,9 @@ private:
     ThreadResourceMgr* _thread_mgr = nullptr;
 
     // The ancestor for all querys tracker.
-    std::shared_ptr<MemTracker> _query_pool_mem_tracker = nullptr;
+    std::unique_ptr<MemTrackerLimiter> _query_pool_mem_tracker;
     // The ancestor for all load tracker.
-    std::shared_ptr<MemTracker> _load_pool_mem_tracker = nullptr;
+    std::unique_ptr<MemTrackerLimiter> _load_pool_mem_tracker;
     std::unique_ptr<MemTrackerTaskPool> _task_pool_mem_tracker_registry;
 
     // The following two thread pools are used in different scenarios.

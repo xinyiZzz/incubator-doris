@@ -44,7 +44,7 @@ public:
     /// claimed over the lifetime of the query. The total bytes claimed via Claim()
     /// cannot exceed this. Allocated objects are stored in 'obj_pool'.
     InitialReservations(ObjectPool* obj_pool, ReservationTracker* query_reservation,
-                        std::shared_ptr<MemTracker> query_mem_tracker,
+                        MemTrackerLimiter* query_mem_tracker,
                         int64_t initial_reservation_total_claims);
 
     /// Initialize the query's pool of initial reservations by acquiring the minimum
@@ -72,7 +72,7 @@ private:
     // Return() returns reservations to.
     ReservationTracker initial_reservations_;
 
-    std::shared_ptr<MemTracker> const initial_reservation_mem_tracker_;
+    std::unique_ptr<MemTrackerLimiter> const initial_reservation_mem_tracker_;
 
     /// The total bytes of additional reservations that we expect to be claimed.
     /// initial_reservations_->GetReservation() <= remaining_initial_reservation_claims_.

@@ -23,7 +23,7 @@
 #include "olap/decimal12.h"
 #include "olap/uint24.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 
 namespace doris {
 

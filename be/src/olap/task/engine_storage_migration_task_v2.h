@@ -37,7 +37,7 @@ public:
 private:
     const TStorageMigrationReqV2& _storage_migration_req;
 
-    std::shared_ptr<MemTracker> _mem_tracker;
+    std::unique_ptr<MemTrackerLimiter> _mem_tracker;
 }; // EngineTask
 
 } // namespace doris

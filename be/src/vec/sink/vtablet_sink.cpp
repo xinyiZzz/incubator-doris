@@ -215,7 +215,7 @@ int VNodeChannel::try_send_and_fetch_status(RuntimeState* state,
 }
 
 void VNodeChannel::try_send_block(RuntimeState* state) {
-    SCOPED_ATTACH_TASK_THREAD(state, _node_channel_tracker);
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(state);
     SCOPED_ATOMIC_TIMER(&_actual_consume_ns);
     AddBlockReq send_block;
     {
@@ -384,7 +384,7 @@ size_t VOlapTableSink::get_pending_bytes() const {
 }
 Status VOlapTableSink::send(RuntimeState* state, vectorized::Block* input_block) {
     INIT_AND_SCOPE_SEND_SPAN(state->get_tracer(), _send_span, "VOlapTableSink::send");
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 
     auto rows = input_block->rows();

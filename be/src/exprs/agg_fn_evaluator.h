@@ -81,7 +81,7 @@ public:
     Status prepare(RuntimeState* state, const RowDescriptor& desc, MemPool* pool,
                    const SlotDescriptor* intermediate_slot_desc,
                    const SlotDescriptor* output_slot_desc,
-                   const std::shared_ptr<MemTracker>& mem_tracker, FunctionContext** agg_fn_ctx);
+                   FunctionContext** agg_fn_ctx);
 
     Status open(RuntimeState* state, FunctionContext* agg_fn_ctx);
 
@@ -188,7 +188,7 @@ private:
     std::vector<ExprContext*> _input_exprs_ctxs;
     std::unique_ptr<char[]> _string_buffer;   //for count distinct
     int _string_buffer_len;                   //for count distinct
-    std::shared_ptr<MemTracker> _mem_tracker; // saved c'tor param
+    std::unique_ptr<MemTracker> _mem_tracker; // saved c'tor param
 
     const TypeDescriptor _return_type;
     const TypeDescriptor _intermediate_type;

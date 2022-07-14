@@ -91,7 +91,7 @@ public:
     HashTable(const std::vector<ExprContext*>& build_exprs,
               const std::vector<ExprContext*>& probe_exprs, int num_build_tuples, bool stores_nulls,
               const std::vector<bool>& finds_nulls, int32_t initial_seed,
-              const std::shared_ptr<MemTracker>& mem_tracker, int64_t num_buckets);
+              MemTracker* mem_tracker, int64_t num_buckets);
 
     ~HashTable();
 
@@ -448,7 +448,7 @@ private:
     // total capacity
     int64_t _total_capacity;
 
-    std::shared_ptr<MemTracker> _mem_tracker;
+    std::unique_ptr<MemTracker> _mem_tracker;
 
     std::vector<Bucket> _buckets;
 

@@ -22,7 +22,7 @@
 #include "runtime/buffer_control_block.h"
 #include "runtime/exec_env.h"
 #include "runtime/file_result_writer.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/mysql_result_writer.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/row_batch.h"
@@ -90,7 +90,7 @@ Status ResultSink::open(RuntimeState* state) {
 Status ResultSink::send(RuntimeState* state, RowBatch* batch) {
     // The memory consumption in the process of sending the results is not check query memory limit.
     // Avoid the query being cancelled when the memory limit is reached after the query result comes out.
-    STOP_CHECK_LIMIT_THREAD_LOCAL_MEM_TRACKER();
+    STOP_CHECK_THREAD_MEM_TRACKER_LIMIT();
     return _writer->append_row_batch(batch);
 }
 

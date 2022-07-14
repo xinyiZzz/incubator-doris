@@ -30,7 +30,7 @@
 #include "olap/rowset/segment_v2/page_decoder.h"
 #include "olap/types.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "testutil/test_util.h"
 #include "util/debug_util.h"
 

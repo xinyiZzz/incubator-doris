@@ -41,7 +41,7 @@
 #include "runtime/collection_value.h"
 #include "runtime/descriptors.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/primitive_type.h"
 #include "runtime/raw_value.h"
 #include "testutil/array_utils.h"

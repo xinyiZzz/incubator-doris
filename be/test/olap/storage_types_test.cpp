@@ -20,7 +20,7 @@
 #include "olap/field.h"
 #include "olap/types.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "util/slice.h"
 
 namespace doris {

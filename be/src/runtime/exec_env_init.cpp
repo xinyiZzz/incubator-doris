@@ -39,8 +39,8 @@
 #include "runtime/heartbeat_flags.h"
 #include "runtime/load_channel_mgr.h"
 #include "runtime/load_path_mgr.h"
-#include "runtime/mem_tracker.h"
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/result_queue_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
@@ -156,7 +156,7 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths) {
     _small_file_mgr->init();
     _init_mem_tracker();
 
-    RETURN_IF_ERROR(_load_channel_mgr->init(MemTracker::get_process_tracker()->limit()));
+    RETURN_IF_ERROR(_load_channel_mgr->init(MemTracker::get_process_tracker_limiter()->limit()));
     _heartbeat_flags = new HeartbeatFlags();
     _register_metrics();
     _is_init = true;
@@ -183,13 +183,13 @@ Status ExecEnv::_init_mem_tracker() {
                      << ". Using physical memory instead";
         global_memory_limit_bytes = MemInfo::physical_mem();
     }
-    MemTracker::get_process_tracker()->set_limit(global_memory_limit_bytes);
-    _query_pool_mem_tracker = MemTracker::create_tracker(
-            -1, "QueryPool", MemTracker::get_process_tracker(), MemTrackerLevel::OVERVIEW);
+    MemTrackerLimiter::get_process_tracker_limiter()->update_limit(global_memory_limit_bytes);
+    _query_pool_mem_tracker = std::make_unique<MemTrackerLimiter>(-1, "QueryPool",
+                                                         MemTrackerLimiter::get_process_tracker_limiter());
     REGISTER_HOOK_METRIC(query_mem_consumption,
                          [this]() { return _query_pool_mem_tracker->consumption(); });
-    _load_pool_mem_tracker = MemTracker::create_tracker(
-            -1, "LoadPool", MemTracker::get_process_tracker(), MemTrackerLevel::OVERVIEW);
+    _load_pool_mem_tracker = std::make_unique<MemTrackerLimiter>(-1, "LoadPool",
+                                                        MemTrackerLimiter::get_process_tracker_limiter());
     REGISTER_HOOK_METRIC(load_mem_consumption,
                          [this]() { return _load_pool_mem_tracker->consumption(); });
     LOG(INFO) << "Using global memory limit: "

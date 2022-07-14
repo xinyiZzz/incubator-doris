@@ -24,7 +24,7 @@
 #include "olap/rowset/segment_v2/options.h"
 #include "runtime/large_int_value.h"
 #include "runtime/mem_pool.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 
 using doris::segment_v2::PageBuilderOptions;
 using doris::segment_v2::PageDecoderOptions;

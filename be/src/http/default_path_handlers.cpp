@@ -29,7 +29,7 @@
 #include "gutil/strings/substitute.h"
 #include "http/action/tablets_info_action.h"
 #include "http/web_page_handler.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker_limiter.h"
 #include "util/debug_util.h"
 #include "util/pretty_printer.h"
 #include "util/thread.h"
@@ -81,20 +81,13 @@ void config_handler(const WebPageHandler::ArgumentMap& args, std::stringstream* 
 }
 
 // Registered to handle "/memz", and prints out memory allocation statistics.
-void mem_usage_handler(const std::shared_ptr<MemTracker>& mem_tracker,
-                       const WebPageHandler::ArgumentMap& args, std::stringstream* output) {
-    if (mem_tracker != nullptr) {
-        (*output) << "<pre>"
-                  << "Mem Limit: " << PrettyPrinter::print(mem_tracker->limit(), TUnit::BYTES)
-                  << std::endl
-                  << "Mem Consumption: "
-                  << PrettyPrinter::print(mem_tracker->consumption(), TUnit::BYTES) << std::endl
-                  << "</pre>";
-    } else {
-        (*output) << "<pre>"
-                  << "No process memory limit set."
-                  << "</pre>";
-    }
+void mem_usage_handler(const WebPageHandler::ArgumentMap& args, std::stringstream* output) {
+    (*output) << "<pre>"
+                << "Mem Limit: " << PrettyPrinter::print(MemTrackerLimiter::get_process_tracker_limiter()->limit(), TUnit::BYTES)
+                << std::endl
+                << "Mem Consumption: "
+                << PrettyPrinter::print(MemTrackerLimiter::get_process_tracker_limiter()->consumption(), TUnit::BYTES) << std::endl
+                << "</pre>";
 
     (*output) << "<pre>";
 #if defined(ADDRESS_SANITIZER) || defined(LEAK_SANITIZER) || defined(THREAD_SANITIZER) || \
@@ -130,8 +123,8 @@ void mem_tracker_handler(const WebPageHandler::ArgumentMap& args, std::stringstr
                  "       data-search='true' "
                  "       class='table table-striped'>\n";
     (*output) << "<thead><tr>"
-                 "<th data-sortable='true' "
-                 ">Id</th>"
+                 "<th data-sortable='true'>Level</th>"
+                 "<th data-sortable='true'>Label</th>"
                  "<th>Parent</th>"
                  "<th>Limit</th>"
                  "<th data-sorter='bytesSorter' "
@@ -140,27 +133,27 @@ void mem_tracker_handler(const WebPageHandler::ArgumentMap& args, std::stringstr
                  "<th data-sorter='bytesSorter' "
                  "    data-sortable='true' "
                  ">Peak Consumption</th>"
-                 "<th data-sortable='true' "
-                 ">Use Count</th></tr></thead>";
+                 "</tr></thead>";
     (*output) << "<tbody>\n";
 
-    std::vector<shared_ptr<MemTracker>> trackers;
-    MemTracker::list_process_trackers(&trackers);
-    for (const shared_ptr<MemTracker>& tracker : trackers) {
-        string parent = tracker->parent() == nullptr ? "none" : tracker->parent()->label();
-        string limit_str;
-        string current_consumption_str;
-        string peak_consumption_str;
-        limit_str = tracker->limit() == -1 ? "none" : AccurateItoaKMGT(tracker->limit());
-        current_consumption_str = AccurateItoaKMGT(tracker->consumption());
-        peak_consumption_str = AccurateItoaKMGT(tracker->peak_consumption());
+    size_t upper_level;
+    size_t cur_level;
+    auto iter = args.find("upper_level");
+    if (iter != args.end()) {
+        upper_level = std::stol(iter->second);
+    } else {
+        upper_level = 2;
+    }
 
-        int64_t use_count = tracker.use_count();
+    std::vector<MemTracker::Snapshot> snapshots;
+    MemTrackerLimiter::get_process_tracker_limiter()->make_snapshot(&snapshots, cur_level, upper_level);
+    for (const auto& item : snapshots) {
+        string limit_str = item.limit == -1 ? "none" : AccurateItoaKMGT(item.limit);
+        string current_consumption_str = AccurateItoaKMGT(item.cur_consumption);
+        string peak_consumption_str = AccurateItoaKMGT(item.peak_consumption);
         (*output) << strings::Substitute(
-                "<tr><td>$0</td><td>$1</td><td>$2</td>"     // id, parent, limit
-                "<td>$3</td><td>$4</td><td>$5</td></tr>\n", // current, peak
-                tracker->label(), parent, limit_str, current_consumption_str, peak_consumption_str,
-                use_count);
+                "<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td></tr>\n",
+                item.level, item.label, item.parent, limit_str, current_consumption_str, peak_consumption_str);
     }
     (*output) << "</tbody></table>\n";
 }
@@ -342,16 +335,15 @@ void cpu_handler(const WebPageHandler::ArgumentMap& args, std::stringstream* out
 #endif
 }
 
-void add_default_path_handlers(WebPageHandler* web_page_handler,
-                               const std::shared_ptr<MemTracker>& process_mem_tracker) {
+void add_default_path_handlers(WebPageHandler* web_page_handler) {
     // TODO(yingchun): logs_handler is not implemented yet, so not show it on navigate bar
     web_page_handler->register_page("/logs", "Logs", logs_handler, false /* is_on_nav_bar */);
     web_page_handler->register_page("/varz", "Configs", config_handler, true /* is_on_nav_bar */);
-    web_page_handler->register_page("/memz", "Memory",
-                                    std::bind<void>(&mem_usage_handler, process_mem_tracker,
-                                                    std::placeholders::_1, std::placeholders::_2),
+    web_page_handler->register_page("/memz", "Memory", mem_usage_handler,
                                     true /* is_on_nav_bar */);
-    web_page_handler->register_page("/mem_tracker", "MemTracker", mem_tracker_handler,
+    web_page_handler->register_page("/mem_tracker", "MemTracker",
+                                    std::bind<void>(&mem_tracker_handler,
+                                                    std::placeholders::_1, std::placeholders::_2),
                                     true /* is_on_nav_bar */);
     web_page_handler->register_page("/heap", "Heap Profile", heap_handler,
                                     true /* is_on_nav_bar */);

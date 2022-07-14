@@ -41,7 +41,7 @@ public:
     std::unique_ptr<MemPool> _buffer_mem_pool;
 
     TupleRowZOrderCompareTest() {
-        _mem_tracker.reset(new MemTracker(-1));
+        _mem_tracker.reset(new MemTracker());
         _buffer_mem_pool.reset(new MemPool(_mem_tracker.get()));
     }
 

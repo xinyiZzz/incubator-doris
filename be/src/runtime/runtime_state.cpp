@@ -36,8 +36,8 @@
 #include "runtime/exec_env.h"
 #include "runtime/initial_reservations.h"
 #include "runtime/load_path_mgr.h"
-#include "runtime/mem_tracker.h"
-#include "runtime/mem_tracker_task_pool.h"
+#include "runtime/memory/mem_tracker.h"
+#include "runtime/memory/mem_tracker_task_pool.h"
 #include "runtime/runtime_filter_mgr.h"
 #include "util/file_utils.h"
 #include "util/load_error_hub.h"
@@ -217,13 +217,13 @@ Status RuntimeState::init(const TUniqueId& fragment_instance_id, const TQueryOpt
 Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
     bool has_query_mem_tracker = _query_options.__isset.mem_limit && (_query_options.mem_limit > 0);
     int64_t bytes_limit = has_query_mem_tracker ? _query_options.mem_limit : -1;
-    if (bytes_limit > MemTracker::get_process_tracker()->limit()) {
+    if (bytes_limit > MemTracker::get_process_tracker_limiter()->limit()) {
         VLOG_NOTICE << "Query memory limit " << PrettyPrinter::print(bytes_limit, TUnit::BYTES)
                     << " exceeds process memory limit of "
-                    << PrettyPrinter::print(MemTracker::get_process_tracker()->limit(),
+                    << PrettyPrinter::print(MemTracker::get_process_tracker_limiter()->limit(),
                                             TUnit::BYTES)
                     << ". Using process memory limit instead";
-        bytes_limit = MemTracker::get_process_tracker()->limit();
+        bytes_limit = MemTracker::get_process_tracker_limiter()->limit();
     }
     auto mem_tracker_counter = ADD_COUNTER(&_profile, "MemoryLimit", TUnit::BYTES);
     mem_tracker_counter->set(bytes_limit);
@@ -239,9 +239,9 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
         DCHECK(false);
     }
 
-    _instance_mem_tracker = MemTracker::create_tracker(
+    _instance_mem_tracker = std::make_unique<MemTrackerLimiter>(
             bytes_limit, "RuntimeState:instance:" + print_id(_fragment_instance_id),
-            _query_mem_tracker, MemTrackerLevel::INSTANCE, &_profile);
+            _query_mem_tracker, &_profile);
 
     RETURN_IF_ERROR(init_buffer_poolstate());
 
@@ -262,7 +262,7 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
 }
 
 Status RuntimeState::init_instance_mem_tracker() {
-    _instance_mem_tracker = MemTracker::create_tracker(-1, "RuntimeState");
+    _instance_mem_tracker = std::make_unique<MemTrackerLimiter>(-1, "RuntimeState");
     return Status::OK();
 }
 

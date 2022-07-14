@@ -21,7 +21,6 @@
 #include <gperftools/nallocx.h>
 #include <gperftools/tcmalloc.h>
 
-#include "runtime/mem_tracker.h"
 #include "runtime/thread_context.h"
 
 // Notice: modify the command in New/Delete Hook should be careful enough!,

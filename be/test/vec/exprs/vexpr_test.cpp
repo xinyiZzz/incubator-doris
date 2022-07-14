@@ -28,7 +28,7 @@
 #include "gen_cpp/Types_types.h"
 #include "runtime/exec_env.h"
 #include "runtime/large_int_value.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/memory/chunk_allocator.h"
 #include "runtime/primitive_type.h"
 #include "runtime/row_batch.h"

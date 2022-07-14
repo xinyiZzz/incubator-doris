@@ -60,7 +60,7 @@ Status ExchangeNode::init(const TPlanNode& tnode, RuntimeState* state) {
 
 Status ExchangeNode::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(ExecNode::prepare(state));
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     _convert_row_batch_timer = ADD_TIMER(runtime_profile(), "ConvertRowBatchTime");
     // TODO: figure out appropriate buffer size
     DCHECK_GT(_num_senders, 0);
@@ -79,7 +79,7 @@ Status ExchangeNode::prepare(RuntimeState* state) {
 
 Status ExchangeNode::open(RuntimeState* state) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     ADD_THREAD_LOCAL_MEM_TRACKER(_stream_recvr->mem_tracker());
     RETURN_IF_ERROR(ExecNode::open(state));
     if (_is_merging) {
@@ -134,7 +134,7 @@ Status ExchangeNode::fill_input_row_batch(RuntimeState* state) {
 
 Status ExchangeNode::get_next(RuntimeState* state, RowBatch* output_batch, bool* eos) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_EXISTED_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
 
     if (reached_limit()) {
         _stream_recvr->transfer_all_resources(output_batch);

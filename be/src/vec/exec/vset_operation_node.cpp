@@ -40,7 +40,6 @@ struct HashTableBuild {
 
         Defer defer {[&]() {
             int64_t bucket_bytes = hash_table_ctx.hash_table.get_buffer_size_in_bytes();
-            _operation_node->_hash_table_mem_tracker->consume(bucket_bytes - old_bucket_bytes);
             _operation_node->_mem_used += bucket_bytes - old_bucket_bytes;
         }};
 
@@ -86,7 +85,6 @@ Status VSetOperationNode::close(RuntimeState* state) {
     for (auto& exprs : _child_expr_lists) {
         VExpr::close(exprs, state);
     }
-    _hash_table_mem_tracker->release(_mem_used);
     return ExecNode::close(state);
 }
 
@@ -116,7 +114,7 @@ Status VSetOperationNode::init(const TPlanNode& tnode, RuntimeState* state) {
 Status VSetOperationNode::open(RuntimeState* state) {
     START_AND_SCOPE_SPAN(state->get_tracer(), span, "VSetOperationNode::open");
     SCOPED_TIMER(_runtime_profile->total_time_counter());
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
     RETURN_IF_ERROR(ExecNode::open(state));
     // open result expr lists.
     for (const std::vector<VExprContext*>& exprs : _child_expr_lists) {
@@ -129,8 +127,7 @@ Status VSetOperationNode::open(RuntimeState* state) {
 Status VSetOperationNode::prepare(RuntimeState* state) {
     SCOPED_TIMER(_runtime_profile->total_time_counter());
     RETURN_IF_ERROR(ExecNode::prepare(state));
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
-    _hash_table_mem_tracker = MemTracker::create_virtual_tracker(-1, "VSetOperationNode:HashTable");
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(_mem_tracker.get());
     _build_timer = ADD_TIMER(runtime_profile(), "BuildTime");
     _probe_timer = ADD_TIMER(runtime_profile(), "ProbeTime");
 
@@ -233,7 +230,7 @@ void VSetOperationNode::hash_table_init() {
 //build a hash table from child(0)
 Status VSetOperationNode::hash_table_build(RuntimeState* state) {
     RETURN_IF_ERROR(child(0)->open(state));
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER_ERR_CB(
+    SCOPED_THREAD_UPDATE_MEM_EXCEED_LIMIT_CB(
             "Vec Set Operation Node, while constructing the hash table");
     Block block;
     MutableBlock mutable_block(child(0)->row_desc().tuple_descriptors());
@@ -249,7 +246,6 @@ Status VSetOperationNode::hash_table_build(RuntimeState* state) {
                                        child(0)->get_next_span(), eos);
 
         size_t allocated_bytes = block.allocated_bytes();
-        _hash_table_mem_tracker->consume(allocated_bytes);
         _mem_used += allocated_bytes;
 
         if (block.rows() != 0) {

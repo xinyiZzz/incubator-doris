@@ -51,7 +51,7 @@ Segment::Segment(io::FileSystem* fs, const std::string& path, uint32_t segment_i
 #ifndef BE_TEST
     _mem_tracker = StorageEngine::instance()->tablet_mem_tracker();
 #else
-    _mem_tracker = MemTracker::get_process_tracker();
+    _mem_tracker = std::make_unique<MemTracker>("Segment");
 #endif
 }
 

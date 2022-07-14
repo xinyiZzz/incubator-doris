@@ -30,7 +30,7 @@
 #include "runtime/descriptor_helper.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/primitive_type.h"
 #include "runtime/row_batch.h"
 #include "runtime/tuple_row.h"

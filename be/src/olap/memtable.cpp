@@ -32,13 +32,14 @@ namespace doris {
 MemTable::MemTable(int64_t tablet_id, Schema* schema, const TabletSchema* tablet_schema,
                    const std::vector<SlotDescriptor*>* slot_descs, TupleDescriptor* tuple_desc,
                    KeysType keys_type, RowsetWriter* rowset_writer,
-                   const std::shared_ptr<MemTracker>& parent_tracker, bool support_vec)
+                   MemTracker* writer_mem_tracker, bool support_vec)
         : _tablet_id(tablet_id),
           _schema(schema),
           _tablet_schema(tablet_schema),
           _slot_descs(slot_descs),
           _keys_type(keys_type),
-          _mem_tracker(MemTracker::create_tracker(-1, "MemTable", parent_tracker)),
+          _mem_tracker(MemTracker::create_tracker(fmt::format("MemTable:tabletId={}", std::to_string(_tablet->tablet_id())))),
+          _writer_mem_tracker(writer_mem_tracker),
           _buffer_mem_pool(new MemPool(_mem_tracker.get())),
           _table_mem_pool(new MemPool(_mem_tracker.get())),
           _schema_size(_schema->schema_size()),
@@ -119,6 +120,7 @@ void MemTable::_init_agg_functions(const vectorized::Block* block) {
 
 MemTable::~MemTable() {
     std::for_each(_row_in_blocks.begin(), _row_in_blocks.end(), std::default_delete<RowInBlock>());
+    _writer_mem_tracker->release(_mem_tracker->consumption());
     _mem_tracker->release(_mem_usage);
     _buffer_mem_pool->free_all();
     _table_mem_pool->free_all();

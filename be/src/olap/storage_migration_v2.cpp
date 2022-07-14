@@ -56,7 +56,7 @@ DEFINE_GAUGE_METRIC_PROTOTYPE_5ARG(storage_migration_mem_consumption, MetricUnit
                                    mem_consumption, Labels({{"type", "storage_migration"}}));
 
 StorageMigrationV2Handler::StorageMigrationV2Handler()
-        : _mem_tracker(MemTracker::create_tracker(
+        : _mem_tracker(std::make_unique<MemTrackerLimiter>(
                   -1, "StorageMigrationV2Handler",
                   StorageEngine::instance()->storage_migration_mem_tracker())) {
     REGISTER_HOOK_METRIC(storage_migration_mem_consumption,

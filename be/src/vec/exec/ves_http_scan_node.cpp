@@ -64,7 +64,7 @@ Status VEsHttpScanNode::init(const TPlanNode& tnode, RuntimeState* state) {
 Status VEsHttpScanNode::prepare(RuntimeState* state) {
     VLOG_QUERY << "VEsHttpScanNode prepare";
     RETURN_IF_ERROR(ScanNode::prepare(state));
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
 
     _scanner_profile.reset(new RuntimeProfile("EsHttpScanNode"));
     runtime_profile()->add_child(_scanner_profile.get(), true, nullptr);
@@ -120,7 +120,7 @@ Status VEsHttpScanNode::build_conjuncts_list() {
 Status VEsHttpScanNode::open(RuntimeState* state) {
     START_AND_SCOPE_SPAN(state->get_tracer(), span, "VEsHttpScanNode::open");
     SCOPED_TIMER(_runtime_profile->total_time_counter());
-    SCOPED_SWITCH_TASK_THREAD_LOCAL_MEM_TRACKER(mem_tracker());
+    SCOPED_THREAD_CONSUME_MEM_TRACKER(mem_tracker());
     RETURN_IF_ERROR(ExecNode::open(state));
     RETURN_IF_CANCELLED(state);
 
@@ -384,7 +384,7 @@ void VEsHttpScanNode::debug_string(int ident_level, std::stringstream* out) cons
 
 void VEsHttpScanNode::scanner_worker(int start_idx, int length, std::promise<Status>& p_status) {
     START_AND_SCOPE_SPAN(_runtime_state->get_tracer(), span, "VEsHttpScanNode::scanner_worker");
-    SCOPED_ATTACH_TASK_THREAD(_runtime_state, mem_tracker());
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_runtime_state);
     // Clone expr context
     std::vector<ExprContext*> scanner_expr_ctxs;
     DCHECK(start_idx < length);

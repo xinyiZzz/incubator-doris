@@ -271,7 +271,7 @@ private:
     /// If non-nullptr, reservations are counted as memory consumption against this tracker.
     /// Does not change after initialization. Not owned.
     /// TODO: remove once all memory is accounted via ReservationTrackers.
-    MemTracker* mem_tracker_ = nullptr;
+    MemTrackerLimiter* mem_tracker_ = nullptr;
 
     /// The maximum reservation in bytes that this tracker can have.
     int64_t reservation_limit_;

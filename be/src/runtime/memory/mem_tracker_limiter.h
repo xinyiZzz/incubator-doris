@@ -18,13 +18,11 @@
 #pragma once
 
 #include "common/config.h"
-#include "runtime/memory/mem_tracker_base.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/runtime_state.h"
 #include "util/mem_info.h"
 
 namespace doris {
-
-class MemTrackerObserve;
 
 // Tracker contains an limit, and can be arranged into a tree structure such that the consumption
 // tracked by a MemTracker is also tracked by its ancestors.
@@ -46,75 +44,33 @@ class MemTrackerObserve;
 // called in the order they are added, so expensive functions should be added last.
 // GcFunctions are called with a global lock held, so should be non-blocking and not
 // call back into MemTrackers, except to release memory.
-class MemTrackerLimiter final : public MemTrackerBase {
+class MemTrackerLimiter final : public MemTracker {
 public:
-    // Creates and adds the tracker to the tree
-    static MemTrackerLimiter* create_tracker(int64_t byte_limit, const std::string& label,
-                                             MemTrackerLimiter* parent = nullptr,
-                                             RuntimeProfile* profile = nullptr);
-
-    // Walks the MemTrackerLimiter hierarchy and populates _ancestor_all_trackers and limit_trackers_
-    void init(int64_t limit);
+    // Creates and adds the tracker limiter to the tree
+    MemTrackerLimiter(int64_t byte_limit, const std::string& label, MemTrackerLimiter* parent  = nullptr, RuntimeProfile* profile = nullptr)
+            : MemTracker(label, profile, parent) {}
 
     ~MemTrackerLimiter();
 
-    // Adds tracker to _child_trackers
-    void add_child_tracker(MemTrackerLimiter* tracker);
-    void add_child_tracker(MemTrackerObserve* tracker);
-    // Remove tracker from _child_trackers
-    void remove_child_tracker(MemTrackerLimiter* tracker);
-    void remove_child_tracker(MemTrackerObserve* tracker);
+    void add_child(MemTrackerLimiter* tracker);
+    void add_child(MemTracker* tracker);
+    void remove_child(MemTrackerLimiter* tracker);
+    void remove_child(MemTracker* tracker);
+
+    // Gets a "process" tracker limiter, creating it if necessary.
+    static MemTrackerLimiter* get_process_tracker_limiter();
 
     // Leaf tracker, without any child
-    bool is_leaf() { _child_limiter_trackers.size() + _child_observe_trackers.size() == 0; }
+    bool is_leaf() { return _child_tracker_limiters.size() + _child_trackers.size() == 0; }
 
-    // Gets a "process" tracker, creating it if necessary.
-    static MemTrackerLimiter* get_process_tracker();
-
-    // Returns a list of all the valid trackers.
-    static void list_process_trackers(std::vector<MemTrackerBase*>* trackers);
-
-public:
-    // The following func, for execution logic that requires memory size to participate in control.
-    // this does not change the value of process tracker.
-
-    // only consume self, will not sync to parent. Usually used to manually record the specified memory,
-    // It is independent of the automatically recording of thread local tracker, so the same block of memory
-    // will be recorded in the thread local tracker and the current tracker at the same time.
-    void consume_self(int64_t bytes);
-    void release_self(int64_t bytes) { consume_self(-bytes); }
-
-    // up to (but not including) end_tracker.
-    // This is useful if we want to move tracking between trackers that share a common (i.e. end_tracker)
-    // ancestor. This happens when we want to update tracking on a particular mem tracker but the consumption
-    // against the limit recorded in one of its ancestors already happened.
-    void consume_local(int64_t bytes, MemTrackerLimiter* end_tracker);
-    void release_local(int64_t bytes, MemTrackerLimiter* end_tracker) {
-        consume_local(-bytes, end_tracker);
-    }
-
-    // Transfer 'bytes' of consumption from this tracker to 'dst'.
-    // Forced transfer, 'dst' may limit exceed, and more ancestor trackers will be updated.
+    // Transfer 'bytes' of consumption from this tracker limiter to 'dst'.
+    // Forced transfer, 'dst' may limit exceed, and more ancestor tracker limiters will be updated.
     void transfer_to(MemTrackerLimiter* dst, int64_t bytes);
 
-    // When the accumulated untracked memory value exceeds the upper limit,
-    // the current value is returned and set to 0.
-    // Thread safety.
-    int64_t add_untracked_mem(int64_t bytes);
-
-    // In most cases, no need to call flush_untracked_mem on the child tracker,
-    // because when it is destructed, theoretically all its children have been destructed.
-    void flush_untracked_mem() { consume(_untracked_mem.exchange(0)); }
-
-    // Find the common ancestor and update trackers between 'this'/'dst' and
-    // the common ancestor. This logic handles all cases, including the
-    // two trackers being the same or being ancestors of each other because
-    // 'all_trackers_' includes the current tracker.
-    MemTrackerLimiter* common_ancestor(MemTrackerLimiter* dst);
+    // Returns a list of all the valid tracker snapshots.
+    void make_snapshot(std::vector<MemTracker::Snapshot>* snapshots, size_t cur_level, size_t upper_level) const;
 
 public:
-    // The following func, for mem limit.
-
     Status check_sys_mem_info(int64_t bytes) {
         // TODO add mmap
         if (MemInfo::initialized() && MemInfo::current_mem() + bytes >= MemInfo::mem_limit()) {
@@ -132,26 +88,32 @@ public:
         _limit = limit;
     }
     bool limit_exceeded() const { return _limit >= 0 && _limit < consumption(); }
-    bool any_limit_exceeded() const { return limit_exceeded_tracker() != nullptr; }
 
-    // Returns true if a valid limit of this tracker or one of its ancestors is exceeded.
-    MemTrackerLimiter* limit_exceeded_tracker() const;
+    // Returns true if a valid limit of this tracker limiter or one of its ancestors is exceeded.
+    bool any_limit_exceeded() const {
+         for (const auto& tracker : _limited_ancestors) {
+            if (tracker->limit_exceeded()) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     Status check_limit(int64_t bytes);
 
     // Returns the maximum consumption that can be made without exceeding the limit on
-    // this tracker or any of its parents. Returns int64_t::max() if there are no
+    // this tracker limiter or any of its parents. Returns int64_t::max() if there are no
     // limits and a negative value if any limit is already exceeded.
     int64_t spare_capacity() const;
 
-    // Returns the lowest limit for this tracker and its ancestors. Returns -1 if there is no limit.
+    // Returns the lowest limit for this tracker limiter and its ancestors. Returns -1 if there is no limit.
     int64_t get_lowest_limit() const;
 
     typedef std::function<void(int64_t bytes_to_free)> GcFunction;
-    /// Add a function 'f' to be called if the limit is reached, if none of the other
-    /// previously-added GC functions were successful at freeing up enough memory.
-    /// 'f' does not need to be thread-safe as long as it is added to only one MemTrackerLimiter.
-    /// Note that 'f' must be valid for the lifetime of this MemTrackerLimiter.
+    // Add a function 'f' to be called if the limit is reached, if none of the other
+    // previously-added GC functions were successful at freeing up enough memory.
+    // 'f' does not need to be thread-safe as long as it is added to only one tracker limiter.
+    // Note that 'f' must be valid for the lifetime of this tracker limiter.
     void add_gc_function(GcFunction f) { _gc_functions.push_back(f); }
 
     // If consumption is higher than max_consumption, attempts to free memory by calling
@@ -161,12 +123,13 @@ public:
     bool gc_memory(int64_t max_consumption);
     Status try_gc_memory(int64_t bytes);
 
-    /// Logs the usage of this tracker and optionally its children (recursively).
-    /// If 'logged_consumption' is non-nullptr, sets the consumption value logged.
-    /// 'max_recursive_depth' specifies the maximum number of levels of children
-    /// to include in the dump. If it is zero, then no children are dumped.
-    /// Limiting the recursive depth reduces the cost of dumping, particularly
-    /// for the process MemTracker.
+public:
+    // Logs the usage of this tracker limiter and optionally its children (recursively).
+    // If 'logged_consumption' is non-nullptr, sets the consumption value logged.
+    // 'max_recursive_depth' specifies the maximum number of levels of children
+    // to include in the dump. If it is zero, then no children are dumped.
+    // Limiting the recursive depth reduces the cost of dumping, particularly
+    // for the process tracker limiter.
     std::string log_usage(int max_recursive_depth = INT_MAX, int64_t* logged_consumption = nullptr);
 
     // Log the memory usage when memory limit is exceeded and return a status object with
@@ -182,9 +145,8 @@ public:
         msg << "limit: " << _limit << "; "
             << "consumption: " << _consumption->current_value() << "; "
             << "label: " << _label << "; "
-            << "all tracker size: " << _ancestor_all_trackers.size() << "; "
-            << "limit trackers size: " << _ancestor_limiter_trackers.size() << "; "
-            << "parent is null: " << ((_parent == nullptr) ? "true" : "false") << "; ";
+            << "all ancestor size: " << _all_ancestors.size() - 1 << "; "
+            << "limited ancestor size: " << _limited_ancestors.size() -1  << "; ";
         return msg.str();
     }
 
@@ -192,11 +154,8 @@ private:
     // The following func, for automatic memory tracking and limiting based on system memory allocation.
     friend class ThreadMemTrackerMgr;
 
-    MemTrackerLimiter(const std::string& label, MemTrackerLimiter* parent, RuntimeProfile* profile)
-            : MemTrackerBase(label, parent, profile) {}
-
-    // Creates the process tracker.
-    static void create_process_tracker();
+    // Creates the process tracker limiter.
+    static void create_process_tracker_limiter();
 
     // Increases consumption of this tracker and its ancestors by 'bytes'.
     void consume(int64_t bytes);
@@ -206,13 +165,18 @@ private:
 
     // Increases consumption of this tracker and its ancestors by 'bytes' only if
     // they can all consume 'bytes' without exceeding limit. If limit would be exceed,
-    // no MemTrackers are updated. Returns true if the consumption was successfully updated.
+    // no MemTrackerLimiters are updated. Returns true if the consumption was successfully updated.
     WARN_UNUSED_RESULT
     Status try_consume(int64_t bytes);
 
-    /// Log consumption of all the trackers provided. Returns the sum of consumption in
-    /// 'logged_consumption'. 'max_recursive_depth' specifies the maximum number of levels
-    /// of children to include in the dump. If it is zero, then no children are dumped.
+    // It is used to move tracking between mem tracker limiters.
+    // In order to avoid the impact of frequent transfers on performance,
+    // when the accumulated untracked memory value exceeds the upper limit, the tracker is actually consumed.
+    void transfer_consume(int64_t bytes);
+
+    // Log consumption of all the trackers provided. Returns the sum of consumption in
+    // 'logged_consumption'. 'max_recursive_depth' specifies the maximum number of levels
+    // of children to include in the dump. If it is zero, then no children are dumped.
     static std::string log_usage(int max_recursive_depth,
                                  const std::list<MemTrackerLimiter*>& trackers,
                                  int64_t* logged_consumption);
@@ -222,22 +186,25 @@ private:
     int64_t _limit;
 
     // Consume size smaller than mem_tracker_consume_min_size_bytes will continue to accumulate
-    // to avoid frequent calls to consume/release of MemTracker.
+    // to avoid frequent calls to consume/release of MemTrackerLimiter.
     std::atomic<int64_t> _untracked_mem = 0;
 
-    // All the child trackers of this tracker. Used for error reporting and
-    // listing only (i.e. updating the consumption of a parent tracker does not
+    // Child trackers of this tracker limiter. Used for error reporting and
+    // listing only (i.e. updating the consumption of a parent tracker limiter does not
     // update that of its children).
-    SpinLock _child_trackers_lock;
-    std::list<MemTrackerLimiter*> _child_limiter_trackers;
-    std::list<MemTrackerObserve*> _child_observe_trackers;
-    // Iterator into parent_->_child_limiter_trackers for this object. Stored to have O(1) remove.
+    mutable std::mutex _child_tracker_limiter_lock;
+    std::list<MemTrackerLimiter*> _child_tracker_limiters;
+
+    mutable std::mutex _child_tracker_lock;
+    std::list<MemTracker*> _child_trackers;
+
+    // Iterator into parent_->_child_tracker_limiters for this object. Stored to have O(1) remove.
     std::list<MemTrackerLimiter*>::iterator _child_tracker_it;
 
-    // this tracker plus all of its ancestors
-    std::vector<MemTrackerLimiter*> _ancestor_all_trackers;
-    // _ancestor_all_trackers with valid limits
-    std::vector<MemTrackerLimiter*> _ancestor_limiter_trackers;
+    // this tracker limiter plus all of its ancestors
+    std::vector<MemTrackerLimiter*> _all_ancestors;
+    // _all_ancestors with valid limits
+    std::vector<MemTrackerLimiter*> _limited_ancestors;
 
     // Lock to protect gc_memory(). This prevents many GCs from occurring at once.
     std::mutex _gc_lock;
@@ -249,7 +216,7 @@ inline void MemTrackerLimiter::consume(int64_t bytes) {
     if (bytes == 0) {
         return;
     } else {
-        for (auto& tracker : _ancestor_all_trackers) {
+        for (auto& tracker : _all_ancestors) {
             tracker->_consumption->add(bytes);
         }
     }
@@ -263,8 +230,8 @@ inline Status MemTrackerLimiter::try_consume(int64_t bytes) {
     RETURN_IF_ERROR(check_sys_mem_info(bytes));
     int i;
     // Walk the tracker tree top-down.
-    for (i = _ancestor_all_trackers.size() - 1; i >= 0; --i) {
-        MemTrackerLimiter* tracker = _ancestor_all_trackers[i];
+    for (i = _all_ancestors.size() - 1; i >= 0; --i) {
+        MemTrackerLimiter* tracker = _all_ancestors[i];
         if (tracker->limit() < 0) {
             tracker->_consumption->add(bytes); // No limit at this tracker.
         } else {
@@ -276,8 +243,8 @@ inline Status MemTrackerLimiter::try_consume(int64_t bytes) {
                 Status st = tracker->try_gc_memory(bytes);
                 if (!st) {
                     // Failed for this mem tracker. Roll back the ones that succeeded.
-                    for (int j = _ancestor_all_trackers.size() - 1; j > i; --j) {
-                        _ancestor_all_trackers[j]->_consumption->add(-bytes);
+                    for (int j = _all_ancestors.size() - 1; j > i; --j) {
+                        _all_ancestors[j]->_consumption->add(-bytes);
                     }
                     return st;
                 }
@@ -289,35 +256,22 @@ inline Status MemTrackerLimiter::try_consume(int64_t bytes) {
     return Status::OK();
 }
 
-inline void MemTrackerLimiter::consume_self(int64_t bytes) {
-    int64_t consume_bytes = add_untracked_mem(bytes);
-    if (consume_bytes != 0) {
-        _consumption->add(consume_bytes);
-    }
-}
-
-inline void MemTrackerLimiter::consume_local(int64_t bytes, MemTrackerLimiter* end_tracker) {
-    DCHECK(end_tracker);
+inline void MemTrackerLimiter::transfer_consume(int64_t bytes) {
     if (bytes == 0) return;
-    for (auto& tracker : _ancestor_all_trackers) {
-        if (tracker == end_tracker) return;
-        tracker->consume_self(bytes);
+    for (auto& tracker : _all_ancestors) {
+        // transfer does not change the process, early termination.
+        if (tracker == MemTrackerLimiter::get_process_tracker_limiter()) return;
+        tracker->_untracked_mem += bytes;
+        if (std::abs(tracker->_untracked_mem) >= config::mem_tracker_consume_min_size_bytes) {
+            tracker->consume(tracker->_untracked_mem.exchange(0));
+        }
     }
 }
 
 inline void MemTrackerLimiter::transfer_to(MemTrackerLimiter* dst, int64_t bytes) {
-    DCHECK(dst->is_limited());
     if (id() == dst->id()) return;
-    release_local(bytes, MemTrackerLimiter::get_process_tracker());
-    dst->consume_local(bytes, MemTrackerLimiter::get_process_tracker());
-}
-
-inline int64_t MemTrackerLimiter::add_untracked_mem(int64_t bytes) {
-    _untracked_mem += bytes;
-    if (std::abs(_untracked_mem) >= config::mem_tracker_consume_min_size_bytes) {
-        return _untracked_mem.exchange(0);
-    }
-    return 0;
+    transfer_consume(-bytes);
+    dst->transfer_consume(bytes);
 }
 
 inline Status MemTrackerLimiter::check_limit(int64_t bytes) {
@@ -325,8 +279,8 @@ inline Status MemTrackerLimiter::check_limit(int64_t bytes) {
     RETURN_IF_ERROR(check_sys_mem_info(bytes));
     int i;
     // Walk the tracker tree top-down.
-    for (i = _ancestor_all_trackers.size() - 1; i >= 0; --i) {
-        MemTrackerLimiter* tracker = _ancestor_all_trackers[i];
+    for (i = _all_ancestors.size() - 1; i >= 0; --i) {
+        MemTrackerLimiter* tracker = _all_ancestors[i];
         if (tracker->limit() > 0) {
             while (true) {
                 if (LIKELY(tracker->_consumption->current_value() + bytes < tracker->limit()))

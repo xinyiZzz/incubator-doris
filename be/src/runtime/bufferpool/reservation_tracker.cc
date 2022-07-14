@@ -23,7 +23,7 @@
 #include "common/object_pool.h"
 #include "gutil/strings/substitute.h"
 #include "olap/utils.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "util/dummy_runtime_profile.h"
 #include "util/runtime_profile.h"
 
@@ -53,7 +53,7 @@ void ReservationTracker::InitRootTracker(RuntimeProfile* profile, int64_t reserv
 }
 
 void ReservationTracker::InitChildTracker(RuntimeProfile* profile, ReservationTracker* parent,
-                                          MemTracker* mem_tracker, int64_t reservation_limit) {
+                                          MemTrackerLimiter* mem_tracker, int64_t reservation_limit) {
     DCHECK(parent != nullptr);
     DCHECK_GE(reservation_limit, 0);
 
@@ -69,7 +69,7 @@ void ReservationTracker::InitChildTracker(RuntimeProfile* profile, ReservationTr
     initialized_ = true;
 
     if (mem_tracker_ != nullptr) {
-        MemTracker* parent_mem_tracker = GetParentMemTracker();
+        MemTrackerLimiter* parent_mem_tracker = GetParentMemTracker();
         if (parent_mem_tracker != nullptr) {
             // Make sure the parent links of the MemTrackers correspond to our parent links.
             DCHECK_EQ(parent_mem_tracker, mem_tracker_->parent().get());

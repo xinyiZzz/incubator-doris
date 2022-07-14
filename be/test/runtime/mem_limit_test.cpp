@@ -17,7 +17,7 @@
 
 #include <gtest/gtest.h>
 
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "util/logging.h"
 #include "util/metrics.h"
 

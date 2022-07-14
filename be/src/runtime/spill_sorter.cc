@@ -1025,7 +1025,7 @@ inline void SpillSorter::TupleSorter::swap(uint8_t* left, uint8_t* right) {
 SpillSorter::SpillSorter(const TupleRowComparator& compare_less_than,
                          const vector<ExprContext*>& slot_materialize_expr_ctxs,
                          RowDescriptor* output_row_desc,
-                         const std::shared_ptr<MemTracker>& mem_tracker, RuntimeProfile* profile,
+                         MemTracker* mem_tracker, RuntimeProfile* profile,
                          RuntimeState* state)
         : _state(state),
           _compare_less_than(compare_less_than),

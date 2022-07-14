@@ -63,7 +63,7 @@ SnapshotManager* SnapshotManager::instance() {
 
 Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* snapshot_path,
                                       bool* allow_incremental_clone) {
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_mem_tracker.get());
     Status res = Status::OK();
     if (snapshot_path == nullptr) {
         LOG(WARNING) << "output parameter cannot be null";
@@ -91,7 +91,7 @@ Status SnapshotManager::make_snapshot(const TSnapshotRequest& request, string* s
 Status SnapshotManager::release_snapshot(const string& snapshot_path) {
     // 如果请求的snapshot_path位于root/snapshot文件夹下，则认为是合法的，可以删除
     // 否则认为是非法请求，返回错误结果
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_mem_tracker.get());
     auto stores = StorageEngine::instance()->get_stores();
     for (auto store : stores) {
         std::string abs_path;
@@ -118,7 +118,7 @@ Status SnapshotManager::release_snapshot(const string& snapshot_path) {
 // AlphaRowsetMeta here.
 Status SnapshotManager::convert_rowset_ids(const std::string& clone_dir, int64_t tablet_id,
                                            int64_t replica_id, const int32_t& schema_hash) {
-    SCOPED_SWITCH_THREAD_LOCAL_MEM_TRACKER(_mem_tracker);
+    SCOPED_THREAD_ATTACH_LIMITER_MEM_TRACKER(_mem_tracker.get());
     Status res = Status::OK();
     // check clone dir existed
     if (!FileUtils::check_exist(clone_dir)) {

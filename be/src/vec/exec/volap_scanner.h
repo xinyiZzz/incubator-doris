@@ -37,7 +37,7 @@ class VOlapScanner {
 public:
     VOlapScanner(RuntimeState* runtime_state, VOlapScanNode* parent, bool aggregation,
                  bool need_agg_finalize, const TPaloScanRange& scan_range,
-                 const std::shared_ptr<MemTracker>& tracker);
+                 MemTracker* tracker);
     virtual ~VOlapScanner() = default;
 
     Status prepare(const TPaloScanRange& scan_range, const std::vector<OlapScanRange*>& key_ranges,
@@ -89,8 +89,6 @@ public:
 
     std::vector<bool>* mutable_runtime_filter_marks() { return &_runtime_filter_marks; }
 
-    const std::shared_ptr<MemTracker>& mem_tracker() const { return _mem_tracker; }
-
 private:
     Status _init_tablet_reader_params(
             const std::vector<OlapScanRange*>& key_ranges, const std::vector<TCondition>& filters,
@@ -139,7 +137,7 @@ private:
 
     MonotonicStopWatch _watcher;
 
-    std::shared_ptr<MemTracker> _mem_tracker;
+    MemTracker* _mem_tracker;
 
     VExprContext* _vconjunct_ctx = nullptr;
     bool _need_to_close = false;

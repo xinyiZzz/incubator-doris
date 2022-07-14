@@ -21,7 +21,7 @@
 
 #include <string>
 
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "util/logging.h"
 
 namespace doris {

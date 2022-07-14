@@ -33,7 +33,7 @@
 #include "gen_cpp/Types_types.h"
 #include "olap/options.h"
 #include "olap/row.h"
-#include "runtime/mem_tracker.h"
+#include "runtime/memory/mem_tracker.h"
 #include "runtime/primitive_type.h"
 #include "runtime/row_batch.h"
 #include "runtime/runtime_state.h"

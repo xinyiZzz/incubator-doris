@@ -71,7 +71,7 @@ private:
     StorageMigrationV2Handler(const StorageMigrationV2Handler&) = delete;
     StorageMigrationV2Handler& operator=(const StorageMigrationV2Handler&) = delete;
 
-    std::shared_ptr<MemTracker> _mem_tracker;
+    std::unique_ptr<MemTrackerLimiter> _mem_tracker;
 };
 
 } // namespace doris
