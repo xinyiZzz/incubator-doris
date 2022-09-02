@@ -252,6 +252,7 @@ Status PartitionedAggregationNode::open(RuntimeState* state) {
     // Claim reservation after the child has been opened to reduce the peak reservation
     // requirement.
     if (!_buffer_pool_client.is_registered() && !grouping_exprs_.empty()) {
+        DCHECK_GE(_resource_profile.min_reservation, MinReservation());
         RETURN_IF_ERROR(claim_buffer_reservation(state));
     }
 
@@ -276,7 +277,12 @@ Status PartitionedAggregationNode::open(RuntimeState* state) {
                         state, &intermediate_row_desc_, &_buffer_pool_client,
                         _resource_profile.spillable_buffer_size));
                 RETURN_IF_ERROR(serialize_stream_->Init(id(), false));
-                RETURN_IF_ERROR(serialize_stream_->PrepareForWrite());
+                bool got_buffer;
+                // Reserve the memory for 'serialize_stream_' so we don't need to scrounge up
+                // another buffer during spilling.
+                RETURN_IF_ERROR(serialize_stream_->PrepareForWrite(&got_buffer));
+                // DCHECK(got_buffer)
+                //         << "Accounted in min reservation" << _buffer_pool_client.DebugString();
                 DCHECK(serialize_stream_->has_write_iterator());
             }
         }
@@ -737,7 +743,14 @@ Status PartitionedAggregationNode::Partition::InitStreams() {
             parent->state_, &parent->intermediate_row_desc_, &parent->_buffer_pool_client,
             parent->_resource_profile.spillable_buffer_size, external_varlen_slots));
     RETURN_IF_ERROR(aggregated_row_stream->Init(parent->id(), true));
-    RETURN_IF_ERROR(aggregated_row_stream->PrepareForWrite());
+    bool got_buffer;
+    RETURN_IF_ERROR(aggregated_row_stream->PrepareForWrite(&got_buffer));
+    if (!got_buffer) {
+        LOG(WARNING) << "Buffer included in reservation " << parent->_id << "\n"
+                     << parent->_buffer_pool_client.DebugString() << "\n"
+                     << parent->DebugString(2);
+        return Status::BufferAllocFailed("PartitionedAggregationNode buffer prepare failed");
+    }
 
     if (!parent->is_streaming_preagg_) {
         unaggregated_row_stream.reset(new BufferedTupleStream3(
@@ -816,7 +829,9 @@ Status PartitionedAggregationNode::Partition::SerializeStreamForSpilling() {
                 parent->_resource_profile.spillable_buffer_size));
         status = parent->serialize_stream_->Init(parent->id(), false);
         if (status.ok()) {
-            status = parent->serialize_stream_->PrepareForWrite();
+            bool got_buffer;
+            status = parent->serialize_stream_->PrepareForWrite(&got_buffer);
+            // DCHECK(!status.ok() || got_buffer) << "Accounted in min reservation";
         }
         if (!status.ok()) {
             hash_tbl->Close();
@@ -860,7 +875,10 @@ Status PartitionedAggregationNode::Partition::Spill(bool more_aggregate_rows) {
         //    aggregated_row_stream->UnpinStream(BufferedTupleStream3::UNPIN_ALL_EXCEPT_CURRENT);
     } else {
         //    aggregated_row_stream->UnpinStream(BufferedTupleStream3::UNPIN_ALL);
-        RETURN_IF_ERROR(unaggregated_row_stream->PrepareForWrite());
+        bool got_buffer;
+        RETURN_IF_ERROR(unaggregated_row_stream->PrepareForWrite(&got_buffer));
+        // DCHECK(got_buffer) << "Accounted in min reservation"
+        //                    << parent->_buffer_pool_client.DebugString();
     }
 
     COUNTER_UPDATE(parent->num_spilled_partitions_, 1);
@@ -1176,6 +1194,16 @@ Status PartitionedAggregationNode::CheckAndResizeHashPartitions(
 Status PartitionedAggregationNode::NextPartition() {
     DCHECK(output_partition_ == nullptr);
 
+    if (!is_in_subplan() && spilled_partitions_.empty()) {
+        // All partitions are in memory. Release reservation that was used for previous
+        // partitions that is no longer needed. If we have spilled partitions, we want to
+        // hold onto all reservation in case it is needed to process the spilled partitions.
+        DCHECK(!_buffer_pool_client.has_unpinned_pages());
+        Status status = release_unused_reservation();
+        DCHECK(status.ok()) << "Should not fail - all partitions are in memory so there are "
+                            << "no unpinned pages. " << status.get_error_msg();
+    }
+
     // Keep looping until we get to a partition that fits in memory.
     Partition* partition = nullptr;
     while (true) {
@@ -1186,6 +1214,12 @@ Status PartitionedAggregationNode::NextPartition() {
             aggregated_partitions_.pop_front();
             break;
         }
+
+        // No aggregated partitions in memory - we should not be using any reservation aside
+        // from 'serialize_stream_'.
+        DCHECK_EQ(serialize_stream_ != nullptr ? serialize_stream_->BytesPinned(false) : 0,
+                  _buffer_pool_client.GetUsedReservation())
+                << _buffer_pool_client.DebugString();
 
         // Try to fit a single spilled partition in memory. We can often do this because
         // we only need to fit 1/PARTITION_FANOUT of the data in memory.
@@ -1245,6 +1279,11 @@ Status PartitionedAggregationNode::BuildSpilledPartition(Partition** built_parti
     if (dst_partition->is_spilled()) {
         PushSpilledPartition(dst_partition);
         *built_partition = nullptr;
+        // Spilled the partition - we should not be using any reservation except from
+        // 'serialize_stream_'.
+        DCHECK_EQ(serialize_stream_ != nullptr ? serialize_stream_->BytesPinned(false) : 0,
+                  _buffer_pool_client.GetUsedReservation())
+                << _buffer_pool_client.DebugString();
     } else {
         *built_partition = dst_partition;
     }
@@ -1274,7 +1313,9 @@ Status PartitionedAggregationNode::RepartitionSpilledPartition() {
         // The aggregated rows have been repartitioned. Free up at least a buffer's worth of
         // reservation and use it to pin the unaggregated write buffer.
         //    hash_partition->aggregated_row_stream->UnpinStream(BufferedTupleStream3::UNPIN_ALL);
-        RETURN_IF_ERROR(hash_partition->unaggregated_row_stream->PrepareForWrite());
+        bool got_buffer;
+        RETURN_IF_ERROR(hash_partition->unaggregated_row_stream->PrepareForWrite(&got_buffer));
+        // DCHECK(got_buffer) << "Accounted in min reservation" << _buffer_pool_client.DebugString();
     }
     RETURN_IF_ERROR(ProcessStream<false>(partition->unaggregated_row_stream.get()));
 
@@ -1296,7 +1337,13 @@ template <bool AGGREGATED_ROWS>
 Status PartitionedAggregationNode::ProcessStream(BufferedTupleStream3* input_stream) {
     DCHECK(!is_streaming_preagg_);
     if (input_stream->num_rows() > 0) {
-        RETURN_IF_ERROR(input_stream->PrepareForRead(true));
+        while (true) {
+            bool got_buffer = false;
+            RETURN_IF_ERROR(input_stream->PrepareForRead(true, &got_buffer));
+            if (got_buffer) break;
+            // Did not have a buffer to read the input stream. Spill and try again.
+            RETURN_IF_ERROR(SpillPartition(AGGREGATED_ROWS));
+        }
 
         bool eos = false;
         const RowDescriptor* desc =
