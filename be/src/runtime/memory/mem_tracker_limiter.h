@@ -269,12 +269,16 @@ inline int64_t MemTrackerLimiter::add_untracked_mem(int64_t bytes) {
 
 inline void MemTrackerLimiter::cache_consume_local(int64_t bytes) {
     if (bytes == 0) return;
-    int64_t consume_bytes = add_untracked_mem(bytes);
-    if (consume_bytes != 0) {
-        for (auto& tracker : _all_ancestors) {
-            if (tracker->label() == "Process") return;
-            tracker->_consumption->add(consume_bytes);
-        }
+    // int64_t consume_bytes = add_untracked_mem(bytes);
+    // if (consume_bytes != 0) {
+    //     for (auto& tracker : _all_ancestors) {
+    //         if (tracker->label() == "Process") return;
+    //         tracker->_consumption->add(consume_bytes);
+    //     }
+    // }
+    for (auto& tracker : _all_ancestors) {
+        if (tracker->label() == "Process") return;
+        tracker->_consumption->add(bytes);
     }
 }
 
