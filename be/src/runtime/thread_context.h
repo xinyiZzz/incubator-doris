@@ -159,15 +159,7 @@ public:
         init();
     }
 
-    ~ThreadContext() {
-        // Restore to the memory state before init=true to ensure accurate overall memory statistics.
-        // Thereby ensuring that the memory alloc size is not tracked during the initialization of the
-        // ThreadContext before `init = true in ThreadContextPtr()`,
-        // Equal to the size of the memory release that is not tracked during the destruction of the
-        // ThreadContext after `init = false in ~ThreadContextPtr()`,
-        if (ExecEnv::GetInstance()->initialized()) _thread_mem_tracker_mgr->clear();
-        thread_context_ptr.init = false;
-    }
+    ~ThreadContext() { thread_context_ptr.init = false; }
 
     void init() {
         _type = TaskType::UNKNOWN;
@@ -180,9 +172,11 @@ public:
                      const std::shared_ptr<MemTrackerLimiter>& mem_tracker) {
 #ifndef BE_TEST
         // will only attach_task at the beginning of the thread function, there should be no duplicate attach_task.
-        DCHECK((_type == TaskType::UNKNOWN || _type == TaskType::BRPC) &&
-               type != TaskType::UNKNOWN && _task_id == "" && mem_tracker != nullptr)
-                << ",new tracker label: " << mem_tracker->label() << ",old tracker label: "
+        DCHECK(mem_tracker != nullptr);
+        DCHECK((_type == TaskType::UNKNOWN || _type == TaskType::BRPC) && type != TaskType::UNKNOWN)
+                << ",new type" << TaskTypeStr[type]
+                << ", new tracker label: " << mem_tracker->label() << ",old type"
+                << TaskTypeStr[_type] << ", tracker label: "
                 << _thread_mem_tracker_mgr->limiter_mem_tracker_raw()->label();
 #endif
         _type = type;
@@ -237,7 +231,9 @@ private:
     TUniqueId _fragment_instance_id;
 };
 
-static void attach_bthread() {
+// Cache the pointer of bthread local in pthead local,
+// Avoid calling bthread_getspecific frequently to get bthread local, which has performance problems.
+static void pthread_attach_bthread() {
     bthread_id = bthread_self();
     bthread_context = static_cast<ThreadContext*>(bthread_getspecific(btls_key));
     if (bthread_context == nullptr) {
@@ -260,7 +256,6 @@ static void attach_bthread() {
         // 1. A new bthread starts, but get a reuses btls.
         // 2. A pthread switch occurs. Because the pthread switch cannot be accurately identified at the moment.
         // So tracker call reset 0 like reuses btls.
-        DCHECK(bthread_context->_thread_mem_tracker_mgr->get_attach_layers() == 2);
         bthread_context->_thread_mem_tracker_mgr->limiter_mem_tracker_raw()->reset_zero();
     }
 }
@@ -268,9 +263,9 @@ static void attach_bthread() {
 static ThreadContext* thread_context() {
     if (bthread_self() != 0) {
         if (bthread_self() != bthread_id) {
-            // A new bthread starts or pthread switch occurs.
+            // A new bthread starts or pthread switch occurs, during this period, stop the use of thread_context.
             thread_context_ptr.init = false;
-            attach_bthread();
+            pthread_attach_bthread();
             thread_context_ptr.init = true;
         }
         return bthread_context;
@@ -307,6 +302,9 @@ public:
             const std::shared_ptr<MemTrackerLimiter>& mem_tracker_limiter);
 
     ~SwitchThreadMemTrackerLimiter();
+
+private:
+    std::shared_ptr<MemTrackerLimiter> _old_mem_tracker;
 };
 
 class AddThreadMemTrackerConsumer {

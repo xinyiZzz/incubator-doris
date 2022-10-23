@@ -62,12 +62,14 @@ static void thread_context_deleter(void* d) {
 }
 
 template <typename T>
-class NewHttpClosure : public ::google::protobuf::Closure {
+class NewClosure : public ::google::protobuf::Closure {
 public:
-    NewHttpClosure(T* request, google::protobuf::Closure* done) : _request(request), _done(done) {}
-    ~NewHttpClosure() {}
+    NewClosure(google::protobuf::Closure* done) : _done(done) {}
+    NewClosure(T* request, google::protobuf::Closure* done) : _request(request), _done(done) {}
+    ~NewClosure() {}
 
     void Run() {
+        SCOPED_SWITCH_THREAD_MEM_TRACKER_LIMITER(ExecEnv::GetInstance()->orphan_mem_tracker());
         if (_request != nullptr) {
             delete _request;
             _request = nullptr;
@@ -102,22 +104,22 @@ void PInternalServiceImpl::transmit_data(google::protobuf::RpcController* cntl_b
                                          PTransmitDataResult* response,
                                          google::protobuf::Closure* done) {
     // TODO(zxy) delete in 1.2 version
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
     attachment_transfer_request_row_batch<PTransmitDataParams>(request, cntl);
 
-    _transmit_data(cntl_base, request, response, done, Status::OK());
+    _transmit_data(cntl_base, request, response, new_done, Status::OK());
 }
 
 void PInternalServiceImpl::transmit_data_by_http(google::protobuf::RpcController* cntl_base,
                                                  const PEmptyRequest* request,
                                                  PTransmitDataResult* response,
                                                  google::protobuf::Closure* done) {
-    PTransmitDataParams* request_raw = new PTransmitDataParams();
-    google::protobuf::Closure* done_raw =
-            new NewHttpClosure<PTransmitDataParams>(request_raw, done);
+    PTransmitDataParams* new_request = new PTransmitDataParams();
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(new_request, done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
-    Status st = attachment_extract_request_contain_tuple<PTransmitDataParams>(request_raw, cntl);
-    _transmit_data(cntl_base, request_raw, response, done_raw, st);
+    Status st = attachment_extract_request_contain_tuple<PTransmitDataParams>(new_request, cntl);
+    _transmit_data(cntl_base, new_request, response, new_done, st);
 }
 
 void PInternalServiceImpl::_transmit_data(google::protobuf::RpcController* cntl_base,
@@ -219,23 +221,24 @@ void PInternalServiceImpl::tablet_writer_add_block(google::protobuf::RpcControll
                                                    PTabletWriterAddBlockResult* response,
                                                    google::protobuf::Closure* done) {
     // TODO(zxy) delete in 1.2 version
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
     attachment_transfer_request_block<PTabletWriterAddBlockRequest>(request, cntl);
 
-    _tablet_writer_add_block(cntl_base, request, response, done);
+    _tablet_writer_add_block(cntl_base, request, response, new_done);
 }
 
 void PInternalServiceImpl::tablet_writer_add_block_by_http(
         google::protobuf::RpcController* cntl_base, const ::doris::PEmptyRequest* request,
         PTabletWriterAddBlockResult* response, google::protobuf::Closure* done) {
-    PTabletWriterAddBlockRequest* request_raw = new PTabletWriterAddBlockRequest();
-    google::protobuf::Closure* done_raw =
-            new NewHttpClosure<PTabletWriterAddBlockRequest>(request_raw, done);
+    PTabletWriterAddBlockRequest* new_request = new PTabletWriterAddBlockRequest();
+    google::protobuf::Closure* new_done =
+            new NewClosure<PTabletWriterAddBlockRequest>(new_request, done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
-    Status st = attachment_extract_request_contain_block<PTabletWriterAddBlockRequest>(request_raw,
+    Status st = attachment_extract_request_contain_block<PTabletWriterAddBlockRequest>(new_request,
                                                                                        cntl);
     if (st.ok()) {
-        _tablet_writer_add_block(cntl_base, request_raw, response, done_raw);
+        _tablet_writer_add_block(cntl_base, new_request, response, new_done);
     } else {
         st.to_protobuf(response->mutable_status());
     }
@@ -274,20 +277,21 @@ void PInternalServiceImpl::tablet_writer_add_batch(google::protobuf::RpcControll
                                                    const PTabletWriterAddBatchRequest* request,
                                                    PTabletWriterAddBatchResult* response,
                                                    google::protobuf::Closure* done) {
-    _tablet_writer_add_batch(cntl_base, request, response, done);
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(done);
+    _tablet_writer_add_batch(cntl_base, request, response, new_done);
 }
 
 void PInternalServiceImpl::tablet_writer_add_batch_by_http(
         google::protobuf::RpcController* cntl_base, const ::doris::PEmptyRequest* request,
         PTabletWriterAddBatchResult* response, google::protobuf::Closure* done) {
-    PTabletWriterAddBatchRequest* request_raw = new PTabletWriterAddBatchRequest();
-    google::protobuf::Closure* done_raw =
-            new NewHttpClosure<PTabletWriterAddBatchRequest>(request_raw, done);
+    PTabletWriterAddBatchRequest* new_request = new PTabletWriterAddBatchRequest();
+    google::protobuf::Closure* new_done =
+            new NewClosure<PTabletWriterAddBatchRequest>(new_request, done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
-    Status st = attachment_extract_request_contain_tuple<PTabletWriterAddBatchRequest>(request_raw,
+    Status st = attachment_extract_request_contain_tuple<PTabletWriterAddBatchRequest>(new_request,
                                                                                        cntl);
     if (st.ok()) {
-        _tablet_writer_add_batch(cntl_base, request_raw, response, done_raw);
+        _tablet_writer_add_batch(cntl_base, new_request, response, new_done);
     } else {
         st.to_protobuf(response->mutable_status());
     }
@@ -611,22 +615,22 @@ void PInternalServiceImpl::transmit_block(google::protobuf::RpcController* cntl_
                                           PTransmitDataResult* response,
                                           google::protobuf::Closure* done) {
     // TODO(zxy) delete in 1.2 version
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
     attachment_transfer_request_block<PTransmitDataParams>(request, cntl);
 
-    _transmit_block(cntl_base, request, response, done, Status::OK());
+    _transmit_block(cntl_base, request, response, new_done, Status::OK());
 }
 
 void PInternalServiceImpl::transmit_block_by_http(google::protobuf::RpcController* cntl_base,
                                                   const PEmptyRequest* request,
                                                   PTransmitDataResult* response,
                                                   google::protobuf::Closure* done) {
-    PTransmitDataParams* request_raw = new PTransmitDataParams();
-    google::protobuf::Closure* done_raw =
-            new NewHttpClosure<PTransmitDataParams>(request_raw, done);
+    PTransmitDataParams* new_request = new PTransmitDataParams();
+    google::protobuf::Closure* new_done = new NewClosure<PTransmitDataParams>(new_request, done);
     brpc::Controller* cntl = static_cast<brpc::Controller*>(cntl_base);
-    Status st = attachment_extract_request_contain_block<PTransmitDataParams>(request_raw, cntl);
-    _transmit_block(cntl_base, request_raw, response, done_raw, st);
+    Status st = attachment_extract_request_contain_block<PTransmitDataParams>(new_request, cntl);
+    _transmit_block(cntl_base, new_request, response, new_done, st);
 }
 
 void PInternalServiceImpl::_transmit_block(google::protobuf::RpcController* cntl_base,

@@ -67,12 +67,13 @@ AttachTask::~AttachTask() {
 SwitchThreadMemTrackerLimiter::SwitchThreadMemTrackerLimiter(
         const std::shared_ptr<MemTrackerLimiter>& mem_tracker_limiter) {
     DCHECK(mem_tracker_limiter);
+    _old_mem_tracker = thread_context()->_thread_mem_tracker_mgr->limiter_mem_tracker();
     thread_context()->_thread_mem_tracker_mgr->attach_limiter_tracker("", TUniqueId(),
                                                                       mem_tracker_limiter);
 }
 
 SwitchThreadMemTrackerLimiter::~SwitchThreadMemTrackerLimiter() {
-    thread_context()->_thread_mem_tracker_mgr->detach_limiter_tracker();
+    thread_context()->_thread_mem_tracker_mgr->detach_limiter_tracker(_old_mem_tracker);
 }
 
 AddThreadMemTrackerConsumer::AddThreadMemTrackerConsumer(MemTracker* mem_tracker) {

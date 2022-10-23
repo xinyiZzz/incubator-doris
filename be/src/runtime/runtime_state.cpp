@@ -243,8 +243,7 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
                 _exec_env->task_pool_mem_tracker_registry()->register_load_scanner_mem_tracker(
                         print_id(query_id));
     } else {
-        DCHECK(false);
-        _query_mem_tracker = ExecEnv::GetInstance()->query_pool_mem_tracker();
+        CHECK(false) << "query_typ: " << query_type();
     }
     _query_mem_tracker->enable_reset_zero();
 
