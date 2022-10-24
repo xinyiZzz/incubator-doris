@@ -148,7 +148,7 @@ void PInternalServiceImpl::_transmit_data(google::protobuf::RpcController* cntl_
     Status st;
     st.to_protobuf(response->mutable_status());
     if (extract_st.ok()) {
-        SCOPED_ATTACH_TASK(transmit_tracker, ThreadContext::TaskType::QUERY, query_id, finst_id);
+        SCOPED_ATTACH_TASK(transmit_tracker, query_id, finst_id);
         st = _exec_env->stream_mgr()->transmit_data(request, &done);
         if (!st.ok()) {
             LOG(WARNING) << "transmit_data failed, message=" << st.get_error_msg()
@@ -660,7 +660,7 @@ void PInternalServiceImpl::_transmit_block(google::protobuf::RpcController* cntl
     Status st;
     st.to_protobuf(response->mutable_status());
     if (extract_st.ok()) {
-        SCOPED_ATTACH_TASK(transmit_tracker, ThreadContext::TaskType::QUERY, query_id, finst_id);
+        SCOPED_ATTACH_TASK(transmit_tracker, query_id, finst_id);
         st = _exec_env->vstream_mgr()->transmit_block(request, &done);
         if (!st.ok()) {
             LOG(WARNING) << "transmit_block failed, message=" << st.get_error_msg()

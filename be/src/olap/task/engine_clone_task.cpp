@@ -61,7 +61,7 @@ EngineCloneTask::EngineCloneTask(const TCloneReq& clone_req, const TMasterInfo& 
 
 Status EngineCloneTask::execute() {
     // register the tablet to avoid it is deleted by gc thread during clone process
-    SCOPED_ATTACH_TASK(_mem_tracker, ThreadContext::TaskType::STORAGE);
+    SCOPED_ATTACH_TASK(_mem_tracker);
     StorageEngine::instance()->tablet_manager()->register_clone_tablet(_clone_req.tablet_id);
     Status st = _do_clone();
     StorageEngine::instance()->tablet_manager()->unregister_clone_tablet(_clone_req.tablet_id);

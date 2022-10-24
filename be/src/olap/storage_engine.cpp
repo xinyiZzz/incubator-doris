@@ -166,7 +166,7 @@ void StorageEngine::load_data_dirs(const std::vector<DataDir*>& data_dirs) {
     std::vector<std::thread> threads;
     for (auto data_dir : data_dirs) {
         threads.emplace_back([this, data_dir] {
-            SCOPED_ATTACH_TASK(_mem_tracker, ThreadContext::TaskType::STORAGE);
+            SCOPED_ATTACH_TASK(_mem_tracker);
             auto res = data_dir->load();
             if (!res.ok()) {
                 LOG(WARNING) << "io error when init load tables. res=" << res
@@ -212,7 +212,7 @@ Status StorageEngine::_init_store_map() {
                                      _tablet_manager.get(), _txn_manager.get());
         tmp_stores.emplace_back(store);
         threads.emplace_back([this, store, &error_msg_lock, &error_msg]() {
-            SCOPED_ATTACH_TASK(_mem_tracker, ThreadContext::TaskType::STORAGE);
+            SCOPED_ATTACH_TASK(_mem_tracker);
             auto st = store->init();
             if (!st.ok()) {
                 {

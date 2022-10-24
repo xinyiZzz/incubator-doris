@@ -141,19 +141,6 @@ inline thread_local bthread_t bthread_id;
 // There may be other optional info to be added later.
 class ThreadContext {
 public:
-    enum TaskType {
-        UNKNOWN = 0,
-        QUERY = 1,
-        LOAD = 2,
-        COMPACTION = 3,
-        STORAGE = 4,
-        BRPC = 5
-        // to be added ...
-    };
-    inline static const std::string TaskTypeStr[] = {"UNKNOWN",    "QUERY",   "LOAD",
-                                                     "COMPACTION", "STORAGE", "BRPC"};
-
-public:
     ThreadContext() {
         _thread_mem_tracker_mgr.reset(new ThreadMemTrackerMgr());
         init();
@@ -162,53 +149,30 @@ public:
     ~ThreadContext() { thread_context_ptr.init = false; }
 
     void init() {
-        _type = TaskType::UNKNOWN;
         if (ExecEnv::GetInstance()->initialized()) _thread_mem_tracker_mgr->init();
         _thread_id = get_thread_id();
     }
 
-    void attach_task(const TaskType& type, const std::string& task_id,
-                     const TUniqueId& fragment_instance_id,
+    void attach_task(const std::string& task_id, const TUniqueId& fragment_instance_id,
                      const std::shared_ptr<MemTrackerLimiter>& mem_tracker) {
 #ifndef BE_TEST
         // will only attach_task at the beginning of the thread function, there should be no duplicate attach_task.
         DCHECK(mem_tracker != nullptr);
-        DCHECK((_type == TaskType::UNKNOWN || _type == TaskType::BRPC) && type != TaskType::UNKNOWN)
-                << ",new type" << TaskTypeStr[type]
-                << ", new tracker label: " << mem_tracker->label() << ",old type"
-                << TaskTypeStr[_type] << ", tracker label: "
-                << _thread_mem_tracker_mgr->limiter_mem_tracker_raw()->label();
 #endif
-        _type = type;
         _task_id = task_id;
         _fragment_instance_id = fragment_instance_id;
         _thread_mem_tracker_mgr->attach_limiter_tracker(task_id, fragment_instance_id, mem_tracker);
     }
 
     void detach_task() {
-        _type = TaskType::UNKNOWN;
         _task_id = "";
         _fragment_instance_id = TUniqueId();
         _thread_mem_tracker_mgr->detach_limiter_tracker();
     }
 
-    const TaskType& type() const { return _type; }
-    const void set_type(const TaskType& type) { _type = type; }
     const std::string& task_id() const { return _task_id; }
     const std::string& thread_id_str() const { return _thread_id; }
     const TUniqueId& fragment_instance_id() const { return _fragment_instance_id; }
-
-    static TaskType query_to_task_type(const TQueryType::type& query_type) {
-        switch (query_type) {
-        case TQueryType::SELECT:
-            return TaskType::QUERY;
-        case TQueryType::LOAD:
-            return TaskType::LOAD;
-        default:
-            DCHECK(false);
-            return TaskType::UNKNOWN;
-        }
-    }
 
     std::string get_thread_id() {
         std::stringstream ss;
@@ -226,7 +190,6 @@ public:
 
 private:
     std::string _thread_id;
-    TaskType _type;
     std::string _task_id;
     TUniqueId _fragment_instance_id;
 };
@@ -248,7 +211,7 @@ static void pthread_attach_bthread() {
         std::shared_ptr<MemTrackerLimiter> btls_tracker =
                 std::make_shared<MemTrackerLimiter>(-1, "Bthread:id=" + std::to_string(bthread_id),
                                                     ExecEnv::GetInstance()->bthread_mem_tracker());
-        bthread_context->attach_task(ThreadContext::TaskType::BRPC, "", TUniqueId(), btls_tracker);
+        bthread_context->attach_task("", TUniqueId(), btls_tracker);
         // set the data so that next time bthread_getspecific in the thread returns the data.
         CHECK_EQ(0, bthread_setspecific(btls_key, bthread_context));
     } else {
@@ -287,7 +250,6 @@ private:
 class AttachTask {
 public:
     explicit AttachTask(const std::shared_ptr<MemTrackerLimiter>& mem_tracker,
-                        const ThreadContext::TaskType& type = ThreadContext::TaskType::UNKNOWN,
                         const std::string& task_id = "",
                         const TUniqueId& fragment_instance_id = TUniqueId());
 

@@ -394,9 +394,7 @@ void VOlapScanNode::transfer_thread(RuntimeState* state) {
 }
 
 void VOlapScanNode::scanner_thread(VOlapScanner* scanner) {
-    SCOPED_ATTACH_TASK(_runtime_state->scanner_mem_tracker(),
-                       ThreadContext::query_to_task_type(_runtime_state->query_type()),
-                       print_id(_runtime_state->query_id()),
+    SCOPED_ATTACH_TASK(_runtime_state->scanner_mem_tracker(), print_id(_runtime_state->query_id()),
                        _runtime_state->fragment_instance_id());
     Thread::set_self_name("volap_scanner");
     int64_t wait_time = scanner->update_wait_worker_timer();

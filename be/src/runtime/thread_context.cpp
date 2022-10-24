@@ -39,10 +39,9 @@ ScopeMemCount::~ScopeMemCount() {
 }
 
 AttachTask::AttachTask(const std::shared_ptr<MemTrackerLimiter>& mem_tracker,
-                       const ThreadContext::TaskType& type, const std::string& task_id,
-                       const TUniqueId& fragment_instance_id) {
+                       const std::string& task_id, const TUniqueId& fragment_instance_id) {
     DCHECK(mem_tracker);
-    thread_context()->attach_task(type, task_id, fragment_instance_id, mem_tracker);
+    thread_context()->attach_task(task_id, fragment_instance_id, mem_tracker);
 }
 
 AttachTask::AttachTask(RuntimeState* runtime_state) {
@@ -51,8 +50,7 @@ AttachTask::AttachTask(RuntimeState* runtime_state) {
     DCHECK(runtime_state->fragment_instance_id() != TUniqueId());
 #endif // BE_TEST
     DCHECK(runtime_state->instance_mem_tracker());
-    thread_context()->attach_task(ThreadContext::query_to_task_type(runtime_state->query_type()),
-                                  print_id(runtime_state->query_id()),
+    thread_context()->attach_task(print_id(runtime_state->query_id()),
                                   runtime_state->fragment_instance_id(),
                                   runtime_state->instance_mem_tracker());
 }

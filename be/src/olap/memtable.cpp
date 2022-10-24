@@ -54,7 +54,7 @@ MemTable::MemTable(TabletSharedPtr tablet, Schema* schema, const TabletSchema* t
           _rowset_ids(rowset_ids),
           _cur_max_version(cur_max_version) {
     _mem_tracker_hook->enable_reset_zero();
-    SCOPED_ATTACH_TASK(_mem_tracker_hook, ThreadContext::TaskType::LOAD);
+    SCOPED_ATTACH_TASK(_mem_tracker_hook);
     _mem_tracker_manual = std::make_unique<MemTracker>(
             fmt::format("MemTableManual:tabletId={}", std::to_string(tablet_id())));
     _buffer_mem_pool = std::make_unique<MemPool>(_mem_tracker_manual.get());
@@ -176,7 +176,7 @@ int MemTable::RowInBlockComparator::operator()(const RowInBlock* left,
 }
 
 void MemTable::insert(const vectorized::Block* input_block, const std::vector<int>& row_idxs) {
-    SCOPED_ATTACH_TASK(_mem_tracker_hook, ThreadContext::TaskType::LOAD);
+    SCOPED_ATTACH_TASK(_mem_tracker_hook);
     auto target_block = input_block->copy_block(_column_offset);
     if (_is_first_insertion) {
         _is_first_insertion = false;
@@ -392,7 +392,7 @@ void MemTable::_collect_vskiplist_results() {
 }
 
 void MemTable::shrink_memtable_by_agg() {
-    SCOPED_ATTACH_TASK(_mem_tracker_hook, ThreadContext::TaskType::LOAD);
+    SCOPED_ATTACH_TASK(_mem_tracker_hook);
     if (keys_type() == KeysType::DUP_KEYS) {
         return;
     }
@@ -434,7 +434,7 @@ Status MemTable::_generate_delete_bitmap() {
 }
 
 Status MemTable::flush() {
-    SCOPED_ATTACH_TASK(_mem_tracker_hook, ThreadContext::TaskType::LOAD);
+    SCOPED_ATTACH_TASK(_mem_tracker_hook);
     VLOG_CRITICAL << "begin to flush memtable for tablet: " << tablet_id()
                   << ", memsize: " << memory_usage() << ", rows: " << _rows;
     int64_t duration_ns = 0;

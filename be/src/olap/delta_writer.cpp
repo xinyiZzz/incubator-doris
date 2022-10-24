@@ -164,7 +164,7 @@ Status DeltaWriter::write(Tuple* tuple) {
         return Status::OLAPInternalError(OLAP_ERR_ALREADY_CANCELLED);
     }
 
-    SCOPED_ATTACH_TASK(_mem_tracker, ThreadContext::TaskType::LOAD);
+    SCOPED_ATTACH_TASK(_mem_tracker);
 
     _mem_table->insert(tuple);
 

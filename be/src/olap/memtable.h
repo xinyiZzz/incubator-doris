@@ -54,7 +54,7 @@ public:
     size_t memory_usage() const { return _mem_tracker_manual->consumption(); }
 
     inline void insert(const Tuple* tuple) {
-        SCOPED_ATTACH_TASK(_mem_tracker_hook, ThreadContext::TaskType::LOAD);
+        SCOPED_ATTACH_TASK(_mem_tracker_hook);
         (this->*_insert_fn)(tuple);
     }
     // insert tuple from (row_pos) to (row_pos+num_rows)
