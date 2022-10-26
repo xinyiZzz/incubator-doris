@@ -25,7 +25,7 @@
 
 namespace doris {
 
-LoadChannel::LoadChannel(const UniqueId& load_id, std::shared_ptr<MemTrackerLimiter>& mem_tracker,
+LoadChannel::LoadChannel(const UniqueId& load_id, std::shared_ptr<MemTracker>& mem_tracker,
                          int64_t timeout_s, bool is_high_priority, const std::string& sender_ip,
                          bool is_vec)
         : _load_id(load_id),
@@ -38,7 +38,6 @@ LoadChannel::LoadChannel(const UniqueId& load_id, std::shared_ptr<MemTrackerLimi
     // _load_channels in load_channel_mgr, or it may be erased
     // immediately by gc thread.
     _last_updated_time.store(time(nullptr));
-    _mem_tracker->enable_reset_zero();
 }
 
 LoadChannel::~LoadChannel() {
@@ -59,7 +58,7 @@ Status LoadChannel::open(const PTabletWriterOpenRequest& params) {
         } else {
             // create a new tablets channel
             TabletsChannelKey key(params.id(), index_id);
-            channel.reset(new TabletsChannel(key, _mem_tracker, _is_high_priority, _is_vec));
+            channel.reset(new TabletsChannel(key, _is_high_priority, _is_vec));
             _tablets_channels.insert({index_id, channel});
         }
     }
@@ -69,6 +68,15 @@ Status LoadChannel::open(const PTabletWriterOpenRequest& params) {
     _opened = true;
     _last_updated_time.store(time(nullptr));
     return Status::OK();
+}
+
+int64_t LoadChannel::mem_consumption() const {
+    int64_t mem_usage = 0;
+    for (auto& it : _tablets_channels) {
+        mem_usage += it.second->mem_consumption();
+    }
+    _mem_tracker->set_consumption(mem_usage);
+    return mem_usage;
 }
 
 Status LoadChannel::_get_tablets_channel(std::shared_ptr<TabletsChannel>& channel,

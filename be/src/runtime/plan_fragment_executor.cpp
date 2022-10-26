@@ -230,7 +230,7 @@ Status PlanFragmentExecutor::prepare(const TExecPlanFragmentParams& request,
 }
 
 Status PlanFragmentExecutor::open() {
-    int64_t mem_limit = _runtime_state->instance_mem_tracker()->limit();
+    int64_t mem_limit = _runtime_state->query_mem_tracker()->limit();
     LOG_INFO("PlanFragmentExecutor::open")
             .tag("query_id", _query_id)
             .tag("instance_id", _runtime_state->fragment_instance_id())
@@ -459,7 +459,7 @@ void PlanFragmentExecutor::_collect_node_statistics() {
     DCHECK(_runtime_state->backend_id() != -1);
     NodeStatistics* node_statistics =
             _query_statistics->add_nodes_statistics(_runtime_state->backend_id());
-    node_statistics->add_peak_memory(_runtime_state->instance_mem_tracker()->peak_consumption());
+    node_statistics->add_peak_memory(_runtime_state->query_mem_tracker()->peak_consumption());
 }
 
 void PlanFragmentExecutor::report_profile() {

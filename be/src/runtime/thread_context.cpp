@@ -50,11 +50,11 @@ AttachTask::AttachTask(RuntimeState* runtime_state) {
     DCHECK(print_id(runtime_state->query_id()) != "");
     DCHECK(runtime_state->fragment_instance_id() != TUniqueId());
 #endif // BE_TEST
-    DCHECK(runtime_state->instance_mem_tracker());
+    DCHECK(runtime_state->query_mem_tracker());
     thread_context()->attach_task(ThreadContext::query_to_task_type(runtime_state->query_type()),
                                   print_id(runtime_state->query_id()),
                                   runtime_state->fragment_instance_id(),
-                                  runtime_state->instance_mem_tracker());
+                                  runtime_state->query_mem_tracker());
 }
 
 AttachTask::~AttachTask() {
@@ -65,11 +65,10 @@ AttachTask::~AttachTask() {
 }
 
 SwitchThreadMemTrackerLimiter::SwitchThreadMemTrackerLimiter(
-        const std::shared_ptr<MemTrackerLimiter>& mem_tracker_limiter) {
-    DCHECK(mem_tracker_limiter);
+        const std::shared_ptr<MemTrackerLimiter>& mem_tracker) {
+    DCHECK(mem_tracker);
     _old_mem_tracker = thread_context()->_thread_mem_tracker_mgr->limiter_mem_tracker();
-    thread_context()->_thread_mem_tracker_mgr->attach_limiter_tracker("", TUniqueId(),
-                                                                      mem_tracker_limiter);
+    thread_context()->_thread_mem_tracker_mgr->attach_limiter_tracker("", TUniqueId(), mem_tracker);
 }
 
 SwitchThreadMemTrackerLimiter::~SwitchThreadMemTrackerLimiter() {

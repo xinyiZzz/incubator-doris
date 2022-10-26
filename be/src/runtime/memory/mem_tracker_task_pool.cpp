@@ -24,8 +24,7 @@
 namespace doris {
 
 std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_task_mem_tracker_impl(
-        const std::string& task_id, int64_t mem_limit, const std::string& label,
-        const std::shared_ptr<MemTrackerLimiter>& parent) {
+        const std::string& task_id, int64_t mem_limit, const std::string& label, MemTrackerLimiter::Type type) {
     DCHECK(!task_id.empty());
     std::lock_guard<std::mutex> l(_task_tracker_lock);
     // First time this task_id registered, make a new object, otherwise do nothing.
@@ -35,7 +34,7 @@ std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_task_mem_tracker
     bool new_emplace = _task_mem_trackers.lazy_emplace_l(
             task_id, [&](const std::shared_ptr<MemTrackerLimiter>& v) { tracker = v; },
             [&](const auto& ctor) {
-                tracker = std::make_shared<MemTrackerLimiter>(mem_limit, label, parent);
+                tracker = std::make_shared<MemTrackerLimiter>(type, mem_limit, label);
                 ctor(task_id, tracker);
             });
     if (new_emplace) {
@@ -47,29 +46,13 @@ std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_task_mem_tracker
 
 std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_query_mem_tracker(
         const std::string& query_id, int64_t mem_limit) {
-    return register_task_mem_tracker_impl(query_id, mem_limit, fmt::format("Query#Id={}", query_id),
-                                          ExecEnv::GetInstance()->query_pool_mem_tracker());
-}
-
-std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_query_scanner_mem_tracker(
-        const std::string& query_id) {
-    return register_task_mem_tracker_impl("Scanner#" + query_id, -1,
-                                          fmt::format("Scanner#Query#Id={}", query_id),
-                                          get_task_mem_tracker(query_id));
+    return register_task_mem_tracker_impl(query_id, mem_limit, fmt::format("Query#Id={}", query_id), MemTrackerLimiter::Type::QUERY);
 }
 
 std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_load_mem_tracker(
         const std::string& load_id, int64_t mem_limit) {
     // In load, the query id of the fragment is executed, which is the same as the load id of the load channel.
-    return register_task_mem_tracker_impl(load_id, mem_limit, fmt::format("Load#Id={}", load_id),
-                                          ExecEnv::GetInstance()->load_pool_mem_tracker());
-}
-
-std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::register_load_scanner_mem_tracker(
-        const std::string& load_id) {
-    return register_task_mem_tracker_impl("Scanner#" + load_id, -1,
-                                          fmt::format("Scanner#Load#Id={}", load_id),
-                                          get_task_mem_tracker(load_id));
+    return register_task_mem_tracker_impl(load_id, mem_limit, fmt::format("Load#Id={}", load_id), MemTrackerLimiter::Type::LOAD_FRAGMENT);
 }
 
 std::shared_ptr<MemTrackerLimiter> MemTrackerTaskPool::get_task_mem_tracker(
@@ -90,7 +73,7 @@ void MemTrackerTaskPool::logout_task_mem_tracker() {
             // Unknown exception case with high concurrency, after _task_mem_trackers.erase,
             // the key still exists in _task_mem_trackers. https://github.com/apache/incubator-doris/issues/10006
             expired_task_ids.emplace_back(it->first);
-        } else if (it->second.use_count() == 1 && it->second->had_child_count() != 0) {
+        } else if (it->second.use_count() == 1) {
             // No RuntimeState uses this task MemTrackerLimiter, it is only referenced by this map,
             // and tracker was not created soon, delete it.
             //

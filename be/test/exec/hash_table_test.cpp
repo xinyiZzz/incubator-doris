@@ -49,7 +49,7 @@ public:
     HashTableTest() {
         _mem_pool.reset(new MemPool());
         _state = _pool.add(new RuntimeState(TQueryGlobals()));
-        _state->init_instance_mem_tracker();
+        _state->init_query_mem_tracker();
         _state->_exec_env = ExecEnv::GetInstance();
     }
 

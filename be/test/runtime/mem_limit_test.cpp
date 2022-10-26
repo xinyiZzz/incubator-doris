@@ -52,30 +52,30 @@ TEST(MemTestTest, SingleTrackerWithLimit) {
 }
 
 TEST(MemTestTest, TrackerHierarchy) {
-    auto p = std::make_shared<MemTrackerLimiter>(100);
-    auto c1 = std::make_unique<MemTrackerLimiter>(80, "c1", p);
-    auto c2 = std::make_unique<MemTrackerLimiter>(50, "c2", p);
+    auto p = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 100);
+    auto c1 = std::make_unique<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 80, "c1", p);
+    auto c2 = std::make_unique<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 50, "c2", p);
 
     // everything below limits
     c1->consume(60);
     EXPECT_EQ(c1->consumption(), 60);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_FALSE(c1->any_limit_exceeded());
+    EXPECT_FALSE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 0);
     EXPECT_FALSE(c2->limit_exceeded());
-    EXPECT_FALSE(c2->any_limit_exceeded());
+    EXPECT_FALSE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 60);
     EXPECT_FALSE(p->limit_exceeded());
-    EXPECT_FALSE(p->any_limit_exceeded());
+    EXPECT_FALSE(p->limit_exceeded());
 
     // p goes over limit
     c2->consume(50);
     EXPECT_EQ(c1->consumption(), 60);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_TRUE(c1->any_limit_exceeded());
+    EXPECT_TRUE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 50);
     EXPECT_FALSE(c2->limit_exceeded());
-    EXPECT_TRUE(c2->any_limit_exceeded());
+    EXPECT_TRUE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 110);
     EXPECT_TRUE(p->limit_exceeded());
 
@@ -84,10 +84,10 @@ TEST(MemTestTest, TrackerHierarchy) {
     c2->consume(10);
     EXPECT_EQ(c1->consumption(), 40);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_FALSE(c1->any_limit_exceeded());
+    EXPECT_FALSE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 60);
     EXPECT_TRUE(c2->limit_exceeded());
-    EXPECT_TRUE(c2->any_limit_exceeded());
+    EXPECT_TRUE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 100);
     EXPECT_FALSE(p->limit_exceeded());
     c1->release(40);
@@ -95,9 +95,9 @@ TEST(MemTestTest, TrackerHierarchy) {
 }
 
 TEST(MemTestTest, TrackerHierarchyTryConsume) {
-    auto p = std::make_shared<MemTrackerLimiter>(100);
-    auto c1 = std::make_unique<MemTrackerLimiter>(80, "c1", p);
-    auto c2 = std::make_unique<MemTrackerLimiter>(50, "c2", p);
+    auto p = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 100);
+    auto c1 = std::make_unique<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 80, "c1", p);
+    auto c2 = std::make_unique<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, 50, "c2", p);
 
     // everything below limits
     std::string err_msg = "";
@@ -105,36 +105,36 @@ TEST(MemTestTest, TrackerHierarchyTryConsume) {
     EXPECT_EQ(consumption, true);
     EXPECT_EQ(c1->consumption(), 60);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_FALSE(c1->any_limit_exceeded());
+    EXPECT_FALSE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 0);
     EXPECT_FALSE(c2->limit_exceeded());
-    EXPECT_FALSE(c2->any_limit_exceeded());
+    EXPECT_FALSE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 60);
     EXPECT_FALSE(p->limit_exceeded());
-    EXPECT_FALSE(p->any_limit_exceeded());
+    EXPECT_FALSE(p->limit_exceeded());
 
     // p goes over limit
     consumption = c2->try_consume(50, err_msg);
     EXPECT_EQ(consumption, false);
     EXPECT_EQ(c1->consumption(), 60);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_FALSE(c1->any_limit_exceeded());
+    EXPECT_FALSE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 0);
     EXPECT_FALSE(c2->limit_exceeded());
-    EXPECT_FALSE(c2->any_limit_exceeded());
+    EXPECT_FALSE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 60);
     EXPECT_FALSE(p->limit_exceeded());
-    EXPECT_FALSE(p->any_limit_exceeded());
+    EXPECT_FALSE(p->limit_exceeded());
 
     // c2 goes over limit, p drops below limit
     c1->release(20);
     c2->consume(10);
     EXPECT_EQ(c1->consumption(), 40);
     EXPECT_FALSE(c1->limit_exceeded());
-    EXPECT_FALSE(c1->any_limit_exceeded());
+    EXPECT_FALSE(c1->limit_exceeded());
     EXPECT_EQ(c2->consumption(), 10);
     EXPECT_FALSE(c2->limit_exceeded());
-    EXPECT_FALSE(c2->any_limit_exceeded());
+    EXPECT_FALSE(c2->limit_exceeded());
     EXPECT_EQ(p->consumption(), 50);
     EXPECT_FALSE(p->limit_exceeded());
 

@@ -40,7 +40,7 @@ class ParquetScannerTest : public testing::Test {
 public:
     ParquetScannerTest() : _runtime_state(TQueryGlobals()) {
         init();
-        _runtime_state.init_instance_mem_tracker();
+        _runtime_state.init_query_mem_tracker();
     }
     void init();
     static void SetUpTestCase() {

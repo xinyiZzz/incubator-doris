@@ -246,8 +246,7 @@ static void pthread_attach_bthread() {
         // Create thread-local data on demand.
         bthread_context = new ThreadContext;
         std::shared_ptr<MemTrackerLimiter> btls_tracker =
-                std::make_shared<MemTrackerLimiter>(-1, "Bthread:id=" + std::to_string(bthread_id),
-                                                    ExecEnv::GetInstance()->bthread_mem_tracker());
+                std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::BTHREAD, -1, "Bthread:id=" + std::to_string(bthread_id));
         bthread_context->attach_task(ThreadContext::TaskType::BRPC, "", TUniqueId(), btls_tracker);
         // set the data so that next time bthread_getspecific in the thread returns the data.
         CHECK_EQ(0, bthread_setspecific(btls_key, bthread_context));
@@ -299,7 +298,7 @@ public:
 class SwitchThreadMemTrackerLimiter {
 public:
     explicit SwitchThreadMemTrackerLimiter(
-            const std::shared_ptr<MemTrackerLimiter>& mem_tracker_limiter);
+            const std::shared_ptr<MemTrackerLimiter>& mem_tracker);
 
     ~SwitchThreadMemTrackerLimiter();
 

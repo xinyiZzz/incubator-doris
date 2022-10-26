@@ -160,7 +160,6 @@ RuntimeState::~RuntimeState() {
         _error_hub->close();
     }
 
-    // Manually release the child mem tracker before _instance_mem_tracker is destructed.
     _obj_pool->clear();
     _runtime_filter_mgr.reset();
 }
@@ -230,38 +229,27 @@ Status RuntimeState::init_mem_trackers(const TUniqueId& query_id) {
     mem_tracker_counter->set(bytes_limit);
 
     if (query_type() == TQueryType::SELECT) {
-        _query_mem_tracker =
+        _query_mem_tracker = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, -1, "QueryForTest");
                 _exec_env->task_pool_mem_tracker_registry()->register_query_mem_tracker(
                         print_id(query_id), bytes_limit);
-        _scanner_mem_tracker =
-                _exec_env->task_pool_mem_tracker_registry()->register_query_scanner_mem_tracker(
-                        print_id(query_id));
+        _scanner_mem_tracker = std::make_shared<MemTracker>(fmt::format("Scanner#QueryId={}", print_id(query_id)));
     } else if (query_type() == TQueryType::LOAD) {
         _query_mem_tracker = _exec_env->task_pool_mem_tracker_registry()->register_load_mem_tracker(
                 print_id(query_id), bytes_limit);
-        _scanner_mem_tracker =
-                _exec_env->task_pool_mem_tracker_registry()->register_load_scanner_mem_tracker(
-                        print_id(query_id));
+        _scanner_mem_tracker = std::make_shared<MemTracker>(fmt::format("Scanner#LoadId={}", print_id(query_id)));
     } else {
         CHECK(false) << "query_typ: " << query_type();
     }
     _query_mem_tracker->enable_reset_zero();
-
-    _instance_mem_tracker = std::make_shared<MemTrackerLimiter>(
-            -1, "RuntimeState:instance:" + print_id(_fragment_instance_id), _query_mem_tracker,
-            &_profile);
-
     if (_query_options.is_report_success) {
         _query_mem_tracker->enable_print_log_usage();
-        _instance_mem_tracker->enable_print_log_usage();
     }
 
     return Status::OK();
 }
 
-Status RuntimeState::init_instance_mem_tracker() {
-    _query_mem_tracker = nullptr;
-    _instance_mem_tracker = std::make_shared<MemTrackerLimiter>(-1, "RuntimeState:instance");
+Status RuntimeState::init_query_mem_tracker() {
+    _query_mem_tracker = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, -1, "QueryForTest");
     return Status::OK();
 }
 
@@ -327,7 +315,7 @@ Status RuntimeState::check_query_state(const std::string& msg) {
     // cases where we use Status::Cancelled("Cancelled") to indicate that the limit was reached.
     if (thread_context()
                 ->_thread_mem_tracker_mgr->limiter_mem_tracker_raw()
-                ->any_limit_exceeded()) {
+                ->limit_exceeded()) {
         RETURN_LIMIT_EXCEEDED(this, msg);
     }
     return query_status();

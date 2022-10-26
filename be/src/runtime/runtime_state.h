@@ -90,7 +90,7 @@ public:
     Status init_mem_trackers(const TUniqueId& query_id);
 
     // for ut only
-    Status init_instance_mem_tracker();
+    Status init_query_mem_tracker();
 
     // Gets/Creates the query wide block mgr.
     Status create_block_mgr();
@@ -123,8 +123,7 @@ public:
     const TUniqueId& fragment_instance_id() const { return _fragment_instance_id; }
     ExecEnv* exec_env() { return _exec_env; }
     std::shared_ptr<MemTrackerLimiter> query_mem_tracker() { return _query_mem_tracker; }
-    std::shared_ptr<MemTrackerLimiter> instance_mem_tracker() { return _instance_mem_tracker; }
-    std::shared_ptr<MemTrackerLimiter> scanner_mem_tracker() { return _scanner_mem_tracker; }
+    std::shared_ptr<MemTracker> scanner_mem_tracker() { return _scanner_mem_tracker; }
     ThreadResourceMgr::ResourcePool* resource_pool() { return _resource_pool; }
 
     void set_fragment_root_id(PlanNodeId id) {
@@ -399,14 +398,11 @@ private:
     static const int DEFAULT_BATCH_SIZE = 2048;
 
     // MemTracker that is shared by all fragment instances running on this host.
-    // The query mem tracker must be released after the _instance_mem_tracker.
     std::shared_ptr<MemTrackerLimiter> _query_mem_tracker;
-    // Memory usage of this fragment instance
-    std::shared_ptr<MemTrackerLimiter> _instance_mem_tracker;
     // Count the memory consumption of Scanner, independent and unique for each query,
     // this means that scnner memory does not count into query mem tracker,
     // label is `Scanner#{queryId}`.
-    std::shared_ptr<MemTrackerLimiter> _scanner_mem_tracker;
+    std::shared_ptr<MemTracker> _scanner_mem_tracker;
 
     // put runtime state before _obj_pool, so that it will be deconstructed after
     // _obj_pool. Because some of object in _obj_pool will use profile when deconstructing.

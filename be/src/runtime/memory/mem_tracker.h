@@ -33,21 +33,17 @@ namespace doris {
 class MemTracker {
 public:
     struct Snapshot {
+        std::string type;
         std::string label;
-        // For MemTracker, it is only weakly related to parent through label, ensuring MemTracker Independence.
-        // For MemTrackerLimiter, it is strongly related to parent and saves pointer objects to each other.
-        std::string parent = "";
-        size_t level = 0;
         int64_t limit = 0;
         int64_t cur_consumption = 0;
         int64_t peak_consumption = 0;
-        size_t child_count = 0;
     };
 
     // Creates and adds the tracker to the mem_tracker_pool.
     MemTracker(const std::string& label, RuntimeProfile* profile = nullptr);
     // For MemTrackerLimiter
-    MemTracker() { _bind_group_num = -1; }
+    MemTracker() { _parent_group_num = -1; }
 
     ~MemTracker();
 
@@ -72,6 +68,7 @@ public:
     void release(int64_t bytes) { consume(-bytes); }
     // Transfer 'bytes' of consumption from this tracker to 'dst'.
     void transfer_to(MemTracker* dst, int64_t bytes);
+    void set_consumption(int64_t bytes) { _consumption->set(bytes); }
 
 public:
     bool limit_exceeded(int64_t limit) const { return limit >= 0 && limit < consumption(); }
@@ -80,11 +77,10 @@ public:
         return limit >= 0 && limit > consumption() + bytes;
     }
 
-    Snapshot make_snapshot(size_t level) const;
+    Snapshot make_snapshot() const;
     // Specify group_num from mem_tracker_pool to generate snapshot, requiring tracker.label to be related
     // with parameter related_label
-    static void make_group_snapshot(std::vector<Snapshot>* snapshots, size_t level,
-                                    int64_t group_num, std::string related_label);
+    static void make_group_snapshot(std::vector<Snapshot>* snapshots, int64_t group_num, std::string related_label);
     static std::string log_usage(MemTracker::Snapshot snapshot);
 
     std::string debug_string() {
@@ -104,18 +100,15 @@ protected:
     std::shared_ptr<RuntimeProfile::HighWaterMarkCounter> _consumption; // in bytes
 
     // Tracker is located in group num in mem_tracker_pool
-    int64_t _bind_group_num;
+    int64_t _parent_group_num;
 
     // Iterator into mem_tracker_pool for this object. Stored to have O(1) remove.
     std::list<MemTracker*>::iterator _tracker_group_it;
 };
 
 inline void MemTracker::consume(int64_t bytes) {
-    if (bytes == 0) {
-        return;
-    } else {
-        _consumption->add(bytes);
-    }
+    if (bytes == 0) return;
+    _consumption->add(bytes);
 }
 
 inline void MemTracker::transfer_to(MemTracker* dst, int64_t bytes) {

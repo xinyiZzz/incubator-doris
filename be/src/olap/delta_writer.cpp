@@ -33,14 +33,12 @@
 
 namespace doris {
 
-Status DeltaWriter::open(WriteRequest* req, DeltaWriter** writer,
-                         const std::shared_ptr<MemTrackerLimiter>& parent_tracker, bool is_vec) {
-    *writer = new DeltaWriter(req, StorageEngine::instance(), parent_tracker, is_vec);
+Status DeltaWriter::open(WriteRequest* req, DeltaWriter** writer, bool is_vec) {
+    *writer = new DeltaWriter(req, StorageEngine::instance(), is_vec);
     return Status::OK();
 }
 
-DeltaWriter::DeltaWriter(WriteRequest* req, StorageEngine* storage_engine,
-                         const std::shared_ptr<MemTrackerLimiter>& parent_tracker, bool is_vec)
+DeltaWriter::DeltaWriter(WriteRequest* req, StorageEngine* storage_engine, bool is_vec)
         : _req(*req),
           _tablet(nullptr),
           _cur_rowset(nullptr),
@@ -48,7 +46,6 @@ DeltaWriter::DeltaWriter(WriteRequest* req, StorageEngine* storage_engine,
           _tablet_schema(new TabletSchema),
           _delta_written_success(false),
           _storage_engine(storage_engine),
-          _parent_tracker(parent_tracker),
           _is_vec(is_vec) {}
 
 DeltaWriter::~DeltaWriter() {
@@ -109,8 +106,6 @@ Status DeltaWriter::init() {
         _rowset_ids = _tablet->all_rs_id(_cur_max_version);
     }
 
-    _mem_tracker = std::make_shared<MemTrackerLimiter>(
-            -1, fmt::format("DeltaWriter:tabletId={}", _tablet->tablet_id()), _parent_tracker);
     // check tablet version number
     if (_tablet->version_count() > config::max_tablet_version_num) {
         //trigger quick compaction
@@ -149,35 +144,6 @@ Status DeltaWriter::init() {
             &_flush_token, _rowset_writer->type(), should_serial, _req.is_high_priority));
 
     _is_init = true;
-    return Status::OK();
-}
-
-Status DeltaWriter::write(Tuple* tuple) {
-    std::lock_guard<std::mutex> l(_lock);
-    if (!_is_init && !_is_cancelled) {
-        RETURN_NOT_OK(init());
-    }
-
-    if (_is_cancelled) {
-        // The writer may be cancelled at any time by other thread.
-        // just return ERROR if writer is cancelled.
-        return Status::OLAPInternalError(OLAP_ERR_ALREADY_CANCELLED);
-    }
-
-    SCOPED_ATTACH_TASK(_mem_tracker, ThreadContext::TaskType::LOAD);
-
-    _mem_table->insert(tuple);
-
-    // if memtable is full, push it to the flush executor,
-    // and create a new memtable for incoming data
-    if (_mem_table->memory_usage() >= config::write_buffer_size) {
-        if (++_segment_counter > config::max_segment_num_per_rowset) {
-            return Status::OLAPInternalError(OLAP_ERR_TOO_MANY_SEGMENTS);
-        }
-        RETURN_NOT_OK(_flush_memtable_async());
-        // create a new memtable for new incoming data
-        _reset_mem_table();
-    }
     return Status::OK();
 }
 
@@ -283,7 +249,7 @@ void DeltaWriter::_reset_mem_table() {
     }
     _mem_table.reset(new MemTable(_tablet, _schema.get(), _tablet_schema.get(), _req.slots,
                                   _req.tuple_desc, _rowset_writer.get(), _delete_bitmap,
-                                  _rowset_ids, _cur_max_version, _mem_tracker, _is_vec));
+                                  _rowset_ids, _cur_max_version, _is_vec));
 }
 
 Status DeltaWriter::close() {
@@ -398,12 +364,12 @@ int64_t DeltaWriter::get_memtable_consumption_snapshot() const {
 }
 
 int64_t DeltaWriter::mem_consumption() const {
-    if (_mem_tracker == nullptr) {
+    if (_flush_token == nullptr) {
         // This method may be called before this writer is initialized.
-        // So _mem_tracker may be null.
+        // So _flush_token may be null.
         return 0;
     }
-    return _mem_tracker->consumption();
+    return _flush_token->get_stats().flush_running_count * config::write_buffer_size + _mem_table->memory_usage();
 }
 
 int64_t DeltaWriter::memtable_consumption() const {

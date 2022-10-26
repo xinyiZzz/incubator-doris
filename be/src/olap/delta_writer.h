@@ -55,16 +55,12 @@ struct WriteRequest {
 // This class is NOT thread-safe, external synchronization is required.
 class DeltaWriter {
 public:
-    static Status open(WriteRequest* req, DeltaWriter** writer,
-                       const std::shared_ptr<MemTrackerLimiter>& parent_tracker =
-                               std::shared_ptr<MemTrackerLimiter>(),
-                       bool is_vec = false);
+    static Status open(WriteRequest* req, DeltaWriter** writer, bool is_vec = false);
 
     ~DeltaWriter();
 
     Status init();
 
-    Status write(Tuple* tuple);
     Status write(const RowBatch* row_batch, const std::vector<int>& row_idxs);
     Status write(const vectorized::Block* block, const std::vector<int>& row_idxs);
 
@@ -113,8 +109,7 @@ public:
     void finish_slave_tablet_pull_rowset(int64_t node_id, bool is_succeed);
 
 private:
-    DeltaWriter(WriteRequest* req, StorageEngine* storage_engine,
-                const std::shared_ptr<MemTrackerLimiter>& parent_tracker, bool is_vec);
+    DeltaWriter(WriteRequest* req, StorageEngine* storage_engine, bool is_vec);
 
     // push a full memtable to flush executor
     Status _flush_memtable_async();
@@ -147,13 +142,6 @@ private:
 
     StorageEngine* _storage_engine;
     std::unique_ptr<FlushToken> _flush_token;
-    // The memory value automatically tracked by the Tcmalloc hook is 20% less than the manually recorded
-    // value in the memtable, because some freed memory is not allocated in the DeltaWriter.
-    // The memory value automatically tracked by the Tcmalloc hook, used for load channel mgr to trigger
-    // flush memtable when the sum of all channel memory exceeds the limit.
-    // The manually recorded value of memtable is used to flush when it is larger than write_buffer_size.
-    std::shared_ptr<MemTrackerLimiter> _mem_tracker;
-    std::shared_ptr<MemTrackerLimiter> _parent_tracker;
 
     // The counter of number of segment flushed already.
     int64_t _segment_counter = 0;

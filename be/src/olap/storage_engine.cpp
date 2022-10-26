@@ -111,16 +111,16 @@ StorageEngine::StorageEngine(const EngineOptions& options)
           _effective_cluster_id(-1),
           _is_all_cluster_id_exist(true),
           _compaction_mem_tracker(
-                  std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::AutoCompaction")),
-          _segment_meta_mem_tracker(std::make_unique<MemTracker>("StorageEngine::SegmentMeta")),
+                  std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "Compaction")),
+          _segment_meta_mem_tracker(std::make_unique<MemTracker>("SegmentMeta")),
           _schema_change_mem_tracker(
-                  std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::SchemaChange")),
-          _clone_mem_tracker(std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::Clone")),
+                  std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "SchemaChange")),
+          _clone_mem_tracker(std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "Clone")),
           _batch_load_mem_tracker(
-                  std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::BatchLoad")),
+                  std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "BatchLoad")),
           _consistency_mem_tracker(
-                  std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::Consistency")),
-          _mem_tracker(std::make_shared<MemTrackerLimiter>(-1, "StorageEngine::Self")),
+                  std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "Consistency")),
+          _mem_tracker(std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::GLOBAL, -1, "StorageEngine")),
           _stop_background_threads_latch(1),
           _tablet_manager(new TabletManager(config::tablet_map_shard_size)),
           _txn_manager(new TxnManager(config::txn_map_shard_size, config::txn_shard_size)),

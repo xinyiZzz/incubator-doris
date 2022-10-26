@@ -45,7 +45,7 @@ public:
              const std::vector<SlotDescriptor*>* slot_descs, TupleDescriptor* tuple_desc,
              RowsetWriter* rowset_writer, DeleteBitmapPtr delete_bitmap,
              const RowsetIdUnorderedSet& rowset_ids, int64_t cur_max_version,
-             const std::shared_ptr<MemTrackerLimiter>& tracker, bool support_vec = false);
+             bool support_vec = false);
     ~MemTable();
 
     int64_t tablet_id() const { return _tablet->tablet_id(); }
@@ -161,6 +161,11 @@ private:
 
     std::shared_ptr<RowInBlockComparator> _vec_row_comparator;
 
+    // The memory value automatically tracked by the Tcmalloc hook is 20% less than the manually recorded
+    // value in the memtable, because some freed memory is not allocated in the DeltaWriter.
+    // The memory value automatically tracked by the Tcmalloc hook, used for load channel mgr to trigger
+    // flush memtable when the sum of all channel memory exceeds the limit.
+    // The manually recorded value of memtable is used to flush when it is larger than write_buffer_size.
     std::unique_ptr<MemTracker> _mem_tracker_manual;
     std::shared_ptr<MemTrackerLimiter> _mem_tracker_hook;
     // This is a buffer, to hold the memory referenced by the rows that have not

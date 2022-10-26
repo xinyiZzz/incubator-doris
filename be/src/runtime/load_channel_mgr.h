@@ -58,6 +58,8 @@ public:
     // cancel all tablet stream for 'load_id' load
     Status cancel(const PTabletWriterCancelRequest& request);
 
+    MemTrackerLimiter* mem_tracker() { return _mem_tracker.get(); }
+
 private:
     template <typename Request>
     Status _get_load_channel(std::shared_ptr<LoadChannel>& channel, bool& is_eof,

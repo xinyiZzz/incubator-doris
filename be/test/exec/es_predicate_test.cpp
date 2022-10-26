@@ -43,7 +43,7 @@ class RuntimeState;
 class EsPredicateTest : public testing::Test {
 public:
     EsPredicateTest() : _runtime_state(TQueryGlobals()) {
-        _runtime_state.init_instance_mem_tracker();
+        _runtime_state.init_query_mem_tracker();
         TDescriptorTable t_desc_table;
 
         // table descriptors

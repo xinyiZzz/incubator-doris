@@ -36,10 +36,10 @@ Compaction::Compaction(TabletSharedPtr tablet, const std::string& label)
           _state(CompactionState::INITED) {
 #ifndef BE_TEST
     _mem_tracker = std::make_shared<MemTrackerLimiter>(
-            -1, label, StorageEngine::instance()->compaction_mem_tracker());
+            MemTrackerLimiter::Type::COMPACTION, -1, label);
     _mem_tracker->enable_reset_zero();
 #else
-    _mem_tracker = std::make_shared<MemTrackerLimiter>(-1, label);
+    _mem_tracker = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, -1, label);
 #endif
 }
 

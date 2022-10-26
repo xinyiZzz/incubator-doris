@@ -126,9 +126,8 @@ void mem_tracker_handler(const WebPageHandler::ArgumentMap& args, std::stringstr
                  "       data-search='true' "
                  "       class='table table-striped'>\n";
     (*output) << "<thead><tr>"
-                 "<th data-sortable='true'>Level</th>"
+                 "<th data-sortable='true'>Type</th>"
                  "<th data-sortable='true'>Label</th>"
-                 "<th>Parent</th>"
                  "<th>Limit</th>"
                  "<th data-sortable='true' "
                  ">Current Consumption(Bytes)</th>"
@@ -136,35 +135,32 @@ void mem_tracker_handler(const WebPageHandler::ArgumentMap& args, std::stringstr
                  "<th data-sortable='true' "
                  ">Peak Consumption(Bytes)</th>"
                  "<th>Peak Consumption(Normalize)</th>"
-                 "<th data-sortable='true' "
-                 ">Child Count</th>"
                  "</tr></thead>";
     (*output) << "<tbody>\n";
 
-    size_t upper_level;
-    size_t cur_level = 1;
-    // the level equal or lower than upper_level will show in web page
-    auto iter = args.find("upper_level");
+    size_t type;
+    auto iter = args.find("type");
     if (iter != args.end()) {
-        upper_level = std::stol(iter->second);
+        type = std::stol(iter->second);
     } else {
-        upper_level = 3;
+        type = 0;
     }
 
     std::vector<MemTracker::Snapshot> snapshots;
-    ExecEnv::GetInstance()->process_mem_tracker()->make_snapshot(&snapshots, cur_level,
-                                                                 upper_level);
+    if (type == 0) {
+        MemTrackerLimiter::make_process_snapshots(&snapshots);
+    } else {
+        MemTrackerLimiter::make_type_snapshots(&snapshots, MemTrackerLimiter::TypeList[type]);
+    }
     MemTracker::make_global_mem_tracker_snapshot(&snapshots);
     for (const auto& item : snapshots) {
         string limit_str = item.limit == -1 ? "none" : AccurateItoaKMGT(item.limit);
         string current_consumption_normalize = AccurateItoaKMGT(item.cur_consumption);
         string peak_consumption_normalize = AccurateItoaKMGT(item.peak_consumption);
         (*output) << strings::Substitute(
-                "<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td><td>$6</"
-                "td><td>$7</td><td>$8</td></tr>\n",
-                item.level, item.label, item.parent, limit_str, item.cur_consumption,
-                current_consumption_normalize, item.peak_consumption, peak_consumption_normalize,
-                item.child_count);
+                "<tr><td>$0</td><td>$1</td><td>$2</td><td>$3</td><td>$4</td><td>$5</td><td>$6</td></tr>\n",
+                item.type, item.label, limit_str, item.cur_consumption,
+                current_consumption_normalize, item.peak_consumption, peak_consumption_normalize);
     }
     (*output) << "</tbody></table>\n";
 }

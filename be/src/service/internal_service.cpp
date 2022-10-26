@@ -139,7 +139,7 @@ void PInternalServiceImpl::_transmit_data(google::protobuf::RpcController* cntl_
     }
     if (!transmit_tracker) {
         query_id = "unkown_transmit_data";
-        transmit_tracker = std::make_shared<MemTrackerLimiter>(-1, "unkown_transmit_data");
+        transmit_tracker = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, -1, "unkown_transmit_data");
     }
     VLOG_ROW << "transmit data: fragment_instance_id=" << print_id(request->finst_id())
              << " query_id=" << query_id << " node=" << request->node_id();
@@ -651,7 +651,7 @@ void PInternalServiceImpl::_transmit_block(google::protobuf::RpcController* cntl
     }
     if (!transmit_tracker) {
         query_id = "unkown_transmit_block";
-        transmit_tracker = std::make_shared<MemTrackerLimiter>(-1, "unkown_transmit_block");
+        transmit_tracker = std::make_shared<MemTrackerLimiter>(MemTrackerLimiter::Type::ORPHAN, -1, "unkown_transmit_block");
     }
     VLOG_ROW << "transmit block: fragment_instance_id=" << print_id(request->finst_id())
              << " query_id=" << query_id << " node=" << request->node_id();

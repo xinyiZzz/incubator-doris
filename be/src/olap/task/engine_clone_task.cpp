@@ -55,8 +55,7 @@ EngineCloneTask::EngineCloneTask(const TCloneReq& clone_req, const TMasterInfo& 
           _signature(signature),
           _master_info(master_info) {
     _mem_tracker = std::make_shared<MemTrackerLimiter>(
-            -1, "EngineCloneTask#tabletId=" + std::to_string(_clone_req.tablet_id),
-            StorageEngine::instance()->clone_mem_tracker());
+            MemTrackerLimiter::Type::CLONE, -1, "EngineCloneTask#tabletId=" + std::to_string(_clone_req.tablet_id));
 }
 
 Status EngineCloneTask::execute() {

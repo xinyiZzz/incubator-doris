@@ -57,8 +57,7 @@ void ThreadMemTrackerMgr::exceeded(const std::string& failed_msg) {
         _cb_func();
     }
     auto cancel_msg = _limiter_tracker_raw->mem_limit_exceeded(
-            fmt::format("exec node:<{}>", last_consumer_tracker()),
-            _limiter_tracker_raw->parent().get(), failed_msg);
+            fmt::format("exec node:<{}>", last_consumer_tracker()), failed_msg);
     if (is_attach_query()) {
         exceeded_cancel_task(cancel_msg);
     }

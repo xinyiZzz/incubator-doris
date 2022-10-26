@@ -35,14 +35,13 @@ MemTable::MemTable(TabletSharedPtr tablet, Schema* schema, const TabletSchema* t
                    const std::vector<SlotDescriptor*>* slot_descs, TupleDescriptor* tuple_desc,
                    RowsetWriter* rowset_writer, DeleteBitmapPtr delete_bitmap,
                    const RowsetIdUnorderedSet& rowset_ids, int64_t cur_max_version,
-                   const std::shared_ptr<MemTrackerLimiter>& tracker, bool support_vec)
+                   bool support_vec)
         : _tablet(std::move(tablet)),
           _schema(schema),
           _tablet_schema(tablet_schema),
           _slot_descs(slot_descs),
           _mem_tracker_hook(std::make_shared<MemTrackerLimiter>(
-                  -1, fmt::format("MemTableHook:tabletId={}", std::to_string(tablet_id())),
-                  tracker)),
+                  MemTrackerLimiter::Type::LOAD_CHANNEL, -1, fmt::format("MemTableHook:tabletId={}", std::to_string(tablet_id())))),
           _schema_size(_schema->schema_size()),
           _rowset_writer(rowset_writer),
           _is_first_insertion(true),
@@ -158,7 +157,7 @@ MemTable::~MemTable() {
     _table_mem_pool->free_all();
     DCHECK_EQ(_mem_tracker_manual->consumption(), 0)
             << std::endl
-            << MemTracker::log_usage(_mem_tracker_manual->make_snapshot(0));
+            << MemTracker::log_usage(_mem_tracker_manual->make_snapshot());
 }
 
 MemTable::RowCursorComparator::RowCursorComparator(const Schema* schema) : _schema(schema) {}
