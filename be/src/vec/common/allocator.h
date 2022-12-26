@@ -89,6 +89,10 @@ static constexpr size_t MMAP_THRESHOLD = 64 * (1ULL << 20);
  * by more detailed test later.
   */
 static constexpr size_t CHUNK_THRESHOLD = 4096;
+#elif defined(ADDRESS_SANITIZER)
+    // `long unsigned int` has a maximum value of 2^32-1. on 64-bit machine
+    static constexpr size_t MMAP_THRESHOLD = 4294967295;
+    static constexpr size_t CHUNK_THRESHOLD = 4096;
 #else
 /**
   * In debug build, use small mmap threshold to reproduce more memory
