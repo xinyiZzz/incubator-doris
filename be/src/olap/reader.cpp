@@ -226,6 +226,7 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params,
     _reader_context.record_rowids = read_params.record_rowids;
     _reader_context.is_key_column_group = read_params.is_key_column_group;
     _reader_context.remaining_vconjunct_root = read_params.remaining_vconjunct_root;
+    _reader_context.output_slots_size = read_params.output_slots_size;
 
     *valid_rs_readers = *rs_readers;
 

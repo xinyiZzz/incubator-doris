@@ -68,6 +68,7 @@ void Schema::_init(const std::vector<TabletColumn>& cols, const std::vector<Colu
             continue;
         }
         _cols[cid] = FieldFactory::create(cols[cid]);
+        _field_name_to_col_id[cols.at(cid).name()] = cid;
 
         _col_offsets[cid] = offset;
         // Plus 1 byte for null byte
@@ -96,6 +97,7 @@ void Schema::_init(const std::vector<const Field*>& cols, const std::vector<Colu
         _cols[cid] = cols[cid]->clone();
 
         _col_offsets[cid] = offset;
+        _field_name_to_col_id[cols.at(cid)->name()] = cid;
         // Plus 1 byte for null byte
         offset += _cols[cid]->size() + 1;
     }
