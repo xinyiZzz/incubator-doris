@@ -144,6 +144,7 @@ public:
     const std::vector<ColumnId>& column_ids() const { return _col_ids; }
     const std::vector<int32_t>& unique_ids() const { return _unique_ids; }
     ColumnId column_id(size_t index) const { return _col_ids[index]; }
+    ColumnId column_id(const std::string& cname) const { return _field_name_to_col_id.at(cname); }
     int32_t unique_id(size_t index) const { return _unique_ids[index]; }
     int32_t delete_sign_idx() const { return _delete_sign_idx; }
     bool has_sequence_col() const { return _has_sequence_col; }
@@ -166,6 +167,8 @@ private:
     // The value of each item indicates the starting offset of the corresponding column in
     // current row. e.g. _col_offsets[idx] is the offset of _cols[idx] (idx must in _col_ids)
     std::vector<size_t> _col_offsets;
+
+    std::unordered_map<std::string, ColumnId> _field_name_to_col_id;
 
     size_t _num_key_columns;
     size_t _schema_size;

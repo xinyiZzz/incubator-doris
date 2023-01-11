@@ -56,7 +56,8 @@ struct RowsetReaderContext {
     const DeleteHandler* delete_handler = nullptr;
     OlapReaderStatistics* stats = nullptr;
     RuntimeState* runtime_state = nullptr;
-    vectorized::VExpr* remaining_vconjunct_root = nullptr;
+    vectorized::VExprContext* remaining_vconjunct_root = nullptr;
+    int output_slots_size = 0;
     bool use_page_cache = false;
     int sequence_id_idx = -1;
     int batch_size = 1024;

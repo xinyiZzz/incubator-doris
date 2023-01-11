@@ -178,6 +178,11 @@ private:
 
     bool _can_evaluated_by_vectorized(ColumnPredicate* predicate);
 
+    Status _extract_expr_filter_columns(vectorized::VExpr* expr);
+
+    uint16_t _execute_expr(uint16_t* sel_rowid_idx, uint16_t selected_size, vectorized::Block* block, const std::vector<uint32_t>& columns_to_filter);
+    uint16_t _expr_filter(uint16_t* sel_rowid_idx, uint16_t selected_size, const vectorized::IColumn::Filter& filter);
+
     // Dictionary column should do something to initial.
     void _convert_dict_code_for_predicate_if_necessary();
 
@@ -279,11 +284,15 @@ private:
     std::vector<ColumnId> _predicate_columns;
     // columns to read after predicate evaluation
     std::vector<ColumnId> _non_predicate_columns;
+
+    // std::set<ColumnId> _expr_column_ids;
+    std::vector<ColumnId> _expr_columns;
     // remember the rowids we've read for the current row block.
     // could be a local variable of next_batch(), kept here to reuse vector memory
     std::vector<rowid_t> _block_rowids;
     bool _is_need_vec_eval = false;
     bool _is_need_short_eval = false;
+    bool _is_need_expr_eval = false;
 
     // fields for vectorization execution
     std::vector<ColumnId>
@@ -291,6 +300,7 @@ private:
     std::vector<ColumnId>
             _short_cir_pred_column_ids; // keep columnId of columns for short circuit predicate evaluation
     std::vector<bool> _is_pred_column; // columns hold by segmentIter
+    std::vector<bool> _is_pred_column_used_expr;
     vectorized::MutableColumns _current_return_columns;
     std::vector<ColumnPredicate*> _pre_eval_block_predicate;
     std::vector<ColumnPredicate*> _short_cir_eval_predicate;
@@ -311,7 +321,9 @@ private:
     // make a copy of `_opts.column_predicates` in order to make local changes
     std::vector<ColumnPredicate*> _col_predicates;
     std::vector<ColumnPredicate*> _col_preds_except_leafnode_of_andnode;
+    doris::vectorized::VExprContext* _remaining_vconjunct;
     doris::vectorized::VExpr* _remaining_vconjunct_root;
+    int _output_slots_size;
     std::vector<roaring::Roaring> _pred_except_leafnode_of_andnode_evaluate_result;
     std::unique_ptr<ColumnPredicateInfo> _column_predicate_info;
 
