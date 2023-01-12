@@ -225,7 +225,7 @@ Status TabletReader::_capture_rs_readers(const ReaderParams& read_params,
     _reader_context.enable_unique_key_merge_on_write = tablet()->enable_unique_key_merge_on_write();
     _reader_context.record_rowids = read_params.record_rowids;
     _reader_context.is_key_column_group = read_params.is_key_column_group;
-    _reader_context.remaining_vconjunct_root = read_params.remaining_vconjunct_root;
+    _reader_context.remaining_vconjunct_ctx = read_params.remaining_vconjunct_ctx;
 
     *valid_rs_readers = *rs_readers;
 

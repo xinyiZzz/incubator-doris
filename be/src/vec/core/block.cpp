@@ -315,7 +315,7 @@ void Block::check_number_of_rows(bool allow_null_columns) const {
 
 size_t Block::rows() const {
     for (const auto& elem : data) {
-        if (elem.column) {
+        if (elem.column && elem.column->size() != 0) {
             return elem.column->size();
         }
     }

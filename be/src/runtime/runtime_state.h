@@ -140,6 +140,11 @@ public:
                _query_options.check_overflow_for_decimal;
     }
 
+    bool enable_remaining_expr_pushdown() const {
+        return _query_options.__isset.enable_remaining_expr_pushdown &&
+               _query_options.enable_remaining_expr_pushdown;
+    }
+
     // Create a codegen object in _codegen. No-op if it has already been called.
     // If codegen is enabled for the query, this is created when the runtime
     // state is created. If codegen is disabled for the query, this is created
