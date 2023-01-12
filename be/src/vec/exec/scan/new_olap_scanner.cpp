@@ -172,8 +172,10 @@ Status NewOlapScanner::_init_tablet_reader_params(
                 real_parent->_olap_scan_node.push_down_agg_type_opt;
     }
     _tablet_reader_params.version = Version(0, _version);
-    _tablet_reader_params.remaining_vconjunct_root =
-            (_vconjunct_ctx == nullptr) ? nullptr : _vconjunct_ctx->root();
+    if (_state->enable_remaining_expr_pushdown()) {
+        _tablet_reader_params.remaining_vconjunct_ctx = _vconjunct_ctx;
+        _tablet_reader_params.output_slots_size = _output_tuple_desc->slots().size();
+    }
 
     // Condition
     for (auto& filter : filters) {

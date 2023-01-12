@@ -108,7 +108,7 @@ function load() {
     echo "(1/2) prepare clickbench data file"
     need_download=false
     cd $DATA_DIR
-    for i in $(seq 0 9); do
+    for i in $(seq 0 1); do
         if [ ! -f "$DATA_DIR/hits_split${i}" ]; then
             echo "will download hits_split${i} to $DATA_DIR"
             wget --continue "https://doris-test-data.oss-cn-hongkong.aliyuncs.com/ClickBench/hits_split${i}" &
@@ -121,7 +121,7 @@ function load() {
     cd -
 
     echo "(2/2) load clickbench data file $DATA_DIR/hits_split[0-9] into Doris"
-    for i in $(seq 0 9); do
+    for i in $(seq 0 1); do
         echo -e "
         start loading hits_split${i}"
         curl --location-trusted \

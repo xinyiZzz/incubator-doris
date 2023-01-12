@@ -79,8 +79,12 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
 
 Status VScanner::_filter_output_block(Block* block) {
     auto old_rows = block->rows();
-    Status st =
-            VExprContext::filter_block(_vconjunct_ctx, block, _output_tuple_desc->slots().size());
+    Status st;
+    if (_state->enable_remaining_expr_pushdown()) {
+        st = Status::OK();
+    } else {
+        st = VExprContext::filter_block(_vconjunct_ctx, block, _output_tuple_desc->slots().size());
+    }
     _counter.num_rows_unselected += old_rows - block->rows();
     return st;
 }

@@ -56,7 +56,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     // convert RowsetReaderContext to StorageReadOptions
     _read_options.stats = _stats;
     _read_options.push_down_agg_type_opt = _context->push_down_agg_type_opt;
-    _read_options.remaining_vconjunct_root = _context->remaining_vconjunct_root;
+    _read_options.remaining_vconjunct_ctx = _context->remaining_vconjunct_ctx;
+    _read_options.output_slots_size = _context->output_slots_size;
     if (read_context->lower_bound_keys != nullptr) {
         for (int i = 0; i < read_context->lower_bound_keys->size(); ++i) {
             _read_options.key_ranges.emplace_back(&read_context->lower_bound_keys->at(i),
