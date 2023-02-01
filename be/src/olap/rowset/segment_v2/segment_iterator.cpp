@@ -176,7 +176,9 @@ Status SegmentIterator::init(const StorageReadOptions& opts) {
     if (!opts.column_predicates_except_leafnode_of_andnode.empty()) {
         _col_preds_except_leafnode_of_andnode = opts.column_predicates_except_leafnode_of_andnode;
     }
-    _remaining_vconjunct_root = opts.remaining_vconjunct_root;
+    _remaining_vconjunct_ctx = opts.remaining_vconjunct_ctx;
+    _remaining_vconjunct_root =
+            _remaining_vconjunct_ctx ? _remaining_vconjunct_ctx->root() : nullptr;
 
     _column_predicate_info.reset(new ColumnPredicateInfo());
     return Status::OK();
@@ -1410,6 +1412,31 @@ Status SegmentIterator::next_batch(vectorized::Block* block) {
             block->get_by_position(i).column =
                     block->get_by_position(i).column->permute(permutation, num_rows);
     }
+
+    if (_remaining_vconjunct_root != nullptr) {
+        SCOPED_RAW_TIMER(&_opts.stats->expr_filter_nsb);
+        // execute_remaining_exp_num++;
+        // sblock_allocated_bytes += block->allocated_bytes();
+        // sblock_bytes += block->bytes();
+        // LOG(INFO) << "_execute_remaining_expr 888 block: " << block->each_col_size()
+        //                 << ", dump_data " << block->dump_data(0, 5)
+        //                 << ", allocated_bytes " << block->allocated_bytes()
+        //                 << ", bytes " << block->bytes()
+        //                 << ", conjunct root: " << _remaining_vconjunct_root->debug_string()
+        //                 << ", child size: " << _remaining_vconjunct_root->children().size()
+        //                 << ", execute_remaining_exp_num " << execute_remaining_exp_num
+        //                 << ", sblock_allocated_bytes: " << sblock_allocated_bytes
+        //                 << ", sblock_bytes: " << sblock_bytes;;
+        doris::vectorized::VExprContext::filter_block(_remaining_vconjunct_ctx, block, 1);
+    }
+
+    // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+
+    // if (ExecEnv::GetInstance()->slotsize) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
 
     return Status::OK();
 }

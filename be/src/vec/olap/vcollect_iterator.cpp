@@ -186,7 +186,14 @@ Status VCollectIterator::next(IteratorRowRef* ref) {
 
 Status VCollectIterator::next(Block* block) {
     if (LIKELY(_inner_iter)) {
-        return _inner_iter->next(block);
+        Status st =  _inner_iter->next(block);
+        // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        // if (ExecEnv::GetInstance()->slotsize) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        return st;
     } else {
         return Status::Error<END_OF_FILE>();
     }
@@ -276,6 +283,9 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
         if (UNLIKELY(_reader->_reader_context.record_rowids)) {
             RETURN_NOT_OK(_rs_reader->current_block_row_locations(&_block_row_locations));
         }
+        // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
         return Status::OK();
     }
 }
@@ -355,11 +365,19 @@ Status VCollectIterator::Level1Iterator::next(Block* block) {
     if (UNLIKELY(_cur_child == nullptr)) {
         return Status::Error<END_OF_FILE>();
     }
+    Status st;
     if (_merge) {
-        return _merge_next(block);
+        st = _merge_next(block);
     } else {
-        return _normal_next(block);
+        st = _normal_next(block);
     }
+    // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+    // if (ExecEnv::GetInstance()->slotsize) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+    return st;
 }
 
 int64_t VCollectIterator::Level1Iterator::version() const {

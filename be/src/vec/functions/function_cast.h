@@ -1595,6 +1595,7 @@ private:
                     tmp_block = create_block_with_nested_columns_only_args(block, arguments);
                     tmp_res_index = tmp_block.columns();
                     tmp_block.insert({nullptr, nested_type, ""});
+                    // LOG(INFO) << "VCastExpr::execute 111 " << block.each_col_size() << ", rows " << block.rows() << ", tmp_block " << tmp_block.each_col_size() << ", rows " << tmp_block.rows();
 
                     /// Perform the requested conversion.
                     RETURN_IF_ERROR(

@@ -387,6 +387,9 @@ Status VUnionIterator::init(const StorageReadOptions& opts) {
 Status VUnionIterator::next_batch(Block* block) {
     while (_cur_iter != nullptr) {
         auto st = _cur_iter->next_batch(block);
+        if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+            doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        }
         if (st.is<END_OF_FILE>()) {
             delete _cur_iter;
             _origin_iters.pop_front();

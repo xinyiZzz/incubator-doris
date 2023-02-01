@@ -171,8 +171,9 @@ Status NewOlapScanner::_init_tablet_reader_params(
                 real_parent->_olap_scan_node.push_down_agg_type_opt;
     }
     _tablet_reader_params.version = Version(0, _version);
-    _tablet_reader_params.remaining_vconjunct_root =
-            (_vconjunct_ctx == nullptr) ? nullptr : _vconjunct_ctx->root();
+    if (_state->enable_remaining_expr_pushdown()) {
+        _tablet_reader_params.remaining_vconjunct_ctx = _vconjunct_ctx;
+    }
 
     // Condition
     for (auto& filter : filters) {
@@ -344,6 +345,10 @@ Status NewOlapScanner::_get_block_impl(RuntimeState* state, Block* block, bool* 
         *eof = false;
     }
     _update_realtime_counters();
+
+    // if (!ExecEnv::GetInstance()->slotsize) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
     return Status::OK();
 }
 
@@ -407,12 +412,16 @@ void NewOlapScanner::_update_counters_before_close() {
     _raw_rows_read += _tablet_reader->mutable_stats()->raw_rows_read;
     COUNTER_UPDATE(olap_parent->_vec_cond_timer, stats.vec_cond_ns);
     COUNTER_UPDATE(olap_parent->_short_cond_timer, stats.short_cond_ns);
+    COUNTER_UPDATE(olap_parent->_expr_filter_timer, stats.expr_filter_ns);
+    COUNTER_UPDATE(olap_parent->_expr_filter_timera, stats.expr_filter_nsa);
+    COUNTER_UPDATE(olap_parent->_expr_filter_timerb, stats.expr_filter_nsb);
     COUNTER_UPDATE(olap_parent->_block_init_timer, stats.block_init_ns);
     COUNTER_UPDATE(olap_parent->_block_init_seek_timer, stats.block_init_seek_ns);
     COUNTER_UPDATE(olap_parent->_block_init_seek_counter, stats.block_init_seek_num);
     COUNTER_UPDATE(olap_parent->_block_conditions_filtered_timer,
                    stats.block_conditions_filtered_ns);
     COUNTER_UPDATE(olap_parent->_first_read_timer, stats.first_read_ns);
+    COUNTER_UPDATE(olap_parent->_second_read_timer, stats.second_read_ns);
     COUNTER_UPDATE(olap_parent->_first_read_seek_timer, stats.block_first_read_seek_ns);
     COUNTER_UPDATE(olap_parent->_first_read_seek_counter, stats.block_first_read_seek_num);
     COUNTER_UPDATE(olap_parent->_lazy_read_timer, stats.lazy_read_ns);

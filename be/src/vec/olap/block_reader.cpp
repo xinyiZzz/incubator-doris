@@ -178,6 +178,15 @@ Status BlockReader::_direct_next_block(Block* block, MemPool* mem_pool, ObjectPo
         }
         DCHECK_EQ(_block_row_locations.size(), block->rows());
     }
+    // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+    // if (ExecEnv::GetInstance()->slotsize) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+    // if (!ExecEnv::GetInstance()->slotsize) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
     return Status::OK();
 }
 

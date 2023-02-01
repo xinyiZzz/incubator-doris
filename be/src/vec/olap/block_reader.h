@@ -37,7 +37,11 @@ public:
 
     Status next_block_with_aggregation(Block* block, MemPool* mem_pool, ObjectPool* agg_pool,
                                        bool* eof) override {
-        return (this->*_next_block_func)(block, mem_pool, agg_pool, eof);
+        Status st = (this->*_next_block_func)(block, mem_pool, agg_pool, eof);
+        // if (!ExecEnv::GetInstance()->slotsize) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        return st;
     }
 
     std::vector<RowLocation> current_block_row_locations() { return _block_row_locations; }
@@ -48,7 +52,7 @@ public:
 
     ColumnPredicate* _parse_to_predicate(const FunctionFilter& function_filter) override;
 
-private:
+// private:
     // Directly read row from rowset and pass to upper caller. No need to do aggregation.
     // This is usually used for DUPLICATE KEY tables
     Status _direct_next_block(Block* block, MemPool* mem_pool, ObjectPool* agg_pool, bool* eof);
