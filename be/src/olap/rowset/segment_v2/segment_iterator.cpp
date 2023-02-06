@@ -1449,6 +1449,10 @@ Status SegmentIterator::next_batch(vectorized::Block* block) {
                     block->get_by_position(i).column->permute(permutation, num_rows);
     }
 
+    if (false) {
+        return doris::vectorized::VExprContext::filter_block(nullptr, block, 1);
+    }
+
     return Status::OK();
 }
 
