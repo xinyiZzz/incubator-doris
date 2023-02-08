@@ -150,7 +150,9 @@ public:
 private:
     friend class Decompressor;
     LzopDecompressor()
-            : Decompressor(CompressType::LZOP), _header_info({0}), _is_header_loaded(false) {}
+            : Decompressor(CompressType::LZOP),
+              _header_info({0, 0, 0, 0, "", 0, CHECK_NONE, CHECK_NONE, CHECK_NONE}),
+              _is_header_loaded(false) {}
     Status init() override;
 
 private:

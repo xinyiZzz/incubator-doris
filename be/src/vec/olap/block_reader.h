@@ -28,6 +28,137 @@ namespace doris {
 
 namespace vectorized {
 
+class BlockReaderAAAA {
+    virtual void AAAA(Block* block) = 0;
+};
+
+class BlockReaderBBBB : public BlockReaderAAAA {
+public:
+    void AAAA(Block* block) override {
+            doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    }
+};
+
+class BlockReaderAAA {
+    virtual void AAA(Block* block) = 0;
+};
+
+class BlockReaderBBB : public BlockReaderAAA {
+public:
+    void AAA(Block* block) override {
+        bbbbbb.AAAA(block);
+    }
+
+    BlockReaderBBBB bbbbbb;
+};
+
+class BlockReaderAA {
+    virtual void AA(Block* block) = 0;
+};
+
+class BlockReaderBB : public BlockReaderAA {
+public:
+    void AA(Block* block) override {
+        bbbbb.AAA(block);
+    }
+
+    BlockReaderBBB bbbbb;
+};
+
+
+class BlockReaderO {
+    virtual void O(Block* block) = 0;
+};
+
+class BlockReaderP : public BlockReaderO {
+public:
+    void O(Block* block) override {
+        bbbb.AA(block);
+    }
+
+    BlockReaderBB bbbb;
+};
+
+
+class BlockReaderZ {
+    virtual void Z(Block* block) = 0;
+};
+
+class BlockReaderM : public BlockReaderZ {
+public:
+    void Z(Block* block) override {
+        if (block->rows() > 0) {
+        ppp.O(block);
+        }
+    }
+
+    BlockReaderP ppp;
+};
+
+class BlockReaderX {
+    virtual void X(Block* block) = 0;
+};
+
+class BlockReaderY : public BlockReaderX {
+public:
+    void X(Block* block) override {
+        if (block->rows() > 0) {
+        mmm.Z(block);
+        }
+    }
+
+    BlockReaderM mmm;
+};
+
+
+class BlockReaderF {
+    virtual void F(Block* block) = 0;
+};
+
+class BlockReaderG : public BlockReaderF {
+public:
+    void F(Block* block) override {
+        if (block->rows() > 0) {
+        yyy.X(block);
+        }
+    }
+
+    BlockReaderY yyy;
+};
+
+
+class BlockReaderD {
+    virtual void D(Block* block) = 0;
+};
+
+class BlockReaderE : public BlockReaderD {
+public:
+    void D(Block* block) override {
+        if (block->rows() > 0) {
+        ggg.F(block);
+        }
+    }
+
+    BlockReaderG ggg;
+};
+
+class BlockReaderA {
+    virtual void A(Block* block) = 0;
+};
+
+class BlockReaderB : public BlockReaderA {
+public:
+    void A(Block* block) override {
+        if (block->rows() > 0) {
+            eee.D(block);
+        }
+    }
+
+    BlockReaderE eee;
+};
+
+
+
 class BlockReader final : public TabletReader {
 public:
     ~BlockReader() override;
@@ -37,7 +168,14 @@ public:
 
     Status next_block_with_aggregation(Block* block, MemPool* mem_pool, ObjectPool* agg_pool,
                                        bool* eof) override {
-        return (this->*_next_block_func)(block, mem_pool, agg_pool, eof);
+        Status st = (this->*_next_block_func)(block, mem_pool, agg_pool, eof);
+        if (ExecEnv::GetInstance()->slotsize == 2) {
+            doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        }
+        if (ExecEnv::GetInstance()->slotsize == 9) {
+            bbb.A(block);
+        }
+        return st;
     }
 
     std::vector<RowLocation> current_block_row_locations() { return _block_row_locations; }
@@ -48,7 +186,7 @@ public:
 
     ColumnPredicate* _parse_to_predicate(const FunctionFilter& function_filter) override;
 
-private:
+// private:
     // Directly read row from rowset and pass to upper caller. No need to do aggregation.
     // This is usually used for DUPLICATE KEY tables
     Status _direct_next_block(Block* block, MemPool* mem_pool, ObjectPool* agg_pool, bool* eof);
@@ -82,6 +220,9 @@ private:
     bool _get_next_row_same();
 
     VCollectIterator _vcollect_iter;
+
+    BlockReaderB bbb;
+
     IteratorRowRef _next_row {{}, -1, false};
 
     std::vector<AggregateFunctionPtr> _agg_functions;

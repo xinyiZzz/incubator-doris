@@ -388,6 +388,7 @@ Status VUnionIterator::next_batch(Block* block) {
     while (_cur_iter != nullptr) {
         auto st = _cur_iter->next_batch(block);
         if (st.is<END_OF_FILE>()) {
+            // LOG(INFO) << "VUnionIterator::next_batch 1111";
             delete _cur_iter;
             _origin_iters.pop_front();
             if (!_origin_iters.empty()) {
@@ -396,9 +397,16 @@ Status VUnionIterator::next_batch(Block* block) {
                 _cur_iter = nullptr;
             }
         } else {
+            if (ExecEnv::GetInstance()->slotsize == 7) {
+                // ExecEnv::GetInstance()->count2++;
+                doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+                // LOG(INFO) << "ExecEnv::GetInstance()->count2 " << ExecEnv::GetInstance()->count2;
+            }
+
             return st;
         }
     }
+    // LOG(INFO) << "VUnionIterator::next_batch 2222";
     return Status::EndOfFile("End of VUnionIterator");
 }
 

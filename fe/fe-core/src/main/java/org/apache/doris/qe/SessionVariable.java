@@ -221,6 +221,8 @@ public class SessionVariable implements Serializable, Writable {
 
     public static final String ENABLE_FUNCTION_PUSHDOWN = "enable_function_pushdown";
 
+    public static final String ENABLE_REMAINING_EXPR_PUSHDOWN = "enable_remaining_expr_pushdown";
+
     public static final String FRAGMENT_TRANSMISSION_COMPRESSION_CODEC = "fragment_transmission_compression_codec";
 
     public static final String ENABLE_LOCAL_EXCHANGE = "enable_local_exchange";
@@ -593,6 +595,9 @@ public class SessionVariable implements Serializable, Writable {
 
     @VariableMgr.VarAttr(name = ENABLE_FUNCTION_PUSHDOWN)
     public boolean enableFunctionPushdown;
+
+    @VariableMgr.VarAttr(name = ENABLE_REMAINING_EXPR_PUSHDOWN)
+    public int enableRemainingExprPushdown = 0;
 
     @VariableMgr.VarAttr(name = ENABLE_LOCAL_EXCHANGE)
     public boolean enableLocalExchange = true;
@@ -1395,6 +1400,7 @@ public class SessionVariable implements Serializable, Writable {
         }
 
         tResult.setEnableFunctionPushdown(enableFunctionPushdown);
+        tResult.setEnableRemainingExprPushdown(enableRemainingExprPushdown);
         tResult.setCheckOverflowForDecimal(checkOverflowForDecimal);
         tResult.setFragmentTransmissionCompressionCodec(fragmentTransmissionCompressionCodec);
         tResult.setEnableLocalExchange(enableLocalExchange);

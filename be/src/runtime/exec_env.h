@@ -30,6 +30,7 @@ namespace doris {
 namespace vectorized {
 class VDataStreamMgr;
 class ScannerScheduler;
+class VExprContext;
 } // namespace vectorized
 namespace pipeline {
 class TaskScheduler;
@@ -184,6 +185,12 @@ public:
     void set_stream_load_executor(StreamLoadExecutor* stream_load_executor) {
         this->_stream_load_executor = stream_load_executor;
     }
+
+    doris::vectorized::VExprContext* v_vconjunct_ctx = nullptr;
+    int slotsize = 0;
+    int count0 = 0;
+    int count1 = 0;
+    int count2 = 0;
 
 private:
     Status _init(const std::vector<StorePath>& store_paths);

@@ -184,12 +184,28 @@ Status VCollectIterator::next(IteratorRowRef* ref) {
     }
 }
 
+// static int ccount2 = 0;
+
 Status VCollectIterator::next(Block* block) {
+    Status st;
     if (LIKELY(_inner_iter)) {
-        return _inner_iter->next(block);
+        st =  _inner_iter->next(block);
+        // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        // if (ExecEnv::GetInstance()->slotsize) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
     } else {
-        return Status::Error<END_OF_FILE>();
+        // LOG(INFO) << "VCollectIterator 111";
+        st =  Status::Error<END_OF_FILE>();
     }
+    if (ExecEnv::GetInstance()->slotsize == 4) {
+        // ExecEnv::GetInstance()->count2++;
+        doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // LOG(INFO) << "ExecEnv::GetInstance()->count2 " << ExecEnv::GetInstance()->count2;
+    }
+    return st;
 }
 
 VCollectIterator::Level0Iterator::Level0Iterator(RowsetReaderSharedPtr rs_reader,
@@ -264,18 +280,31 @@ Status VCollectIterator::Level0Iterator::next(Block* block) {
     if (_ref.row_pos == 0 && _ref.block != nullptr && UNLIKELY(_ref.block->rows() > 0)) {
         block->swap(*_ref.block);
         _ref.reset();
+        // LOG(INFO) << "Level0Iterator 111";
         return Status::OK();
     } else {
         auto res = _rs_reader->next_block(block);
         if (!res.ok() && !res.is<END_OF_FILE>()) {
+            // LOG(INFO) << "Level0Iterator 222";
             return res;
         }
         if (res.is<END_OF_FILE>() && block->rows() == 0) {
+            // LOG(INFO) << "Level0Iterator 333";
             return Status::Error<END_OF_FILE>();
         }
         if (UNLIKELY(_reader->_reader_context.record_rowids)) {
+            // LOG(INFO) << "Level0Iterator 444";
             RETURN_NOT_OK(_rs_reader->current_block_row_locations(&_block_row_locations));
         }
+        // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        // if (ExecEnv::GetInstance()->slotsize) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
+        // if (!ExecEnv::GetInstance()->slotsize) {
+        //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // }
         return Status::OK();
     }
 }
@@ -353,13 +382,26 @@ Status VCollectIterator::Level1Iterator::next(IteratorRowRef* ref) {
 //      Others when error happens
 Status VCollectIterator::Level1Iterator::next(Block* block) {
     if (UNLIKELY(_cur_child == nullptr)) {
+        // LOG(INFO) << "Level1Iterator 222";
         return Status::Error<END_OF_FILE>();
     }
+    Status st;
     if (_merge) {
-        return _merge_next(block);
+        st = _merge_next(block);
+        // LOG(INFO) << "Level1Iterator 111";
+        // std::cout<< "222222" << std::endl;
     } else {
-        return _normal_next(block);
+        st = _normal_next(block);
     }
+    // if (ExecEnv::GetInstance()->v_vconjunct_ctx != nullptr) {
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    // }
+    if (ExecEnv::GetInstance()->slotsize == 5) {
+        // ExecEnv::GetInstance()->count2++;
+        doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+        // LOG(INFO) << "ExecEnv::GetInstance()->count2 " << ExecEnv::GetInstance()->count2;
+    }
+    return st;
 }
 
 int64_t VCollectIterator::Level1Iterator::version() const {

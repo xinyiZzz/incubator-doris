@@ -163,6 +163,8 @@ Status BlockReader::init(const ReaderParams& read_params) {
     return Status::OK();
 }
 
+// static int ccount = 0;
+
 Status BlockReader::_direct_next_block(Block* block, MemPool* mem_pool, ObjectPool* agg_pool,
                                        bool* eof) {
     auto res = _vcollect_iter.next(block);
@@ -171,13 +173,10 @@ Status BlockReader::_direct_next_block(Block* block, MemPool* mem_pool, ObjectPo
     }
     *eof = res.is<END_OF_FILE>();
     _eof = *eof;
-    if (UNLIKELY(_reader_context.record_rowids)) {
-        res = _vcollect_iter.current_block_row_locations(&_block_row_locations);
-        if (UNLIKELY(!res.ok() && res != Status::Error<END_OF_FILE>())) {
-            return res;
-        }
-        DCHECK_EQ(_block_row_locations.size(), block->rows());
+    if (ExecEnv::GetInstance()->slotsize == 3) {
+        doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
     }
+    
     return Status::OK();
 }
 

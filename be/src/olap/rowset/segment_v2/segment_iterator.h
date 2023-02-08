@@ -311,6 +311,8 @@ private:
     // make a copy of `_opts.column_predicates` in order to make local changes
     std::vector<ColumnPredicate*> _col_predicates;
     std::vector<ColumnPredicate*> _col_preds_except_leafnode_of_andnode;
+    doris::vectorized::VExprContext* _remaining_vconjunct_ctx;
+    int _xxxxxx;
     doris::vectorized::VExpr* _remaining_vconjunct_root;
     std::vector<roaring::Roaring> _pred_except_leafnode_of_andnode_evaluate_result;
     std::unique_ptr<ColumnPredicateInfo> _column_predicate_info;

@@ -81,7 +81,11 @@ Status NewOlapScanNode::_init_profile() {
     _rows_vec_cond_counter = ADD_COUNTER(_segment_profile, "RowsVectorPredFiltered", TUnit::UNIT);
     _vec_cond_timer = ADD_TIMER(_segment_profile, "VectorPredEvalTime");
     _short_cond_timer = ADD_TIMER(_segment_profile, "ShortPredEvalTime");
+    _expr_filter_timer = ADD_TIMER(_segment_profile, "ExprFilterEvalTime");
+    _expr_filter_timera = ADD_TIMER(_segment_profile, "ExprFilterEvalTimea");
+    _expr_filter_timerb = ADD_TIMER(_segment_profile, "ExprFilterEvalTimeb");
     _first_read_timer = ADD_TIMER(_segment_profile, "FirstReadTime");
+    _second_read_timer = ADD_TIMER(_segment_profile, "SecondReadTime");
     _first_read_seek_timer = ADD_TIMER(_segment_profile, "FirstReadSeekTime");
     _first_read_seek_counter = ADD_COUNTER(_segment_profile, "FirstReadSeekCount", TUnit::UNIT);
 

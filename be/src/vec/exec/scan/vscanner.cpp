@@ -51,7 +51,13 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
             // 1. Get input block from scanner
             {
                 SCOPED_TIMER(_parent->_scan_timer);
+                ExecEnv::GetInstance()->v_vconjunct_ctx = _vconjunct_ctx;
+                ExecEnv::GetInstance()->slotsize = _state->enable_remaining_expr_pushdown();
+
                 RETURN_IF_ERROR(_get_block_impl(state, block, eof));
+                if (ExecEnv::GetInstance()->slotsize == 0) {
+                    doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+                }
                 if (*eof) {
                     DCHECK(block->rows() == 0);
                     break;
@@ -78,10 +84,41 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
     return Status::OK();
 }
 
+// static int filter_output_block_num = 0;
+// static double block_allocated_bytes = 0;
+// static double block_bytes = 0;
+
 Status VScanner::_filter_output_block(Block* block) {
     auto old_rows = block->rows();
-    Status st =
-            VExprContext::filter_block(_vconjunct_ctx, block, _output_tuple_desc->slots().size());
+    Status st;
+    // if (_state->enable_remaining_expr_pushdown()) {
+    //     st = Status::OK();
+    // } else {
+    //     // filter_output_block_num++;
+    //     // block_allocated_bytes += block->allocated_bytes();
+    //     // block_bytes += block->bytes();
+    //     // if (_vconjunct_ctx) {
+    //     //     LOG(INFO) << "VScanner::_filter_output_block 111 block: " << block->each_col_size() << ", size: " << _output_tuple_desc->slots().size() 
+    //     //                 << ", dump_data " << block->dump_data(0, 5)
+    //     //                 << ", allocated_bytes " << block->allocated_bytes()
+    //     //                 << ", bytes " << block->bytes()
+    //     //                 << ", conjunct root:" << _vconjunct_ctx->root()->debug_string()
+    //     //                 << ", child size: " << _vconjunct_ctx->root()->children().size() << ", filter_output_block_num " << filter_output_block_num
+    //     //                 << ", block_allocated_bytes: " << block_allocated_bytes
+    //     //                 << ", block_bytes: " << block_bytes;
+    //     // } else {
+    //     //     LOG(INFO) << "VScanner::_filter_output_block 000 block: " << block->each_col_size() << ", size: " << _output_tuple_desc->slots().size()
+    //     //                  << ", filter_output_block_num " << filter_output_block_num;
+    //     // }   
+    //     st = VExprContext::filter_block(_vconjunct_ctx, block, _output_tuple_desc->slots().size());
+    // }
+    
+    // if (ExecEnv::GetInstance()->slotsize == 0) {
+    //     // ExecEnv::GetInstance()->count0++;
+    //     doris::vectorized::VExprContext::filter_block(ExecEnv::GetInstance()->v_vconjunct_ctx, block, 1);
+    //     // LOG(INFO) << "ExecEnv::GetInstance()->count0 " << ExecEnv::GetInstance()->count0;
+    // }
+    
     _counter.num_rows_unselected += old_rows - block->rows();
     return st;
 }

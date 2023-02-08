@@ -306,8 +306,8 @@ void Block::check_number_of_rows(bool allow_null_columns) const {
         if (rows == -1) {
             rows = size;
         } else if (rows != size) {
-            LOG(FATAL) << fmt::format("Sizes of columns doesn't match: {}:{},{}:{}",
-                                      data.front().name, rows, elem.name, size);
+            LOG(FATAL) << fmt::format("Sizes of columns doesn't match: {}:{},{}:{}, col size: {}",
+                                      data.front().name, rows, elem.name, size, each_col_size());
         }
     }
 }
@@ -322,7 +322,7 @@ size_t Block::rows() const {
     return 0;
 }
 
-std::string Block::each_col_size() {
+std::string Block::each_col_size() const {
     std::stringstream ss;
     for (const auto& elem : data) {
         if (elem.column) {

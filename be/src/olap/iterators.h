@@ -116,7 +116,7 @@ public:
     // columns for orderby keys
     std::vector<uint32_t>* read_orderby_key_columns = nullptr;
     IOContext io_ctx;
-    vectorized::VExpr* remaining_vconjunct_root = nullptr;
+    vectorized::VExprContext* remaining_vconjunct_ctx = nullptr;
     // runtime state
     RuntimeState* runtime_state = nullptr;
 };
