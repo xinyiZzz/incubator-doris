@@ -112,6 +112,11 @@ public:
                _query_options.check_overflow_for_decimal;
     }
 
+    bool enable_remaining_expr_pushdown() const {
+        return _query_options.__isset.enable_remaining_expr_pushdown &&
+               _query_options.enable_remaining_expr_pushdown;
+    }
+
     Status query_status() {
         std::lock_guard<std::mutex> l(_process_status_lock);
         return _process_status;

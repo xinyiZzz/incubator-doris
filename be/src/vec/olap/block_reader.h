@@ -47,7 +47,7 @@ public:
 
     ColumnPredicate* _parse_to_predicate(const FunctionFilter& function_filter) override;
 
-private:
+// private:
     // Directly read row from rowset and pass to upper caller. No need to do aggregation.
     // This is usually used for DUPLICATE KEY tables
     Status _direct_next_block(Block* block, bool* eof);

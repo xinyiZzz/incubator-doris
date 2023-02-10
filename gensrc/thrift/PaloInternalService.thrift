@@ -194,6 +194,8 @@ struct TQueryOptions {
   59: optional i32 partitioned_hash_agg_rows_threshold = 0
 
   60: optional bool enable_file_cache = true
+
+  61: optional bool enable_remaining_expr_pushdown = false;
 }
     
 

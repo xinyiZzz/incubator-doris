@@ -87,11 +87,28 @@ Status VScanner::get_block(RuntimeState* state, Block* block, bool* eof) {
     return Status::OK();
 }
 
+// static int filter_output_block_num = 0;
+
 Status VScanner::_filter_output_block(Block* block) {
-    auto old_rows = block->rows();
-    Status st = VExprContext::filter_block(_vconjunct_ctx, block, block->columns());
-    _counter.num_rows_unselected += old_rows - block->rows();
-    return st;
+    if (!_state->enable_remaining_expr_pushdown()) {
+        // filter_output_block_num++;
+        // if (_vconjunct_ctx) {
+        //     LOG(INFO) << "VScanner::_filter_output_block 111 block: " << block->each_col_size() << ", size: " << _output_tuple_desc->slots().size() 
+        //                 << ", dump_data " << block->dump_data(0, 1)
+        //                 << ", conjunct root:" << _vconjunct_ctx->root()->debug_string()
+        //                 << ", child size: " << _vconjunct_ctx->root()->children().size();
+        // } else {
+        //     // LOG(INFO) << "VScanner::_filter_output_block 000 block: " << block->each_col_size() << ", size: " << _output_tuple_desc->slots().size()
+        //     //              << ", filter_output_block_num " << filter_output_block_num;
+        //     LOG(INFO) << "VScanner::_filter_output_block 000 block: " << block->each_col_size() << ", size: " << _output_tuple_desc->slots().size();;
+        // }   
+        auto old_rows = block->rows();
+        Status st;
+        st = VExprContext::filter_block(_vconjunct_ctx, block, block->columns());
+        _counter.num_rows_unselected += old_rows - block->rows();
+        return st;
+    }
+    return Status::OK();
 }
 
 Status VScanner::try_append_late_arrival_runtime_filter() {

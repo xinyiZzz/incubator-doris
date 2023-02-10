@@ -64,7 +64,8 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
     // convert RowsetReaderContext to StorageReadOptions
     _read_options.stats = _stats;
     _read_options.push_down_agg_type_opt = _context->push_down_agg_type_opt;
-    _read_options.remaining_vconjunct_root = _context->remaining_vconjunct_root;
+    _read_options.remaining_vconjunct_ctx = _context->remaining_vconjunct_ctx;
+    _read_options.enable_remaining_expr_pushdown = _context->enable_remaining_expr_pushdown;
     _read_options.rowset_id = _rowset->rowset_id();
     _read_options.tablet_id = _rowset->rowset_meta()->tablet_id();
     if (read_context->lower_bound_keys != nullptr) {
@@ -97,7 +98,7 @@ Status BetaRowsetReader::get_segment_iterators(RowsetReaderContext* read_context
             read_columns.push_back(cid);
         }
     }
-    VLOG_NOTICE << "read columns size: " << read_columns.size();
+    LOG(INFO) << "read columns size: " << read_columns.size() << ", _context->return_columns->size() " << _context->return_columns->size();
     _input_schema = std::make_shared<Schema>(_context->tablet_schema->columns(), read_columns);
 
     if (read_context->predicates != nullptr) {

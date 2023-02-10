@@ -366,6 +366,7 @@ Status FunctionLikeBase::execute_impl(FunctionContext* context, Block& block,
     if (constant_substring_fn ==
         *(state->function.target<doris::Status (*)(LikeSearchState * state, const ColumnString&,
                                                    const StringRef&, ColumnUInt8::Container&)>())) {
+        // LOG(INFO) << "FunctionLikeBase::execute_impl " << input_rows_count;
         RETURN_IF_ERROR(execute_substring(values->get_chars(), values->get_offsets(), vec_res,
                                           &state->search_state));
     } else {

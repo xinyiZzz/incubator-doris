@@ -184,7 +184,8 @@ void Block::erase(size_t position) {
         LOG(FATAL) << fmt::format("Position out of bound in Block::erase(), max position = {}",
                                   data.size() - 1);
     }
-
+    
+    DCHECK(position != _effective_col);
     erase_impl(position);
 }
 
@@ -308,13 +309,17 @@ void Block::check_number_of_rows(bool allow_null_columns) const {
         if (rows == -1) {
             rows = size;
         } else if (rows != size) {
-            LOG(FATAL) << fmt::format("Sizes of columns doesn't match: {}:{},{}:{}",
-                                      data.front().name, rows, elem.name, size);
+            LOG(FATAL) << fmt::format("Sizes of columns doesn't match: {}:{},{}:{}, col size: {}",
+                                      data.front().name, rows, elem.name, size, each_col_size());
         }
     }
 }
 
 size_t Block::rows() const {
+    // LOG(INFO) << "Block::rows(): " << each_col_size() << ", _effective_col " << _effective_col;
+    if (_effective_col != INT_MIN) {
+        return data[_effective_col].column->size();
+    }
     for (const auto& elem : data) {
         if (elem.column) {
             return elem.column->size();
@@ -324,7 +329,7 @@ size_t Block::rows() const {
     return 0;
 }
 
-std::string Block::each_col_size() {
+std::string Block::each_col_size() const {
     std::stringstream ss;
     for (const auto& elem : data) {
         if (elem.column) {
@@ -604,6 +609,7 @@ void Block::clear() {
     data.clear();
     index_by_name.clear();
     row_same_bit.clear();
+    _effective_col = INT_MIN;
 }
 
 void Block::clear_column_data(int column_size) noexcept {
@@ -689,6 +695,7 @@ void Block::append_block_by_selector(MutableColumns& columns,
 Status Block::filter_block(Block* block, const std::vector<uint32_t>& columns_to_filter,
                            int filter_column_id, int column_to_keep) {
     ColumnPtr filter_column = block->get_by_position(filter_column_id).column;
+    // LOG(INFO) << "Block::filter_block 000";
     if (auto* nullable_column = check_and_get_column<ColumnNullable>(*filter_column)) {
         ColumnPtr nested_column = nullable_column->get_nested_column_ptr();
 
@@ -720,10 +727,19 @@ Status Block::filter_block(Block* block, const std::vector<uint32_t>& columns_to
             }
         }
     } else {
+        // std::stringstream ss;
+        // for (auto it = columns_to_filter.begin(); it != columns_to_filter.end(); it++) {
+        //     if (it != columns_to_filter.begin()) {
+        //         ss << ",";
+        //     }
+        //     ss << *it;
+        // }
+        // LOG(INFO) << "Block::filter_block 333 " << block->each_col_size() << ", " << ss.str();
         const IColumn::Filter& filter =
                 assert_cast<const doris::vectorized::ColumnVector<UInt8>&>(*filter_column)
                         .get_data();
         filter_block_internal(block, columns_to_filter, filter);
+        // LOG(INFO) << "Block::filter_block 333 444 " << block->each_col_size() << ", " << ss.str();
     }
 
     erase_useless_column(block, column_to_keep);

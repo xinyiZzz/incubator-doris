@@ -53,8 +53,10 @@ public:
     Status execute(VExprContext* context, doris::vectorized::Block* block,
                    int* result_column_id) override {
         if (children().size() == 1 || !_all_child_is_compound_and_not_const()) {
+            // LOG(INFO) << "execute(VExprContext* context 000 " << _all_child_is_compound_and_not_const() << ", " << children().size() << ", block: " << block->each_col_size();
             return VectorizedFnCall::execute(context, block, result_column_id);
         }
+        // LOG(INFO) << "execute(VExprContext* context 111";
 
         int lhs_id = -1;
         int rhs_id = -1;
