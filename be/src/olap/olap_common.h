@@ -287,6 +287,7 @@ struct OlapReaderStatistics {
     int64_t block_init_seek_ns = 0;
     int64_t first_read_ns = 0;
     int64_t second_read_ns = 0;
+    int64_t no_conjunct_read_ns = 0;
     int64_t block_first_read_seek_num = 0;
     int64_t block_first_read_seek_ns = 0;
     int64_t lazy_read_ns = 0;
@@ -302,6 +303,8 @@ struct OlapReaderStatistics {
     int64_t vec_cond_input_rows = 0;
     int64_t short_circuit_cond_input_rows = 0;
     int64_t rows_vec_del_cond_filtered = 0;
+    int64_t rows_common_expr_filtered = 0;
+    int64_t rows_common_expr_input = 0;
     int64_t vec_cond_ns = 0;
     int64_t short_cond_ns = 0;
     int64_t expr_filter_ns = 0;

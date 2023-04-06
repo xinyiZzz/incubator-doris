@@ -95,6 +95,8 @@ private:
     RuntimeProfile::Counter* _rows_short_circuit_cond_filtered_counter = nullptr;
     RuntimeProfile::Counter* _rows_vec_cond_input_counter = nullptr;
     RuntimeProfile::Counter* _rows_short_circuit_cond_input_counter = nullptr;
+    RuntimeProfile::Counter* _rows_common_expr_filtered_counter = nullptr;
+    RuntimeProfile::Counter* _rows_common_expr_input_counter = nullptr;
     RuntimeProfile::Counter* _vec_cond_timer = nullptr;
     RuntimeProfile::Counter* _short_cond_timer = nullptr;
     RuntimeProfile::Counter* _expr_filter_timer = nullptr;
@@ -117,6 +119,7 @@ private:
     RuntimeProfile::Counter* _block_conditions_filtered_timer = nullptr;
     RuntimeProfile::Counter* _first_read_timer = nullptr;
     RuntimeProfile::Counter* _second_read_timer = nullptr;
+    RuntimeProfile::Counter* _no_conjunct_read_timer = nullptr;
     RuntimeProfile::Counter* _first_read_seek_timer = nullptr;
     RuntimeProfile::Counter* _first_read_seek_counter = nullptr;
     RuntimeProfile::Counter* _lazy_read_timer = nullptr;

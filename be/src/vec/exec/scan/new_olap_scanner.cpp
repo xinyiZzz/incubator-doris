@@ -495,6 +495,7 @@ void NewOlapScanner::_update_counters_before_close() {
                    stats.block_conditions_filtered_ns);
     COUNTER_UPDATE(olap_parent->_first_read_timer, stats.first_read_ns);
     COUNTER_UPDATE(olap_parent->_second_read_timer, stats.second_read_ns);
+    COUNTER_UPDATE(olap_parent->_no_conjunct_read_timer, stats.no_conjunct_read_ns);
     COUNTER_UPDATE(olap_parent->_first_read_seek_timer, stats.block_first_read_seek_ns);
     COUNTER_UPDATE(olap_parent->_first_read_seek_counter, stats.block_first_read_seek_num);
     COUNTER_UPDATE(olap_parent->_lazy_read_timer, stats.lazy_read_ns);
@@ -507,6 +508,9 @@ void NewOlapScanner::_update_counters_before_close() {
     COUNTER_UPDATE(olap_parent->_rows_vec_cond_input_counter, stats.vec_cond_input_rows);
     COUNTER_UPDATE(olap_parent->_rows_short_circuit_cond_input_counter,
                    stats.short_circuit_cond_input_rows);
+    COUNTER_UPDATE(olap_parent->_rows_common_expr_filtered_counter, stats.rows_common_expr_filtered);
+    COUNTER_UPDATE(olap_parent->_rows_common_expr_input_counter,
+                   stats.rows_common_expr_input);
 
     COUNTER_UPDATE(olap_parent->_stats_filtered_counter, stats.rows_stats_filtered);
     COUNTER_UPDATE(olap_parent->_bf_filtered_counter, stats.rows_bf_filtered);

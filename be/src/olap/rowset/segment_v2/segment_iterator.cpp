@@ -1275,8 +1275,17 @@ void SegmentIterator::_vec_init_lazy_materialization() {
     // Step 4: fill first read columns
     if (_lazy_materialization_read) {
         // insert pred cid to first_read_columns
-        for (auto cid : pred_column_ids) {
-            _first_read_column_ids.push_back(cid);
+        if (_is_need_expr_eval) {
+            for (auto cid : _vec_pred_column_ids) {
+                _first_read_column_ids.push_back(cid);
+            }
+            for (auto cid : _short_cir_pred_column_ids) {
+                _third_read_column_ids.push_back(cid);
+            }
+        } else {
+            for (auto cid : pred_column_ids) {
+                _first_read_column_ids.push_back(cid);
+            }
         }
     } else if (!_is_need_vec_eval && !_is_need_short_eval &&
                !_is_need_expr_eval) { // no pred exists, just read and output column
@@ -1698,18 +1707,21 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
             // todo(wb) research whether need to read short predicate after vectorization evaluation
             //          to reduce cost of read short circuit columns.
             //          In SSB test, it make no difference; So need more scenarios to test
-            selected_size = _evaluate_short_circuit_predicate(sel_rowid_idx, selected_size);
+            // selected_size = _evaluate_short_circuit_predicate(sel_rowid_idx, selected_size);
 
             if (selected_size > 0) {
                 // step 3.1: output short circuit and predicate column
                 // when lazy materialization enables, _first_read_column_ids = distinct(_short_cir_pred_column_ids + _vec_pred_column_ids)
                 // see _vec_init_lazy_materialization
                 // todo(wb) need to tell input columnids from output columnids
-                RETURN_IF_ERROR(_output_column_by_sel_idx(block, _first_read_column_ids,
-                                                          sel_rowid_idx, selected_size));
+                // RETURN_IF_ERROR(_output_column_by_sel_idx(block, _first_read_column_ids,
+                //                                           sel_rowid_idx, selected_size));
 
                 // step 3.2: read remaining expr column and evaluate it.
                 if (_is_need_expr_eval) {
+                    RETURN_IF_ERROR(_output_column_by_sel_idx(block, _first_read_column_ids,
+                                                          sel_rowid_idx, selected_size));
+
                     // The predicate column contains the remaining expr column, no need second read.
                     if (!_second_read_column_ids.empty()) {
                         SCOPED_RAW_TIMER(&_opts.stats->second_read_ns);
@@ -1748,8 +1760,28 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
                         block->shrink_char_type_column_suffix_zero(_char_type_idx);
                         RETURN_IF_ERROR(_execute_common_expr(sel_rowid_idx, selected_size, block));
                     }
+
+                    if (!_third_read_column_ids.empty()) {
+                        // SCOPED_RAW_TIMER(&_opts.stats->second_read_ns);
+                        RETURN_IF_ERROR(_read_columns_by_rowids(
+                                _third_read_column_ids, _block_rowids, sel_rowid_idx,
+                                selected_size, &_current_return_columns));
+                        if (std::find(_third_read_column_ids.begin(),
+                                      _third_read_column_ids.end(),
+                                      _schema.version_col_idx()) != _third_read_column_ids.end()) {
+                            _replace_version_col(selected_size);
+                        }
+                    }
+                    selected_size = _evaluate_short_circuit_predicate(sel_rowid_idx, selected_size);
+                    RETURN_IF_ERROR(_output_column_by_sel_idx(block, _third_read_column_ids,
+                                                          sel_rowid_idx, selected_size));
+                } else {
+                    selected_size = _evaluate_short_circuit_predicate(sel_rowid_idx, selected_size);
+                    RETURN_IF_ERROR(_output_column_by_sel_idx(block, _first_read_column_ids,
+                                                          sel_rowid_idx, selected_size));
                 }
             } else if (_is_need_expr_eval) {
+                selected_size = _evaluate_short_circuit_predicate(sel_rowid_idx, selected_size);
                 for (auto cid : _second_read_column_ids) {
                     auto loc = _schema_block_id_map[cid];
                     block->replace_by_position(loc, std::move(_current_return_columns[cid]));
@@ -1805,6 +1837,7 @@ Status SegmentIterator::_next_batch_internal(vectorized::Block* block) {
 
         // step4: read non_predicate column
         if (selected_size > 0) {
+            SCOPED_RAW_TIMER(&_opts.stats->no_conjunct_read_ns);
             RETURN_IF_ERROR(_read_columns_by_rowids(_non_predicate_columns, _block_rowids,
                                                     sel_rowid_idx, selected_size,
                                                     &_current_return_columns));
@@ -1852,6 +1885,7 @@ Status SegmentIterator::_execute_common_expr(uint16_t* sel_rowid_idx, uint16_t& 
     size_t prev_columns = block->columns();
     Defer defer {[&]() { vectorized::Block::erase_useless_column(block, prev_columns); }};
 
+    uint16_t original_size = selected_size;
     int result_column_id = -1;
     RETURN_IF_ERROR(_common_vexpr_ctxs_pushdown->execute(block, &result_column_id));
     vectorized::ColumnPtr filter_column = block->get_by_position(result_column_id).column;
@@ -1899,6 +1933,9 @@ Status SegmentIterator::_execute_common_expr(uint16_t* sel_rowid_idx, uint16_t& 
         selected_size = _evaluate_common_expr_filter(sel_rowid_idx, selected_size, filter);
         vectorized::Block::filter_block_internal(block, _columns_to_filter, filter);
     }
+
+    _opts.stats->rows_common_expr_input += original_size;
+    _opts.stats->rows_common_expr_filtered += original_size - selected_size;
     return Status::OK();
 }
 

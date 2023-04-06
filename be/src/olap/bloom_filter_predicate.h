@@ -20,6 +20,7 @@
 #include "exprs/bloom_filter_func.h"
 #include "exprs/runtime_filter.h"
 #include "olap/column_predicate.h"
+#include "util/runtime_profile.h"
 #include "runtime/primitive_type.h"
 #include "vec/columns/column_dictionary.h"
 #include "vec/columns/column_nullable.h"
@@ -42,7 +43,9 @@ public:
               _filter(filter),
               _specific_filter(static_cast<SpecificFilter*>(_filter.get())),
               _be_exec_version(be_exec_version) {}
-    ~BloomFilterColumnPredicate() override = default;
+    ~BloomFilterColumnPredicate() override {
+        // LOG(INFO) << "BloomFilterColumnPredicate " << bf_time1 << ", " << bf_time2 << ", " << bf_time3 << ", " << bf_time4 << ", " << bf_time5 << ", " << bf_time6 << ", " << size_all;
+    }
 
     PredicateType type() const override { return PredicateType::BF; }
 
@@ -62,8 +65,10 @@ private:
             DCHECK(null_map);
         }
 
+        // size_all += size;
         uint16_t new_size = 0;
         if (column.is_column_dictionary()) {
+            // SCOPED_RAW_TIMER(&bf_time3);
             auto* dict_col = reinterpret_cast<const vectorized::ColumnDictI32*>(&column);
             for (uint16_t i = 0; i < size; i++) {
                 uint16_t idx = sel[i];
@@ -76,6 +81,7 @@ private:
                 }
             }
         } else if (IRuntimeFilter::enable_use_batch(_be_exec_version, T)) {
+            // SCOPED_RAW_TIMER(&bf_time4);
             new_size = _specific_filter->find_fixed_len_olap_engine(
                     (char*)reinterpret_cast<
                             const vectorized::PredicateColumnType<PredicateEvaluateType<T>>*>(
@@ -84,6 +90,7 @@ private:
                             .data(),
                     null_map, sel, size);
         } else {
+            // SCOPED_RAW_TIMER(&bf_time5);
             uint24_t tmp_uint24_value;
             auto get_cell_value = [&tmp_uint24_value](auto& data) {
                 if constexpr (std::is_same_v<std::decay_t<decltype(data)>, uint32_t> &&
@@ -125,6 +132,13 @@ private:
     std::shared_ptr<BloomFilterFuncBase> _filter;
     SpecificFilter* _specific_filter; // owned by _filter
     mutable uint64_t _evaluated_rows = 1;
+    // mutable int64_t bf_time1 = 0;
+    // mutable int64_t bf_time2 = 0;
+    // mutable int64_t bf_time3 = 0;
+    // mutable int64_t bf_time4 = 0;
+    // mutable int64_t bf_time5 = 0;
+    // mutable int64_t bf_time6 = 0;
+    // mutable int64_t size_all = 0;
     mutable uint64_t _passed_rows = 0;
     mutable bool _always_true = false;
     mutable bool _has_calculate_filter = false;
@@ -134,6 +148,7 @@ private:
 template <PrimitiveType T>
 uint16_t BloomFilterColumnPredicate<T>::evaluate(const vectorized::IColumn& column, uint16_t* sel,
                                                  uint16_t size) const {
+    // SCOPED_RAW_TIMER(&bf_time1);
     uint16_t new_size = 0;
     if (_always_true) {
         return size;
@@ -151,8 +166,11 @@ uint16_t BloomFilterColumnPredicate<T>::evaluate(const vectorized::IColumn& colu
     // useless.
     _evaluated_rows += size;
     _passed_rows += new_size;
+    // {
+    //     SCOPED_RAW_TIMER(&bf_time2);
     vectorized::VRuntimeFilterWrapper::calculate_filter(
             _evaluated_rows - _passed_rows, _evaluated_rows, _has_calculate_filter, _always_true);
+    // }
     return new_size;
 }
 

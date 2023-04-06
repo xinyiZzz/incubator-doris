@@ -353,6 +353,7 @@ private:
     // so we need a field to stand for columns first time to read
     std::vector<ColumnId> _first_read_column_ids;
     std::vector<ColumnId> _second_read_column_ids;
+    std::vector<ColumnId> _third_read_column_ids;
     std::vector<ColumnId> _columns_to_filter;
     std::vector<int> _schema_block_id_map; // map from schema column id to column idx in Block
 
