@@ -69,12 +69,9 @@ bool StoragePageCache::lookup(const CacheKey& key, PageCacheHandle* handle,
     return true;
 }
 
-void StoragePageCache::insert(const CacheKey& key, DataPage* data, PageCacheHandle* handle,
+void StoragePageCache::insert(const CacheKey& key, const Slice& data, PageCacheHandle* handle,
                               segment_v2::PageTypePB page_type, bool in_memory) {
-    auto deleter = [](const doris::CacheKey& key, void* value) {
-        DataPage* cache_value = (DataPage*)value;
-        delete cache_value;
-    };
+    auto deleter = [](const doris::CacheKey& key, void* value) { delete[] (uint8_t*)value; };
 
     CachePriority priority = CachePriority::NORMAL;
     if (in_memory) {
@@ -82,7 +79,7 @@ void StoragePageCache::insert(const CacheKey& key, DataPage* data, PageCacheHand
     }
 
     auto cache = _get_page_cache(page_type);
-    auto lru_handle = cache->insert(key.encode(), data, data->capacity(), deleter, priority);
+    auto lru_handle = cache->insert(key.encode(), data.data, data.size, deleter, priority);
     *handle = PageCacheHandle(cache, lru_handle);
 }
 
