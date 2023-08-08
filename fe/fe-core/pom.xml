@@ -36,7 +36,7 @@ under the License.
         <awssdk.version>2.17.257</awssdk.version>
         <huaweiobs.version>3.1.1-hw-45</huaweiobs.version>
         <tencentcos.version>3.3.5</tencentcos.version>
-        <arrow.version>9.0.0</arrow.version>
+        <arrow.version>12.0.1</arrow.version>
         <arrow.vector.classifier>shade-format-flatbuffers</arrow.vector.classifier>
         <dep.fbs.version>1.12.0</dep.fbs.version>
         <flatbuffers.version>1.12.0</flatbuffers.version>
@@ -714,7 +714,7 @@ under the License.
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-memory-netty</artifactId>
-            <version>9.0.0</version>
+            <version>12.0.1</version>
         </dependency>
         <dependency>
             <groupId>io.grpc</groupId>
@@ -748,7 +748,7 @@ under the License.
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-core</artifactId>
             <scope>system</scope>
-            <systemPath>${pom.basedir}/libs/flight-core-9.0.0.jar</systemPath>
+            <systemPath>${pom.basedir}/libs/flight-core-12.0.1.jar</systemPath>
         </dependency>
         <dependency>
             <groupId>org.apache.arrow</groupId>
@@ -787,7 +787,7 @@ under the License.
             <groupId>org.apache.arrow</groupId>
             <artifactId>flight-sql</artifactId>
             <scope>system</scope>
-            <systemPath>${pom.basedir}/libs/flight-sql-9.0.0.jar</systemPath>
+            <systemPath>${pom.basedir}/libs/flight-sql-12.0.1.jar</systemPath>
         </dependency>
     </dependencies>
     <repositories>
