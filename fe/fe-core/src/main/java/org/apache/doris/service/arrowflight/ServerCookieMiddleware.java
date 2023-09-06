@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.flightsql;
+package org.apache.doris.service.arrowflight;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;

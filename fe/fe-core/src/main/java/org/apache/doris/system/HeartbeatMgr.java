@@ -238,6 +238,7 @@ public class HeartbeatMgr extends MasterDaemon {
                     backendInfo.setHttpPort(2);
                     backendInfo.setBeRpcPort(3);
                     backendInfo.setBrpcPort(4);
+                    backendInfo.setArrowFlightPort(8);
                     backendInfo.setVersion("test-1234");
                     result = new THeartbeatResult();
                     result.setStatus(new TStatus(TStatusCode.OK));
@@ -253,6 +254,10 @@ public class HeartbeatMgr extends MasterDaemon {
                     if (tBackendInfo.isSetBrpcPort()) {
                         brpcPort = tBackendInfo.getBrpcPort();
                     }
+                    int arrowFlightPort = -1;
+                    if (tBackendInfo.isSetArrowFlightPort()) {
+                        arrowFlightPort = tBackendInfo.getArrowFlightPort();
+                    }
                     String version = "";
                     if (tBackendInfo.isSetVersion()) {
                         version = tBackendInfo.getVersion();
@@ -263,7 +268,7 @@ public class HeartbeatMgr extends MasterDaemon {
                         nodeRole = tBackendInfo.getBeNodeRole();
                     }
                     return new BackendHbResponse(backendId, bePort, httpPort, brpcPort,
-                            System.currentTimeMillis(), beStartTime, version, nodeRole);
+                            System.currentTimeMillis(), beStartTime, version, nodeRole, arrowFlightPort);
                 } else {
                     return new BackendHbResponse(backendId, backend.getHost(),
                             result.getStatus().getErrorMsgs().isEmpty()

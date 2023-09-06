@@ -208,6 +208,9 @@ public class Coordinator {
     private final List<BackendExecState> needCheckBackendExecStates = Lists.newArrayList();
     private final List<PipelineExecContext> needCheckPipelineExecContexts = Lists.newArrayList();
     private ResultReceiver receiver;
+    private TNetworkAddress resultFlightServerAddr;
+
+    private TUniqueId finstId;
     private final List<ScanNode> scanNodes;
     private int scanRangeNum = 0;
     // number of instances of this query, equals to
@@ -274,6 +277,14 @@ public class Coordinator {
 
     public ExecutionProfile getExecutionProfile() {
         return executionProfile;
+    }
+
+    public TNetworkAddress getResultFlightServerAddr() {
+        return resultFlightServerAddr;
+    }
+
+    public TUniqueId getFinstId() {
+        return finstId;
     }
 
     // True if all scan node are ExternalScanNode.
@@ -622,6 +633,8 @@ public class Coordinator {
             TNetworkAddress execBeAddr = topParams.instanceExecParams.get(0).host;
             receiver = new ResultReceiver(queryId, topParams.instanceExecParams.get(0).instanceId,
                     addressToBackendID.get(execBeAddr), toBrpcHost(execBeAddr), this.timeoutDeadline);
+            finstId = topParams.instanceExecParams.get(0).instanceId;
+            resultFlightServerAddr = toArrowFlightHost(execBeAddr);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("dispatch query job: {} to {}", DebugUtil.printId(queryId),
                         topParams.instanceExecParams.get(0).host);
@@ -1562,6 +1575,18 @@ public class Coordinator {
             return null;
         }
         return new TNetworkAddress(backend.getHost(), backend.getBrpcPort());
+    }
+
+    private TNetworkAddress toArrowFlightHost(TNetworkAddress host) throws Exception {
+        Backend backend = Env.getCurrentSystemInfo().getBackendWithBePort(
+                host.getHostname(), host.getPort());
+        if (backend == null) {
+            throw new UserException(SystemInfoService.NO_BACKEND_LOAD_AVAILABLE_MSG);
+        }
+        if (backend.getArrowFlightPort() < 0) {
+            return null;
+        }
+        return new TNetworkAddress(backend.getHost(), backend.getArrowFlightPort());
     }
 
     // estimate if this fragment contains UnionNode

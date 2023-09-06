@@ -41,6 +41,7 @@ import org.apache.doris.resource.Tag;
 import org.apache.doris.statistics.ColumnStatistic;
 import org.apache.doris.statistics.Histogram;
 import org.apache.doris.task.LoadTaskInfo;
+import org.apache.doris.thrift.TResultSinkType;
 import org.apache.doris.thrift.TUniqueId;
 import org.apache.doris.transaction.TransactionEntry;
 import org.apache.doris.transaction.TransactionStatus;
@@ -174,6 +175,8 @@ public class ConnectContext {
 
     private String workloadGroupName = "";
 
+    private TResultSinkType resultSinkType = TResultSinkType.MYSQL_PROTOCAL;
+
     public void setUserQueryTimeout(int queryTimeout) {
         if (queryTimeout > 0) {
             sessionVariable.setQueryTimeoutS(queryTimeout);
@@ -217,6 +220,10 @@ public class ConnectContext {
 
     public MysqlSslContext getMysqlSslContext() {
         return mysqlSslContext;
+    }
+
+    public TResultSinkType getResultSinkType() {
+        return resultSinkType;
     }
 
     public void setOrUpdateInsertResult(long txnId, String label, String db, String tbl,
@@ -640,6 +647,10 @@ public class ConnectContext {
 
     public void setStatementContext(StatementContext statementContext) {
         this.statementContext = statementContext;
+    }
+
+    public void setResultSinkType(TResultSinkType resultSinkType) {
+        this.resultSinkType = resultSinkType;
     }
 
     // kill operation with no protect.

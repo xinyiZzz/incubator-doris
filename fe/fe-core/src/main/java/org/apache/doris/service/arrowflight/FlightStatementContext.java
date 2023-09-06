@@ -15,7 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.flightsql;
+package org.apache.doris.service.arrowflight;
+
+import org.apache.doris.thrift.TNetworkAddress;
+import org.apache.doris.thrift.TUniqueId;
 
 import org.apache.arrow.flight.sql.FlightSqlProducer;
 import org.apache.arrow.util.AutoCloseables;
@@ -29,14 +32,32 @@ import java.util.Objects;
  *
  * @param <T> the {@link Statement} to be persisted.
  */
-public final class StatementContext<T extends Statement> implements AutoCloseable {
+public final class FlightStatementContext<T extends Statement> implements AutoCloseable {
 
     private final T statement;
     private final String query;
 
-    public StatementContext(final T statement, final String query) {
+    private TUniqueId queryId;
+
+    private TUniqueId finstId;
+
+    private TNetworkAddress resultFlightServerAddr;
+
+    public FlightStatementContext(final T statement, final String query) {
         this.statement = Objects.requireNonNull(statement, "statement cannot be null.");
         this.query = query;
+    }
+
+    public void setQueryId(TUniqueId queryId) {
+        this.queryId = queryId;
+    }
+
+    public void setFinstId(TUniqueId finstId) {
+        this.finstId = finstId;
+    }
+
+    public void setResultFlightServerAddr(TNetworkAddress resultFlightServerAddr) {
+        this.resultFlightServerAddr = resultFlightServerAddr;
     }
 
     public T getStatement() {
@@ -45,6 +66,18 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
 
     public String getQuery() {
         return query;
+    }
+
+    public TUniqueId getQueryId() {
+        return queryId;
+    }
+
+    public TUniqueId getFinstId() {
+        return finstId;
+    }
+
+    public TNetworkAddress getResultFlightServerAddr() {
+        return resultFlightServerAddr;
     }
 
     @Override
@@ -58,10 +91,10 @@ public final class StatementContext<T extends Statement> implements AutoCloseabl
         if (this == other) {
             return true;
         }
-        if (!(other instanceof StatementContext)) {
+        if (!(other instanceof FlightStatementContext)) {
             return false;
         }
-        final StatementContext<?> that = (StatementContext<?>) other;
+        final FlightStatementContext<?> that = (FlightStatementContext<?>) other;
         return statement.equals(that.statement);
     }
 

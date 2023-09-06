@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.flightsql;
+package org.apache.doris.service.arrowflight;
 
 import org.apache.arrow.flight.FlightServer;
 import org.apache.arrow.flight.FlightServerMiddleware;
@@ -31,18 +31,18 @@ import java.io.IOException;
 /**
  * flight sql protocol implementation based on nio.
  */
-public class FlightsqlServer {
-    private static final Logger LOG = LogManager.getLogger(FlightsqlServer.class);
+public class FlightSqlService {
+    private static final Logger LOG = LogManager.getLogger(FlightSqlService.class);
     private final FlightServer flightServer;
     private volatile boolean running;
     public static final String FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE = "client-properties-middleware";
     public static final FlightServerMiddleware.Key<ServerCookieMiddleware> FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE_KEY
             = FlightServerMiddleware.Key.of(FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE);
 
-    public FlightsqlServer(int port) {
+    public FlightSqlService(int port) {
         BufferAllocator allocator = new RootAllocator(100000);
         Location location = Location.forGrpcInsecure("0.0.0.0", port);
-        FlightSqlExample producer = new FlightSqlExample(location);
+        FlightSqlServiceImpl producer = new FlightSqlServiceImpl(location);
         flightServer = FlightServer.builder(allocator, location, producer)
             .middleware(FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE_KEY,
                 new ServerCookieMiddleware.Factory())

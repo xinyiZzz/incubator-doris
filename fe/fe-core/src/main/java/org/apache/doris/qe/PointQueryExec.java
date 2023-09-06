@@ -185,10 +185,10 @@ public class PointQueryExec {
             while (pResult == null) {
                 InternalService.PTabletKeyLookupRequest request = requestBuilder.build();
                 Future<InternalService.PTabletKeyLookupResponse> futureResponse =
-                         BackendServiceProxy.getInstance().fetchTabletDataAsync(backend.getBrpcAdress(), request);
+                         BackendServiceProxy.getInstance().fetchTabletDataAsync(backend.getBrpcAddress(), request);
                 long currentTs = System.currentTimeMillis();
                 if (currentTs >= timeoutTs) {
-                    LOG.warn("fetch result timeout {}", backend.getBrpcAdress());
+                    LOG.warn("fetch result timeout {}", backend.getBrpcAddress());
                     status.setStatus("query timeout");
                     return null;
                 }
@@ -203,18 +203,18 @@ public class PointQueryExec {
                     }
                 } catch (TimeoutException e) {
                     futureResponse.cancel(true);
-                    LOG.warn("fetch result timeout {}, addr {}", timeoutTs - currentTs, backend.getBrpcAdress());
+                    LOG.warn("fetch result timeout {}, addr {}", timeoutTs - currentTs, backend.getBrpcAddress());
                     status.setStatus("query timeout");
                     return null;
                 }
             }
         } catch (RpcException e) {
-            LOG.warn("fetch result rpc exception {}, e {}", backend.getBrpcAdress(), e);
+            LOG.warn("fetch result rpc exception {}, e {}", backend.getBrpcAddress(), e);
             status.setRpcStatus(e.getMessage());
             SimpleScheduler.addToBlacklist(backend.getId(), e.getMessage());
             return null;
         } catch (ExecutionException e) {
-            LOG.warn("fetch result execution exception {}, addr {}", e, backend.getBrpcAdress());
+            LOG.warn("fetch result execution exception {}, addr {}", e, backend.getBrpcAddress());
             if (e.getMessage().contains("time out")) {
                 // if timeout, we set error code to TIMEOUT, and it will not retry querying.
                 status.setStatus(new Status(TStatusCode.TIMEOUT, e.getMessage()));

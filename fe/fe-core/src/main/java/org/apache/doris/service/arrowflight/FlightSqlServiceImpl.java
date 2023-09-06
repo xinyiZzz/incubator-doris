@@ -15,7 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.flightsql;
+package org.apache.doris.service.arrowflight;
+
+import org.apache.doris.common.util.DebugUtil;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
@@ -131,7 +133,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
-public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
+public class FlightSqlServiceImpl implements FlightSqlProducer, AutoCloseable {
     private static final String DATABASE_URI =
                 "jdbc:mysql://localhost:9083/tpch?useSSL=false&autoReconnect=true";
     private static final Calendar DEFAULT_CALENDAR = JdbcToArrowUtils.getUtcCalendar();
@@ -139,11 +141,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     private final Location location;
     private final PoolingDataSource<PoolableConnection> dataSource;
     private final BufferAllocator rootAllocator = new RootAllocator();
-    private final Cache<ByteString, StatementContext<PreparedStatement>> preparedStatementLoadingCache;
-    private final Cache<ByteString, StatementContext<Statement>> statementLoadingCache;
+    private final Cache<ByteString, FlightStatementContext<PreparedStatement>> preparedStatementLoadingCache;
+    private final Cache<ByteString, FlightStatementContext<Statement>> statementLoadingCache;
     private final SqlInfoBuilder sqlInfoBuilder;
 
-    public FlightSqlExample(final Location location) {
+    public FlightSqlServiceImpl(final Location location) {
         final ConnectionFactory connectionFactory =
                 new DriverManagerConnectionFactory(DATABASE_URI, "root", "");
         final PoolableConnectionFactory poolableConnectionFactory =
@@ -540,9 +542,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                            final ServerStreamListener listener) {
         final ByteString handle = command.getPreparedStatementHandle();
-        StatementContext<PreparedStatement> statementContext = preparedStatementLoadingCache.getIfPresent(handle);
-        Objects.requireNonNull(statementContext);
-        final PreparedStatement statement = statementContext.getStatement();
+        FlightStatementContext<PreparedStatement> flightStatementContext = preparedStatementLoadingCache.getIfPresent(handle);
+        Objects.requireNonNull(flightStatementContext);
+        final PreparedStatement statement = flightStatementContext.getStatement();
         try (final ResultSet resultSet = statement.executeQuery()) {
             final Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
             try (final VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
@@ -597,23 +599,33 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
             final Statement statement = connection.createStatement(
                     ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
             final String query = request.getQuery();
-            final StatementContext<Statement> statementContext = new StatementContext<>(statement, query);
+            final FlightStatementContext<Statement> flightStatementContext = new FlightStatementContext<>(statement, query);
 
-            statementLoadingCache.put(handle, statementContext);
-            final ResultSet resultSet = statement.executeQuery(query);
+            statementLoadingCache.put(handle, flightStatementContext);
+            // final ResultSet resultSet = statement.executeQuery(query);
 
-            TicketStatementQuery ticket = TicketStatementQuery.newBuilder()
-                    .setStatementHandle(handle)
-                    .build();
+            // TicketStatementQuery ticket = TicketStatementQuery.newBuilder()
+            //         .setStatementHandle(handle)
+            //         .build();
             // return getFlightInfoForSchema(ticket, descriptor,
             //         JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR));
-            final Ticket nticket = new Ticket(Any.pack(ticket).toByteArray());
-            // TODO Support multiple endpoints.
-            Location location2 = Location.forGrpcInsecure("0.0.0.0", 10479);
-            final List<FlightEndpoint> endpoints = Collections.singletonList(new FlightEndpoint(nticket, location2));
+            // return new FlightInfo(JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR),
+            //         descriptor, endpoints, -1, -1);
 
-            return new FlightInfo(JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR),
-                    descriptor, endpoints, -1, -1);
+            // #########
+            FlightSqlExecutor.executeQuery(flightStatementContext);
+
+
+            TicketStatementQuery ticketStatement = TicketStatementQuery.newBuilder()
+                    .setStatementHandle(ByteString.copyFromUtf8(
+                            DebugUtil.printId(flightStatementContext.getFinstId()) + ":" + query)).build();
+            final Ticket ticket = new Ticket(Any.pack(ticketStatement).toByteArray());
+            // TODO Support multiple endpoints.
+            Location location = Location.forGrpcInsecure(flightStatementContext.getResultFlightServerAddr().hostname,
+                    flightStatementContext.getResultFlightServerAddr().port);
+            List<FlightEndpoint> endpoints = Collections.singletonList(new FlightEndpoint(ticket, location));
+            // TODO need schema?
+            return new FlightInfo(Schemas.GET_TABLE_TYPES_SCHEMA, descriptor, endpoints, -1, -1);
         } catch (final SQLException e) {
             throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
         }
@@ -624,11 +636,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                                                      final CallContext context,
                                                      final FlightDescriptor descriptor) {
         final ByteString preparedStatementHandle = command.getPreparedStatementHandle();
-        StatementContext<PreparedStatement> statementContext =
+        FlightStatementContext<PreparedStatement> flightStatementContext =
                 preparedStatementLoadingCache.getIfPresent(preparedStatementHandle);
         try {
-            assert statementContext != null;
-            PreparedStatement statement = statementContext.getStatement();
+            assert flightStatementContext != null;
+            PreparedStatement statement = flightStatementContext.getStatement();
 
             ResultSetMetaData metaData = statement.getMetaData();
             return getFlightInfoForSchema(command, descriptor,
@@ -673,8 +685,8 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
                 final Connection connection = dataSource.getConnection();
                 final PreparedStatement preparedStatement = connection.prepareStatement(request.getQuery(),
                         ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
-                final StatementContext<PreparedStatement> preparedStatementContext =
-                        new StatementContext<>(preparedStatement, request.getQuery());
+                final FlightStatementContext<PreparedStatement> preparedStatementContext =
+                        new FlightStatementContext<>(preparedStatement, request.getQuery());
 
                 preparedStatementLoadingCache.put(preparedStatementHandle, preparedStatementContext);
 
@@ -745,7 +757,7 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     @Override
     public Runnable acceptPutPreparedStatementUpdate(CommandPreparedStatementUpdate command, CallContext context,
                                                      FlightStream flightStream, StreamListener<PutResult> ackStream) {
-        final StatementContext<PreparedStatement> statement =
+        final FlightStatementContext<PreparedStatement> statement =
                 preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
         return () -> {
@@ -792,11 +804,11 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     @Override
     public Runnable acceptPutPreparedStatementQuery(CommandPreparedStatementQuery command, CallContext context,
                                                     FlightStream flightStream, StreamListener<PutResult> ackStream) {
-        final StatementContext<PreparedStatement> statementContext =
+        final FlightStatementContext<PreparedStatement> flightStatementContext =
                 preparedStatementLoadingCache.getIfPresent(command.getPreparedStatementHandle());
 
         return () -> {
-            assert statementContext != null;
+            assert flightStatementContext != null;
             ackStream.onCompleted();
         };
     }
@@ -1119,9 +1131,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     public void getStreamStatement(final TicketStatementQuery ticketStatementQuery, final CallContext context,
                                    final ServerStreamListener listener) {
         final ByteString handle = ticketStatementQuery.getStatementHandle();
-        final StatementContext<Statement> statementContext =
+        final FlightStatementContext<Statement> flightStatementContext =
                 Objects.requireNonNull(statementLoadingCache.getIfPresent(handle));
-        try (final ResultSet resultSet = statementContext.getStatement().getResultSet()) {
+        try (final ResultSet resultSet = flightStatementContext.getStatement().getResultSet()) {
             final Schema schema = JdbcToArrowUtils.jdbcToArrowSchema(resultSet.getMetaData(), DEFAULT_CALENDAR);
             try (VectorSchemaRoot vectorSchemaRoot = VectorSchemaRoot.create(schema, rootAllocator)) {
                 final VectorLoader loader = new VectorLoader(vectorSchemaRoot);
@@ -1155,9 +1167,9 @@ public class FlightSqlExample implements FlightSqlProducer, AutoCloseable {
     }
 
     private static class StatementRemovalListener<T extends Statement>
-            implements RemovalListener<ByteString, StatementContext<T>> {
+            implements RemovalListener<ByteString, FlightStatementContext<T>> {
         @Override
-        public void onRemoval(final RemovalNotification<ByteString, StatementContext<T>> notification) {
+        public void onRemoval(final RemovalNotification<ByteString, FlightStatementContext<T>> notification) {
             try {
                 AutoCloseables.close(notification.getValue());
             } catch (final Exception e) {

@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-package org.apache.doris.flightsql;
+package org.apache.doris.service.arrowflight;
 
 import com.google.common.base.Charsets;
 import org.apache.arrow.flight.auth.BasicServerAuthHandler;

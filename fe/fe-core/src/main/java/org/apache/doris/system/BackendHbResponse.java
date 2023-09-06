@@ -37,6 +37,8 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
     private int httpPort;
     @SerializedName(value = "brpcPort")
     private int brpcPort;
+    @SerializedName(value = "arrowFlightPort")
+    private int arrowFlightPort;
     @SerializedName(value = "nodeRole")
     private String nodeRole = Tag.VALUE_MIX;
     private long beStartTime;
@@ -48,7 +50,7 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
     }
 
     public BackendHbResponse(long beId, int bePort, int httpPort, int brpcPort, long hbTime, long beStartTime,
-            String version, String nodeRole) {
+            String version, String nodeRole, int arrowFlightPort) {
         super(HeartbeatResponse.Type.BACKEND);
         this.beId = beId;
         this.status = HbStatus.OK;
@@ -59,6 +61,7 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
         this.beStartTime = beStartTime;
         this.version = version;
         this.nodeRole = nodeRole;
+        this.arrowFlightPort = arrowFlightPort;
     }
 
     public BackendHbResponse(long beId, String errMsg) {
@@ -92,6 +95,10 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
         return brpcPort;
     }
 
+    public int getArrowFlightPort() {
+        return arrowFlightPort;
+    }
+
     public long getBeStartTime() {
         return beStartTime;
     }
@@ -111,6 +118,7 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
         bePort = in.readInt();
         httpPort = in.readInt();
         brpcPort = in.readInt();
+        arrowFlightPort = in.readInt();
     }
 
     @Override
@@ -122,6 +130,7 @@ public class BackendHbResponse extends HeartbeatResponse implements Writable {
         sb.append(", bePort: ").append(bePort);
         sb.append(", httpPort: ").append(httpPort);
         sb.append(", brpcPort: ").append(brpcPort);
+        sb.append(", arrowFlightPort: ").append(arrowFlightPort);
         return sb.toString();
     }
 
