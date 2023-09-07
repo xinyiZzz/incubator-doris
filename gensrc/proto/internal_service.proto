@@ -246,6 +246,16 @@ message PFetchDataResult {
     optional bool empty_batch = 6;
 };
 
+message PFetchArrowFlightSchemaRequest {
+    required PUniqueId finst_id = 1;
+};
+
+message PFetchArrowFlightSchemaResult {
+    required PStatus status = 1;
+    // valid when status is ok
+    optional bytes schema = 5;
+};
+
 message KeyTuple {
     repeated string key_column_rep = 1;
 }
@@ -784,5 +794,6 @@ service PBackendService {
     rpc get_tablet_rowset_versions(PGetTabletVersionsRequest) returns (PGetTabletVersionsResponse);
     rpc report_stream_load_status(PReportStreamLoadStatusRequest) returns (PReportStreamLoadStatusResponse);
     rpc glob(PGlobRequest) returns (PGlobResponse);
+    rpc fetch_arrow_flight_schema(PFetchArrowFlightSchemaRequest) returns (PFetchArrowFlightSchemaResult);
 };
 

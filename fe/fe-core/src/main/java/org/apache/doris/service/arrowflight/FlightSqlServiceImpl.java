@@ -542,7 +542,8 @@ public class FlightSqlServiceImpl implements FlightSqlProducer, AutoCloseable {
     public void getStreamPreparedStatement(final CommandPreparedStatementQuery command, final CallContext context,
                                            final ServerStreamListener listener) {
         final ByteString handle = command.getPreparedStatementHandle();
-        FlightStatementContext<PreparedStatement> flightStatementContext = preparedStatementLoadingCache.getIfPresent(handle);
+        FlightStatementContext<PreparedStatement> flightStatementContext =
+                preparedStatementLoadingCache.getIfPresent(handle);
         Objects.requireNonNull(flightStatementContext);
         final PreparedStatement statement = flightStatementContext.getStatement();
         try (final ResultSet resultSet = statement.executeQuery()) {
@@ -599,7 +600,8 @@ public class FlightSqlServiceImpl implements FlightSqlProducer, AutoCloseable {
             final Statement statement = connection.createStatement(
                     ResultSet.TYPE_SCROLL_INSENSITIVE, ResultSet.CONCUR_READ_ONLY);
             final String query = request.getQuery();
-            final FlightStatementContext<Statement> flightStatementContext = new FlightStatementContext<>(statement, query);
+            final FlightStatementContext<Statement> flightStatementContext =
+                    new FlightStatementContext<>(statement, query);
 
             statementLoadingCache.put(handle, flightStatementContext);
             // final ResultSet resultSet = statement.executeQuery(query);

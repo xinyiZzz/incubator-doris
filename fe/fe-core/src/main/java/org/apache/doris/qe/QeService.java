@@ -17,8 +17,8 @@
 
 package org.apache.doris.qe;
 
-import org.apache.doris.service.arrowflight.FlightSqlService;
 import org.apache.doris.mysql.MysqlServer;
+import org.apache.doris.service.arrowflight.FlightSqlService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
