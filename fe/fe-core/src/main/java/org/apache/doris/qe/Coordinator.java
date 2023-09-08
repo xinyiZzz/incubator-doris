@@ -210,6 +210,7 @@ public class Coordinator {
     private final List<PipelineExecContext> needCheckPipelineExecContexts = Lists.newArrayList();
     private ResultReceiver receiver;
     private TNetworkAddress resultFlightServerAddr;
+    private TNetworkAddress resultInternalServiceAddr;
     private ArrayList<Expr> resultOutputExprs;
 
     private TUniqueId finstId;
@@ -283,6 +284,10 @@ public class Coordinator {
 
     public TNetworkAddress getResultFlightServerAddr() {
         return resultFlightServerAddr;
+    }
+
+    public TNetworkAddress getResultInternalServiceAddr() {
+        return resultInternalServiceAddr;
     }
 
     public ArrayList<Expr> getResultOutputExprs() {
@@ -641,7 +646,8 @@ public class Coordinator {
                     addressToBackendID.get(execBeAddr), toBrpcHost(execBeAddr), this.timeoutDeadline);
             finstId = topParams.instanceExecParams.get(0).instanceId;
             resultFlightServerAddr = toArrowFlightHost(execBeAddr);
-            resultOutputExprs = topDataSink.getFragment().getOutputExprs();
+            resultInternalServiceAddr = toBrpcHost(execBeAddr);
+            resultOutputExprs = fragments.get(0).getOutputExprs();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("dispatch query job: {} to {}", DebugUtil.printId(queryId),
                         topParams.instanceExecParams.get(0).host);

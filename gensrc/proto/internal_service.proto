@@ -253,7 +253,7 @@ message PFetchArrowFlightSchemaRequest {
 message PFetchArrowFlightSchemaResult {
     required PStatus status = 1;
     // valid when status is ok
-    optional bytes schema = 5;
+    optional bytes schema = 2;
 };
 
 message KeyTuple {

@@ -22,11 +22,13 @@ import org.apache.doris.analysis.UserIdentity;
 import org.apache.doris.catalog.Env;
 import org.apache.doris.common.Status;
 import org.apache.doris.common.util.DebugUtil;
+import org.apache.doris.proto.InternalService;
 import org.apache.doris.proto.Types;
 import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.SessionVariable;
 import org.apache.doris.qe.StmtExecutor;
+import org.apache.doris.qe.cache.CacheProxy;
 import org.apache.doris.rpc.BackendServiceProxy;
 import org.apache.doris.rpc.RpcException;
 import org.apache.doris.system.SystemInfoService;
@@ -49,6 +51,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -83,15 +86,14 @@ public class FlightSqlExecutor {
 
     public static Schema fetchArrowFlightSchema(FlightStatementContext<Statement> flightStatementContext,
             int timeoutMs, Status status) {
-        TNetworkAddress address = flightStatementContext.getResultFlightServerAddr();
-        TUniqueId tid = flightStatementContext.getQueryId();
+        TNetworkAddress address = flightStatementContext.getResultInternalServiceAddr();
+        TUniqueId tid = flightStatementContext.getFinstId();
         ArrayList<Expr> resultOutputExprs = flightStatementContext.getResultOutputExprs();
         Types.PUniqueId finstId = Types.PUniqueId.newBuilder().setHi(tid.hi).setLo(tid.lo).build();
         try {
             InternalService.PFetchArrowFlightSchemaRequest request =
                     InternalService.PFetchArrowFlightSchemaRequest.newBuilder()
                     .setFinstId(finstId)
-                    .setRespInAttachment(false)
                     .build();
 
             Future<InternalService.PFetchArrowFlightSchemaResult> future
@@ -144,11 +146,11 @@ public class FlightSqlExecutor {
                     DebugUtil.printId(tid), address.toString(), e);
             status.setStatus("interrupted exception");
         } catch (ExecutionException e) {
-            LOG.warn("rrow flight schema future get execution exception, finstId {} backend {}",
+            LOG.warn("arrow flight schema future get execution exception, finstId {} backend {}",
                     DebugUtil.printId(tid), address.toString(), e);
             status.setStatus("execution exception");
         } catch (TimeoutException e) {
-            LOG.warn("rrow flight schema fetch timeout, finstId {} backend {}",
+            LOG.warn("arrow flight schema fetch timeout, finstId {} backend {}",
                     DebugUtil.printId(tid), address.toString(), e);
             status.setStatus("fetch timeout");
         }

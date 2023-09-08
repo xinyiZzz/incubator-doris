@@ -45,6 +45,8 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     private TNetworkAddress resultFlightServerAddr;
 
+    private TNetworkAddress resultInternalServiceAddr;
+
     private ArrayList<Expr> resultOutputExprs;
 
     public FlightStatementContext(final T statement, final String query) {
@@ -62,6 +64,10 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     public void setResultFlightServerAddr(TNetworkAddress resultFlightServerAddr) {
         this.resultFlightServerAddr = resultFlightServerAddr;
+    }
+
+    public void setResultInternalServiceAddr(TNetworkAddress resultInternalServiceAddr) {
+        this.resultInternalServiceAddr = resultInternalServiceAddr;
     }
 
     public void setResultOutputExprs(ArrayList<Expr> resultOutputExprs) {
@@ -86,6 +92,10 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     public TNetworkAddress getResultFlightServerAddr() {
         return resultFlightServerAddr;
+    }
+
+    public TNetworkAddress getResultInternalServiceAddr() {
+        return resultInternalServiceAddr;
     }
 
     public ArrayList<Expr> getResultOutputExprs() {

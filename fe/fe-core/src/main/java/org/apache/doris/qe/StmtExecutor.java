@@ -2567,6 +2567,7 @@ public class StmtExecutor {
         }
         flightStatementContext.setFinstId(coord.getFinstId());
         flightStatementContext.setResultFlightServerAddr(coord.getResultFlightServerAddr());
+        flightStatementContext.setResultInternalServiceAddr(coord.getResultInternalServiceAddr());
         flightStatementContext.setResultOutputExprs(coord.getResultOutputExprs());
     }
 
