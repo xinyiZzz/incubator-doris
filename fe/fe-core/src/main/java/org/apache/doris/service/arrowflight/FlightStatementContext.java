@@ -17,6 +17,7 @@
 
 package org.apache.doris.service.arrowflight;
 
+import org.apache.doris.analysis.Expr;
 import org.apache.doris.thrift.TNetworkAddress;
 import org.apache.doris.thrift.TUniqueId;
 
@@ -25,6 +26,7 @@ import org.apache.arrow.util.AutoCloseables;
 
 import java.sql.Connection;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Objects;
 
 /**
@@ -43,6 +45,8 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     private TNetworkAddress resultFlightServerAddr;
 
+    private ArrayList<Expr> resultOutputExprs;
+
     public FlightStatementContext(final T statement, final String query) {
         this.statement = Objects.requireNonNull(statement, "statement cannot be null.");
         this.query = query;
@@ -58,6 +62,10 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     public void setResultFlightServerAddr(TNetworkAddress resultFlightServerAddr) {
         this.resultFlightServerAddr = resultFlightServerAddr;
+    }
+
+    public void setResultOutputExprs(ArrayList<Expr> resultOutputExprs) {
+        this.resultOutputExprs = resultOutputExprs;
     }
 
     public T getStatement() {
@@ -78,6 +86,10 @@ public final class FlightStatementContext<T extends Statement> implements AutoCl
 
     public TNetworkAddress getResultFlightServerAddr() {
         return resultFlightServerAddr;
+    }
+
+    public ArrayList<Expr> getResultOutputExprs() {
+        return resultOutputExprs;
     }
 
     @Override

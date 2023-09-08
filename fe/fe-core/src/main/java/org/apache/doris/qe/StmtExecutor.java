@@ -2505,7 +2505,7 @@ public class StmtExecutor {
                 }
             } catch (Exception e) {
                 fetchResultSpan.recordException(e);
-                throw new RuntimeException("Failed to execute internal SQL. " + Util.getRootCauseMessage(e), e);
+                throw new RuntimeException("Failed to fetch internal SQL result. " + Util.getRootCauseMessage(e), e);
             } finally {
                 fetchResultSpan.end();
             }
@@ -2553,7 +2553,7 @@ public class StmtExecutor {
             }
 
             Span queryScheduleSpan = context.getTracer()
-                    .spanBuilder("internal SQL schedule").setParent(Context.current()).startSpan();
+                    .spanBuilder("Arrow Flight SQL schedule").setParent(Context.current()).startSpan();
             try (Scope scope = queryScheduleSpan.makeCurrent()) {
                 coord.exec();
             } catch (Exception e) {
@@ -2567,6 +2567,7 @@ public class StmtExecutor {
         }
         flightStatementContext.setFinstId(coord.getFinstId());
         flightStatementContext.setResultFlightServerAddr(coord.getResultFlightServerAddr());
+        flightStatementContext.setResultOutputExprs(coord.getResultOutputExprs());
     }
 
     private List<ResultRow> convertResultBatchToResultRows(TResultBatch batch) {

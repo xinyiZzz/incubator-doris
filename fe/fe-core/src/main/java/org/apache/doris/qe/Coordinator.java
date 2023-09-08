@@ -19,6 +19,7 @@ package org.apache.doris.qe;
 
 import org.apache.doris.analysis.Analyzer;
 import org.apache.doris.analysis.DescriptorTable;
+import org.apache.doris.analysis.Expr;
 import org.apache.doris.analysis.PrepareStmt;
 import org.apache.doris.analysis.PrepareStmt.PreparedType;
 import org.apache.doris.analysis.StorageBackend;
@@ -209,6 +210,7 @@ public class Coordinator {
     private final List<PipelineExecContext> needCheckPipelineExecContexts = Lists.newArrayList();
     private ResultReceiver receiver;
     private TNetworkAddress resultFlightServerAddr;
+    private ArrayList<Expr> resultOutputExprs;
 
     private TUniqueId finstId;
     private final List<ScanNode> scanNodes;
@@ -281,6 +283,10 @@ public class Coordinator {
 
     public TNetworkAddress getResultFlightServerAddr() {
         return resultFlightServerAddr;
+    }
+
+    public ArrayList<Expr> getResultOutputExprs() {
+        return resultOutputExprs;
     }
 
     public TUniqueId getFinstId() {
@@ -635,6 +641,7 @@ public class Coordinator {
                     addressToBackendID.get(execBeAddr), toBrpcHost(execBeAddr), this.timeoutDeadline);
             finstId = topParams.instanceExecParams.get(0).instanceId;
             resultFlightServerAddr = toArrowFlightHost(execBeAddr);
+            resultOutputExprs = topDataSink.getFragment().getOutputExprs();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("dispatch query job: {} to {}", DebugUtil.printId(queryId),
                         topParams.instanceExecParams.get(0).host);

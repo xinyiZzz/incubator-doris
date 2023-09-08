@@ -17,7 +17,9 @@
 
 package org.apache.doris.service.arrowflight;
 
+import org.apache.doris.common.Status;
 import org.apache.doris.common.util.DebugUtil;
+import org.apache.doris.common.util.Util;
 
 import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
@@ -99,6 +101,8 @@ import org.apache.commons.dbcp2.PoolableConnectionFactory;
 import org.apache.commons.dbcp2.PoolingDataSource;
 import org.apache.commons.pool2.ObjectPool;
 import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -617,7 +621,6 @@ public class FlightSqlServiceImpl implements FlightSqlProducer, AutoCloseable {
             // #########
             FlightSqlExecutor.executeQuery(flightStatementContext);
 
-
             TicketStatementQuery ticketStatement = TicketStatementQuery.newBuilder()
                     .setStatementHandle(ByteString.copyFromUtf8(
                             DebugUtil.printId(flightStatementContext.getFinstId()) + ":" + query)).build();
@@ -626,8 +629,22 @@ public class FlightSqlServiceImpl implements FlightSqlProducer, AutoCloseable {
             Location location = Location.forGrpcInsecure(flightStatementContext.getResultFlightServerAddr().hostname,
                     flightStatementContext.getResultFlightServerAddr().port);
             List<FlightEndpoint> endpoints = Collections.singletonList(new FlightEndpoint(ticket, location));
-            // TODO need schema?
-            return new FlightInfo(Schemas.GET_TABLE_TYPES_SCHEMA, descriptor, endpoints, -1, -1);
+
+            try {
+                Status status = new Status();
+                Schema schema = FlightSqlExecutor.fetchArrowFlightSchema(flightStatementContext,
+                        5000, status);
+                if (!status.ok()) {
+                    throw CallStatus.INTERNAL.withDescription(status.toString()).toRuntimeException();
+                }
+                if (schema == null) {
+                    throw CallStatus.INTERNAL.withDescription("schema is null, status: " + status).toRuntimeException();
+                }
+                return new FlightInfo(schema, descriptor, endpoints, -1, -1);
+            } catch (Exception e) {
+                throw CallStatus.INTERNAL.withDescription("failed to fetch Arrow Flight SQL schema. " +
+                        Util.getRootCauseMessage(e)).toRuntimeException();
+            }
         } catch (final SQLException e) {
             throw CallStatus.INTERNAL.withCause(e).toRuntimeException();
         }
