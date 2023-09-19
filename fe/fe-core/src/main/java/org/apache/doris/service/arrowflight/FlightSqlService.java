@@ -18,7 +18,9 @@
 package org.apache.doris.service.arrowflight;
 
 import org.apache.arrow.flight.FlightServer;
+import org.apache.arrow.flight.FlightServerMiddleware;
 import org.apache.arrow.flight.Location;
+// import org.apache.arrow.flight.auth.BasicServerAuthHandler;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.logging.log4j.LogManager;
@@ -33,12 +35,19 @@ public class FlightSqlService {
     private static final Logger LOG = LogManager.getLogger(FlightSqlService.class);
     private final FlightServer flightServer;
     private volatile boolean running;
+    public static final String FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE = "client-properties-middleware";
+    public static final FlightServerMiddleware.Key<FlightServerCookieMiddleware> FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE_KEY
+            = FlightServerMiddleware.Key.of(FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE);
 
     public FlightSqlService(int port) {
         BufferAllocator allocator = new RootAllocator();
         Location location = Location.forGrpcInsecure("0.0.0.0", port);
         FlightSqlServiceImpl producer = new FlightSqlServiceImpl(location);
-        flightServer = FlightServer.builder(allocator, location, producer).build();
+        flightServer = FlightServer.builder(allocator, location, producer)
+                .headerAuthenticator(new FlightServerBearerTokenAuthenticator()).build();
+        // .middleware(FLIGHT_CLIENT_PROPERTIES_MIDDLEWARE_KEY,
+        //         new FlightServerCookieMiddleware.Factory())
+        // .authHandler(new BasicServerAuthHandler(new FlightServerBasicAuthValidator())).build();
     }
 
     // start Arrow Flight SQL service, return true if success, otherwise false
