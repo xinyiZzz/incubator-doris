@@ -18,7 +18,7 @@
 // https://github.com/dremio/dremio-oss/blob/master/services/arrow-flight/src/main/java/com/dremio/service/flight/ServerCookieMiddleware.java
 // and modified by Doris
 
-package org.apache.doris.service.arrowflight;
+package org.apache.doris.service.arrowflight.auth2;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallInfo;
@@ -35,12 +35,12 @@ import javax.validation.constraints.NotNull;
  * ServerCookieMiddleware allows a FlightServer to retrieve cookies from the request as well as set outgoing cookies
  * TODO
  */
-public final class FlightServerCookieMiddleware implements FlightServerMiddleware {
+public final class FlightCookieMiddleware implements FlightServerMiddleware {
     private RequestContext requestContext;
     private Map<String, String> cookieValues;
     private final CallHeaders incomingHeaders;
 
-    public static class Factory implements FlightServerMiddleware.Factory<FlightServerCookieMiddleware> {
+    public static class Factory implements FlightServerMiddleware.Factory<FlightCookieMiddleware> {
         /**
         * Construct a factory for receiving call headers.
         */
@@ -48,14 +48,14 @@ public final class FlightServerCookieMiddleware implements FlightServerMiddlewar
         }
 
         @Override
-        public FlightServerCookieMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
+        public FlightCookieMiddleware onCallStarted(CallInfo callInfo, CallHeaders incomingHeaders,
                                                     RequestContext context) {
-            return new FlightServerCookieMiddleware(callInfo, incomingHeaders, context);
+            return new FlightCookieMiddleware(callInfo, incomingHeaders, context);
         }
     }
 
 
-    private FlightServerCookieMiddleware(CallInfo callInfo, CallHeaders incomingHeaders,
+    private FlightCookieMiddleware(CallInfo callInfo, CallHeaders incomingHeaders,
             RequestContext requestContext) {
         this.incomingHeaders = incomingHeaders;
         this.requestContext = requestContext;

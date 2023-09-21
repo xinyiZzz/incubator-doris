@@ -18,7 +18,9 @@
 // https://github.com/dremio/dremio-oss/blob/master/services/arrow-flight/src/main/java/com/dremio/service/flight/ServerCookieMiddleware.java
 // and modified by Doris
 
-package org.apache.doris.service.arrowflight;
+package org.apache.doris.service.arrowflight.auth2;
+
+import org.apache.doris.analysis.UserIdentity;
 
 import org.immutables.value.Value;
 
@@ -26,12 +28,18 @@ import org.immutables.value.Value;
  * Result of Authentication.
  */
 @Value.Immutable
-public interface AuthResult {
+public interface DorisAuthResult {
     String getUserName();
 
-    static AuthResult of(String userName) {
+    UserIdentity getUserIdentity();
+
+    String getRemoteIp();
+
+    static DorisAuthResult of(String userName, UserIdentity userIdentity, String remoteIp) {
         return ImmutableAuthResult.builder()
                 .userName(userName)
+                .userIdentity(userIdentity)
+                .remoteIp(remoteIp)
                 .build();
     }
 }

@@ -310,6 +310,7 @@ under the License.
         <woodstox.version>6.5.1</woodstox.version>
         <kerby.version>2.0.3</kerby.version>
         <jettison.version>1.5.4</jettison.version>
+        <immutables.version>2.9.3</immutables.version>
         <vesoft.client.version>3.0.0</vesoft.client.version>
         <!-- paimon -->
         <paimon.version>0.4.0-incubating</paimon.version>
@@ -1488,6 +1489,12 @@ under the License.
                 <groupId>org.apache.arrow</groupId>
                 <artifactId>arrow-jdbc</artifactId>
                 <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.immutables</groupId>
+                <artifactId>value</artifactId>
+                <version>${immutables.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>

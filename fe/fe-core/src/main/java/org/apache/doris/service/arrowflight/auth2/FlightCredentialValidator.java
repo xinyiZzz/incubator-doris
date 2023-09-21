@@ -18,27 +18,26 @@
 // https://github.com/dremio/dremio-oss/blob/master/services/arrow-flight/src/main/java/com/dremio/service/flight/ServerCookieMiddleware.java
 // and modified by Doris
 
-package org.apache.doris.service.arrowflight;
+package org.apache.doris.service.arrowflight.auth2;
 
-import org.apache.doris.analysis.UserIdentity;
-import org.apache.doris.catalog.Env;
-import org.apache.doris.common.AuthenticationException;
+import org.apache.doris.service.arrowflight.tokens.TokenManager;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import org.apache.arrow.flight.CallStatus;
 import org.apache.arrow.flight.auth2.BasicCallHeaderAuthenticator;
 import org.apache.arrow.flight.auth2.CallHeaderAuthenticator.AuthResult;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
-
 /**
  * Dremio authentication specialized CredentialValidator implementation.
  */
-public class FlightServerCredentialValidator implements BasicCallHeaderAuthenticator.CredentialValidator {
-    private static final Logger LOG = LogManager.getLogger(FlightServerCredentialValidator.class);
+public class FlightCredentialValidator implements BasicCallHeaderAuthenticator.CredentialValidator {
+    private static final Logger LOG = LogManager.getLogger(FlightCredentialValidator.class);
+
+    private final TokenManager tokenManager;
+
+    public FlightCredentialValidator(TokenManager tokenManager) {
+        this.tokenManager = tokenManager;
+    }
 
     /**
      * Authenticates against Dremio with the provided username and password.
@@ -49,22 +48,23 @@ public class FlightServerCredentialValidator implements BasicCallHeaderAuthentic
      */
     @Override
     public AuthResult validate(String username, String password) {
-        // String remoteIp = context.getMysqlChannel().getRemoteIp();
+        // TODO Add ClientAddress information while creating a Token in FlightServerBasicAuthValidator
         String remoteIp = "0.0.0.0";
-        List<UserIdentity> currentUserIdentity = Lists.newArrayList();
+        DorisAuthResult dorisAuthResult = FlightAuthUtils.authenticateCredentials(username, password, remoteIp, LOG);
+        return getAuthResultWithBearerToken(dorisAuthResult);
+    }
 
-        try {
-            Env.getCurrentEnv().getAuth().checkPlainPassword(username, remoteIp, password, currentUserIdentity);
-        } catch (AuthenticationException e) {
-            LOG.error("Unable to authenticate user {}", username, e);
-            final String errorMessage = "Unable to authenticate user " + username + ", exception: " + e.getMessage();
-            throw CallStatus.UNAUTHENTICATED.withCause(e).withDescription(errorMessage).toRuntimeException();
-        }
-        Preconditions.checkState(currentUserIdentity.size() == 1);
-        // context.setCurrentUserIdentity(currentUserIdentity.get(0));
-        // context.setRemoteIP(remoteIp);
-        org.apache.doris.service.arrowflight.AuthResult authResult = org.apache.doris.service.arrowflight.AuthResult.of(
-                username);
-        return authResult::getUserName;
+
+    /**
+     * Generates a bearer token, parses client properties from incoming headers, then creates a
+     * UserSession associated with the generated token and client properties.
+     *
+     * @param dorisAuthResult the DorisAuthResult from initial authentication, with peer identity captured.
+     * @return an an AuthResult with the bearer token and peer identity.
+     */
+    AuthResult getAuthResultWithBearerToken(DorisAuthResult dorisAuthResult) {
+        final String username = dorisAuthResult.getUserName();
+        final String token = FlightAuthUtils.createToken(tokenManager, username, dorisAuthResult);
+        return () -> token;
     }
 }
