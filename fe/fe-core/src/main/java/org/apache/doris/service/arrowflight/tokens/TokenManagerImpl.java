@@ -37,13 +37,11 @@ public class TokenManagerImpl implements TokenManager {
     private static final Logger LOG = LogManager.getLogger(TokenManagerImpl.class);
 
     private final SecureRandom generator = new SecureRandom();
-    private final int cacheSize;
     private final int cacheExpiration;
 
     private LoadingCache<String, SessionState> tokenCache;
 
     public TokenManagerImpl(final int cacheSize, final int cacheExpiration) {
-        this.cacheSize = cacheSize;
         this.cacheExpiration = cacheExpiration;
 
         this.tokenCache = CacheBuilder.newBuilder()
@@ -109,4 +107,5 @@ public class TokenManagerImpl implements TokenManager {
         }
 
         return value;
-
+    }
+}
