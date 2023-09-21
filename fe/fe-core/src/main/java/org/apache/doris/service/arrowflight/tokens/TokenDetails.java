@@ -17,7 +17,7 @@
 
 package org.apache.doris.service.arrowflight.tokens;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import com.google.common.base.Preconditions;
 
 /**
  * Details of a token.
@@ -29,8 +29,10 @@ public final class TokenDetails {
     public final long expiresAt;
 
     private TokenDetails(String token, String username, long expiresAt) {
-        this.token = checkNotNull(token);
-        this.username = checkNotNull(username);
+        Preconditions.checkNotNull(token);
+        Preconditions.checkNotNull(username);
+        this.token = token;
+        this.username = username;
         this.expiresAt = expiresAt;
     }
 

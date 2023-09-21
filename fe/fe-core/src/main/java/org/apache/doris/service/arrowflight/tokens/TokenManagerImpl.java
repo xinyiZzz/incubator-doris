@@ -19,9 +19,9 @@ package org.apache.doris.service.arrowflight.tokens;
 
 import org.apache.doris.service.arrowflight.auth2.DorisAuthResult;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
-import static com.google.common.base.Preconditions.checkArgument;
 import com.google.common.cache.LoadingCache;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -100,7 +100,7 @@ public class TokenManagerImpl implements TokenManager {
     }
 
     private SessionState getSessionState(final String token) {
-        checkArgument(token != null, "invalid token");
+        Preconditions.checkNotNull(token, "invalid token");
         final SessionState value;
         try {
             value = tokenCache.getUnchecked(token);
@@ -109,6 +109,4 @@ public class TokenManagerImpl implements TokenManager {
         }
 
         return value;
-    }
-}
 
