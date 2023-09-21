@@ -36,7 +36,7 @@ public interface DorisAuthResult {
     String getRemoteIp();
 
     static DorisAuthResult of(String userName, UserIdentity userIdentity, String remoteIp) {
-        return ImmutableAuthResult.builder()
+        return ImmutableDorisAuthResult.builder()
                 .userName(userName)
                 .userIdentity(userIdentity)
                 .remoteIp(remoteIp)
