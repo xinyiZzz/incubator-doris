@@ -20,9 +20,7 @@
 
 package org.apache.doris.service.arrowflight.auth2;
 
-import org.apache.doris.common.Config;
 import org.apache.doris.service.arrowflight.tokens.TokenManager;
-import org.apache.doris.service.arrowflight.tokens.TokenManagerImpl;
 
 import org.apache.arrow.flight.CallHeaders;
 import org.apache.arrow.flight.CallStatus;

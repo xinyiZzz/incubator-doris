@@ -1,33 +1,34 @@
-/*
- * Copyright (C) 2017-2019 Dremio Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 package org.apache.doris.service.arrowflight.tokens;
 
 import org.apache.doris.service.arrowflight.auth2.DorisAuthResult;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
 import static com.google.common.base.Preconditions.checkArgument;
+import com.google.common.cache.LoadingCache;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
-
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 /**
  * Token manager implementation.
@@ -80,18 +81,6 @@ public class TokenManagerImpl implements TokenManager {
         return TokenDetails.of(token, username, expires);
     }
 
-    private SessionState getSessionState(final String token) {
-        checkArgument(token != null, "invalid token");
-        final SessionState value;
-        try {
-            value = tokenCache.getUnchecked(token);
-        } catch (CacheLoader.InvalidCacheLoadException ignored) {
-            throw new IllegalArgumentException("invalid token");
-        }
-
-        return value;
-    }
-
     @Override
     public TokenDetails validateToken(final String token) throws IllegalArgumentException {
         final SessionState value = getSessionState(token);
@@ -108,6 +97,18 @@ public class TokenManagerImpl implements TokenManager {
     public void invalidateToken(final String token) {
         LOG.trace("Invalidate token");
         tokenCache.invalidate(token); // removes from the store as well
+    }
+
+    private SessionState getSessionState(final String token) {
+        checkArgument(token != null, "invalid token");
+        final SessionState value;
+        try {
+            value = tokenCache.getUnchecked(token);
+        } catch (CacheLoader.InvalidCacheLoadException ignored) {
+            throw new IllegalArgumentException("invalid token");
+        }
+
+        return value;
     }
 }
 
