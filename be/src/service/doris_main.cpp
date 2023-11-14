@@ -459,6 +459,8 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
+    doris::ThreadLocalHandle::create_thread_local_if_not_exits();
+
     // init exec env
     auto exec_env = doris::ExecEnv::GetInstance();
     doris::ExecEnv::init(exec_env, paths);
@@ -568,6 +570,7 @@ int main(int argc, char** argv) {
     doris::ExecEnv::destroy(exec_env);
     delete engine;
     engine = nullptr;
+    doris::ThreadLocalHandle::del_thread_local_if_count_is_zero();
 
     return 0;
 }

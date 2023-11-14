@@ -161,7 +161,6 @@ Status Channel::send_block(PBlock* block, bool eos) {
         _closure->ref();
     } else {
         RETURN_IF_ERROR(_wait_last_brpc());
-        SCOPED_TRACK_MEMORY_TO_UNKNOWN();
         _closure->cntl.Reset();
     }
     VLOG_ROW << "Channel::send_batch() instance_id=" << _fragment_instance_id
