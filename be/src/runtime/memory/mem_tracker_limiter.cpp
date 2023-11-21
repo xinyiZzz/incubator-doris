@@ -413,8 +413,7 @@ int64_t MemTrackerLimiter::free_top_memory_query(
     std::string log_prefix = fmt::format("[MemoryGC] GC free {} top memory used {}, ",
                                          gc_type_string(GCtype), type_string(type));
     LOG(INFO) << fmt::format("{}, start seek all {}, running query and load num: {}", log_prefix,
-                             type_string(type),
-                             ExecEnv::GetInstance()->fragment_mgr()->running_query_num());
+                             type_string(type), "unknown");
 
     {
         SCOPED_TIMER(find_cost_time);
@@ -537,8 +536,7 @@ int64_t MemTrackerLimiter::free_top_overcommit_query(
     std::string log_prefix = fmt::format("[MemoryGC] GC free {} top memory overcommit {}, ",
                                          gc_type_string(GCtype), type_string(type));
     LOG(INFO) << fmt::format("{}, start seek all {}, running query and load num: {}", log_prefix,
-                             type_string(type),
-                             ExecEnv::GetInstance()->fragment_mgr()->running_query_num());
+                             type_string(type), "unknown");
 
     {
         SCOPED_TIMER(find_cost_time);

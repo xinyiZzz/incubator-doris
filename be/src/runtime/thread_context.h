@@ -413,7 +413,7 @@ private:
         } else if (bthread_self() != 0) {                                                          \
             static_cast<doris::ThreadContext*>(bthread_getspecific(doris::btls_key))               \
                     ->consume_memory(size);                                                        \
-        } else if (doris::ExecEnv::ready()) {                                                      \
+        } else if (doris::ExecEnv::GetInstance()->initialized()) {                                 \
             doris::ExecEnv::GetInstance()->orphan_mem_tracker_raw()->consume_no_update_peak(size); \
         }                                                                                          \
     } while (0)

@@ -120,7 +120,6 @@ public:
     ~ReusableClosure() override {
         // shouldn't delete when Run() is calling or going to be called, wait for current Run() done.
         join();
-        SCOPED_TRACK_MEMORY_TO_UNKNOWN();
         cntl.Reset();
     }
 
@@ -148,7 +147,6 @@ public:
 
     // plz follow this order: reset() -> set_in_flight() -> send brpc batch
     void reset() {
-        SCOPED_TRACK_MEMORY_TO_UNKNOWN();
         cntl.Reset();
         cid = cntl.call_id();
     }
