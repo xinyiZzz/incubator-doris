@@ -1689,7 +1689,9 @@ public class Coordinator implements CoordInterface {
         if (backend.getArrowFlightSqlPort() < 0) {
             return null;
         }
-        return new TNetworkAddress(backend.getHost(), backend.getArrowFlightSqlPort());
+        String rawIp = backend.getHost().equals("127.0.0.1") ? FrontendOptions.getLocalHostAddress()
+                : backend.getHost();
+        return new TNetworkAddress(rawIp, backend.getArrowFlightSqlPort());
     }
 
     // estimate if this fragment contains UnionNode
