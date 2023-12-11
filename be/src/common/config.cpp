@@ -572,6 +572,8 @@ DEFINE_mInt64(write_buffer_size_for_agg, "419430400");
 
 DEFINE_Int32(load_process_max_memory_limit_percent, "50"); // 50%
 
+DEFINE_mInt32(thrift_client_open_num_tries, "3");
+
 // If the memory consumption of load jobs exceed load_process_max_memory_limit,
 // all load jobs will hang there to wait for memtable flush. We should have a
 // soft limit which can trigger the memtable flush for the load channel who

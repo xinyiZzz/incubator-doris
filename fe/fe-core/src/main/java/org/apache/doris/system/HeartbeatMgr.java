@@ -27,6 +27,7 @@ import org.apache.doris.common.Version;
 import org.apache.doris.common.util.MasterDaemon;
 import org.apache.doris.persist.HbPackage;
 import org.apache.doris.resource.Tag;
+import org.apache.doris.rpc.BackendServiceProxy;
 import org.apache.doris.service.FrontendOptions;
 import org.apache.doris.system.HeartbeatResponse.HbStatus;
 import org.apache.doris.system.SystemInfoService.HostInfo;
@@ -102,7 +103,9 @@ public class HeartbeatMgr extends MasterDaemon {
         List<Future<HeartbeatResponse>> hbResponses = Lists.newArrayList();
 
         // send backend heartbeat
+        BackendServiceProxy proxy = BackendServiceProxy.getInstance();
         for (Backend backend : nodeMgr.getIdToBackend().values()) {
+            proxy.checkProxyIP(new TNetworkAddress(backend.getHost(), backend.getBrpcPort()));
             BackendHeartbeatHandler handler = new BackendHeartbeatHandler(backend);
             hbResponses.add(executor.submit(handler));
         }

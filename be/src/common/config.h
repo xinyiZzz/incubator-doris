@@ -623,6 +623,10 @@ DECLARE_mInt64(write_buffer_size_for_agg);
 
 DECLARE_Int32(load_process_max_memory_limit_percent); // 50%
 
+// Number of open tries, default 1 means only try to open once.
+// Retry the Open num_retries time waiting 100 milliseconds between retries.
+DECLARE_mInt32(thrift_client_open_num_tries);
+
 // If the memory consumption of load jobs exceed load_process_max_memory_limit,
 // all load jobs will hang there to wait for memtable flush. We should have a
 // soft limit which can trigger the memtable flush for the load channel who
