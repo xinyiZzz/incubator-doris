@@ -118,6 +118,15 @@ public class UserPropertyMgr implements Writable {
         return existProperty.getMaxQueryInstances();
     }
 
+    public int getParallelFragmentExecInstanceNum(String qualifiedUser) {
+        UserProperty existProperty = propertyMap.get(qualifiedUser);
+        existProperty = getLdapPropertyIfNull(qualifiedUser, existProperty);
+        if (existProperty == null) {
+            return -1;
+        }
+        return existProperty.getParallelFragmentExecInstanceNum();
+    }
+
     public Set<Tag> getResourceTags(String qualifiedUser) {
         UserProperty existProperty = propertyMap.get(qualifiedUser);
         existProperty = getLdapPropertyIfNull(qualifiedUser, existProperty);
