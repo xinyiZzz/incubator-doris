@@ -41,6 +41,7 @@ import org.apache.doris.common.util.SqlParserUtils;
 import org.apache.doris.common.util.SqlUtils;
 import org.apache.doris.common.util.Util;
 import org.apache.doris.datasource.CatalogIf;
+import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
 import org.apache.doris.metric.MetricRepo;
 import org.apache.doris.mysql.MysqlChannel;
 import org.apache.doris.mysql.MysqlCommand;
@@ -174,6 +175,23 @@ public abstract class ConnectProcessor {
             MetricRepo.COUNTER_REQUEST_ALL.increase(1L);
         }
 
+        try {
+            if (ctx.sessionVariable.isEnableHplsql()) {
+                HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor();
+                if (hplsqlQueryExecutor == null) {
+                    hplsqlQueryExecutor = new HplsqlQueryExecutor(this);
+                    ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor);
+                }
+                hplsqlQueryExecutor.execute(originStmt);
+            } else {
+                executeQuery(mysqlCommand, originStmt);
+            }
+        } catch (Exception ignored) {
+            //
+        }
+    }
+
+    public void executeQuery(MysqlCommand mysqlCommand, String originStmt) throws Exception {
         String convertedStmt = SQLDialectUtils.convertStmtWithDialect(originStmt, ctx, mysqlCommand);
 
         String sqlHash = DigestUtils.md5Hex(convertedStmt);
@@ -276,8 +294,7 @@ public abstract class ConnectProcessor {
             } catch (Throwable throwable) {
                 handleQueryException(throwable, auditStmt, executor.getParsedStmt(),
                         executor.getQueryStatisticsForAuditLog());
-                // execute failed, skip remaining stmts
-                break;
+                throw throwable;
             }
 
         }

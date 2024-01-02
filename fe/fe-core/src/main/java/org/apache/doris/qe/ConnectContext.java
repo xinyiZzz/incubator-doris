@@ -40,6 +40,7 @@ import org.apache.doris.common.util.TimeUtils;
 import org.apache.doris.datasource.CatalogIf;
 import org.apache.doris.datasource.InternalCatalog;
 import org.apache.doris.datasource.SessionContext;
+import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
 import org.apache.doris.mysql.DummyMysqlChannel;
 import org.apache.doris.mysql.MysqlCapability;
 import org.apache.doris.mysql.MysqlChannel;
@@ -187,6 +188,8 @@ public class ConnectContext {
     // If set to false, the system will not restrict query resources.
     private boolean isResourceTagsSet = false;
 
+    private HplsqlQueryExecutor hplsqlQueryExecutor = null;
+
     private String sqlHash;
 
     private JSONObject minidump = null;
@@ -332,6 +335,16 @@ public class ConnectContext {
             mysqlChannel = new DummyMysqlChannel();
         }
         init();
+    }
+
+    public ConnectContext createContext() {
+        ConnectContext context = new ConnectContext();
+        context.setSessionVariable(sessionVariable);
+        context.setEnv(env);
+        context.setDatabase(currentDb);
+        context.setQualifiedUser(qualifiedUser);
+        context.setCurrentUserIdentity(currentUserIdentity);
+        return context;
     }
 
     public boolean isTxnModel() {
@@ -756,6 +769,14 @@ public class ConnectContext {
 
     public StmtExecutor getExecutor() {
         return executor;
+    }
+
+    public HplsqlQueryExecutor getHplsqlQueryExecutor() {
+        return hplsqlQueryExecutor;
+    }
+
+    public void setHplsqlQueryExecutor(HplsqlQueryExecutor hplsqlQueryExecutor) {
+        this.hplsqlQueryExecutor = hplsqlQueryExecutor;
     }
 
     protected void closeChannel() {

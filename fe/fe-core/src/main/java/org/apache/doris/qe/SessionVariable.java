@@ -392,6 +392,8 @@ public class SessionVariable implements Serializable, Writable {
     // Split size for ExternalFileScanNode. Default value 0 means use the block size of HDFS/S3.
     public static final String FILE_SPLIT_SIZE = "file_split_size";
 
+    public static final String ENABLE_HPL_SQL = "enable_hplsql";
+
     /**
      * use insert stmt as the unified backend for all loads
      */
@@ -1275,6 +1277,9 @@ public class SessionVariable implements Serializable, Writable {
 
     @VariableMgr.VarAttr(name = FILE_SPLIT_SIZE, needForward = true)
     public long fileSplitSize = 0;
+
+    @VariableMgr.VarAttr(name = ENABLE_HPL_SQL)
+    public boolean enableHplSql = false;
 
     /**
      * determine should we enable unified load (use insert stmt as the backend for all load)
@@ -2580,6 +2585,10 @@ public class SessionVariable implements Serializable, Writable {
             LOG.warn("Check max_execution_time failed", exception);
             throw exception;
         }
+    }
+
+    public boolean isEnableHplsql() {
+        return enableHplSql;
     }
 
     public boolean isEnableFileCache() {

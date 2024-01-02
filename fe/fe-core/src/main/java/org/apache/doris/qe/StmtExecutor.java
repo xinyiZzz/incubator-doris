@@ -1568,6 +1568,13 @@ public class StmtExecutor {
                 }
                 return;
             }
+
+            if (context.sessionVariable.isEnableHplsql()) {
+                // hplsql will get the returned results without sending them to mysql client.
+                // see org/apache/doris/hplsql/executor/DorisRowResult.java
+                return;
+            }
+
             while (true) {
                 // register the fetch result time.
                 profile.getSummaryProfile().setTempStartTime();
@@ -2816,6 +2823,18 @@ public class StmtExecutor {
             resultRows.add(resultRow);
         }
         return resultRows;
+    }
+
+    public Coordinator getCoord() {
+        return coord;
+    }
+
+    public List<String> getColumns() {
+        return parsedStmt.getColLabels();
+    }
+
+    public List<Type> getReturnTypes() {
+        return exprToType(parsedStmt.getResultExprs());
     }
 
     public SummaryProfile getSummaryProfile() {
