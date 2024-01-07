@@ -721,15 +721,15 @@ rollback_stmt :         // ROLLBACK statement
      ;
      
 set_session_option :
-       set_doris_session_option
+       set_doris_session_option         // First position is matched first
      | set_current_schema_option
      | set_mssql_session_option
      | set_teradata_session_option
      ;
 
 set_doris_session_option :
-       (T_GLOBAL | T_LOCAL | T_SESSION)? ident T_EQUAL ident
-      ;
+       (T_GLOBAL | T_LOCAL | T_SESSION)? ident T_EQUAL ident // hplsql, 这里的含义是啥，什么情况会用到这个，是因为放在第一位，所以每次都用么 // hplsql会set一些局部变量，和我们 set seesion veriable冲突 // 所有的set xxx=xxx都当成了session veriables处理 //放在第一位先匹配
+      ; //
 
 set_current_schema_option :          
        ((T_CURRENT? T_SCHEMA) | T_CURRENT_SCHEMA) T_EQUAL? expr

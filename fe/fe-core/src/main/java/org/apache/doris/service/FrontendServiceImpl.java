@@ -2898,7 +2898,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     }
 
     @Override
-    public TStoredProcedureResult addStoredProcedure(TAddStoredProcedureRequest request) throws TException {
+    public TStoredProcedureResult addStoredProcedure(TAddStoredProcedureRequest request) {
         TStoredProcedureResult result = new TStoredProcedureResult();
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);
@@ -2926,7 +2926,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
     }
 
     @Override
-    public TStoredProcedureResult dropStoredProcedure(TStoredProcedureRequest request) throws TException {
+    public TStoredProcedureResult dropStoredProcedure(TStoredProcedureRequest request) {
         TStoredProcedureResult result = new TStoredProcedureResult();
         TStatus status = new TStatus(TStatusCode.OK);
         result.setStatus(status);

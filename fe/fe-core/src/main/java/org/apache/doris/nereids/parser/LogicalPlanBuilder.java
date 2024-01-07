@@ -69,6 +69,7 @@ import org.apache.doris.nereids.DorisParser.ComplexDataTypeContext;
 import org.apache.doris.nereids.DorisParser.ConstantContext;
 import org.apache.doris.nereids.DorisParser.ConstantSeqContext;
 import org.apache.doris.nereids.DorisParser.CreateMTMVContext;
+import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
 import org.apache.doris.nereids.DorisParser.CreateRowPolicyContext;
 import org.apache.doris.nereids.DorisParser.CreateTableContext;
 import org.apache.doris.nereids.DorisParser.CteContext;
@@ -332,6 +333,7 @@ import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.Constraint;
 import org.apache.doris.nereids.trees.plans.commands.CreateMTMVCommand;
 import org.apache.doris.nereids.trees.plans.commands.CreatePolicyCommand;
+import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.nereids.trees.plans.commands.CreateTableCommand;
 import org.apache.doris.nereids.trees.plans.commands.DeleteFromCommand;
 import org.apache.doris.nereids.trees.plans.commands.DeleteFromUsingCommand;
@@ -3184,5 +3186,24 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
                 .collect(ImmutableList.toImmutableList());
         UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
         return new CallCommand(unboundFunction);
+    }
+
+    @Override
+    public LogicalPlan visitCreateProcedure(CreateProcedureContext ctx) {
+        return ParserUtils.withOrigin(ctx, () -> {
+            // exec.functions.addUserProcedure(ctx);
+            // addLocalUdf(ctx);                      // Add procedures as they can be invoked by functions
+
+            LogicalPlan createProcedurePlan;
+            String name = ctx.identifier(0).getText().toUpperCase();
+            // if (builtinFunctions.exists(name)) {
+            //     exec.info(ctx, name + " is a built-in function which cannot be redefined.");
+            //     return;
+            // }
+            // trace(ctx, "CREATE PROCEDURE " + name);
+            // saveInCache(name, ctx);
+            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null);
+            return createProcedurePlan;
+        });
     }
 }

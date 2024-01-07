@@ -863,7 +863,7 @@ public class JournalEntity implements Writable {
                 break;
             }
             case OperationType.OP_DROP_STORED_PROCEDURE: {
-                data = StoredKey.read(in);
+                data = StoredKey.read(in); // hplsql-xinyi, 为什么用 StoredKey
                 isRead = true;
                 break;
             }
@@ -873,7 +873,7 @@ public class JournalEntity implements Writable {
                 break;
             }
             case OperationType.OP_DROP_HPLSQL_PACKAGE: {
-                data = StoredKey.read(in);
+                data = StoredKey.read(in); // hplsql-xinyi, 为什么用 StoredKey
                 isRead = true;
                 break;
             }

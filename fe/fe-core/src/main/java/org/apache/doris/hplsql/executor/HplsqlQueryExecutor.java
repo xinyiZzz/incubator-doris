@@ -27,7 +27,7 @@ import org.apache.doris.qe.ConnectProcessor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-public class HplsqlQueryExecutor {
+public class HplsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应该继承自connectProcessor // 移到MysqlConnectProcesser
     private static final Logger LOG = LogManager.getLogger(HplsqlQueryExecutor.class);
 
     private HplsqlResult result;
@@ -47,7 +47,7 @@ public class HplsqlQueryExecutor {
             Arguments args = new Arguments();
             args.parse(new String[] {"-e", statement});
             exec.parseAndEval(args);
-
+            // 这里为什么打印execption?中间有异常但是没有被捕获，比如存储过程中查了一个表不存在，返回空结果，不是异常
             exec.printExceptions();
             String error = result.getError();
             String msg = result.getMsg();
@@ -60,6 +60,8 @@ public class HplsqlQueryExecutor {
             exec.printExceptions();
             context.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR, result.getError() + " " + e.getMessage());
             LOG.warn(e);
+            // } finally { // 在后面 printExceptions 可能有问题，可能拿不到错误了，踩过的坑
+            //     exec.printExceptions();
         }
     }
 }

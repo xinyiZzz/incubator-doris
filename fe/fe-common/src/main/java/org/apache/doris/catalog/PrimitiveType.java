@@ -978,8 +978,8 @@ public enum PrimitiveType {
         }
     }
 
-    public int toJavaSqlType() {
-        switch (this) {
+    public int toJavaSqlType() { // hplsql, 应该叫 toJdbcSqlType ？, 为什么要有这个呢，之前jdbc查doris怎么转的类型
+        switch (this) { // 之前jdbc连的时候，这些类型转换是在jdbc driver转的，现在是自己转的
             case BOOLEAN:
                 return Types.BOOLEAN;
             case TINYINT:

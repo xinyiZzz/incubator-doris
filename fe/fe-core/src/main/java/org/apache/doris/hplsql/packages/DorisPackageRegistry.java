@@ -29,7 +29,7 @@ import org.apache.thrift.TException;
 
 import java.util.Optional;
 
-public class DorisPackageRegistry implements PackageRegistry {
+public class DorisPackageRegistry implements PackageRegistry { // hplsql-xinyi Package 什么时候用？// 也是个语法
     private final MetaClient client;
 
     public DorisPackageRegistry(MetaClient client) {

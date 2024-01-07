@@ -17,9 +17,9 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
-import org.apache.doris.nereids.analyzer.UnboundFunction;
+import org.apache.doris.hplsql.store.MetaClient;
+import org.apache.doris.nereids.annotation.Developing;
 import org.apache.doris.nereids.trees.plans.PlanType;
-import org.apache.doris.nereids.trees.plans.commands.call.CallFunc;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
@@ -27,33 +27,35 @@ import org.apache.doris.qe.StmtExecutor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.Objects;
-
 /**
- * call func()
+ * create table procedure
  */
-public class CallCommand extends Command implements ForwardWithSync {
-    public static final Logger LOG = LogManager.getLogger(CallCommand.class);
+@Developing
+public class CreateProcedureCommand extends Command implements ForwardWithSync {
+    public static final Logger LOG = LogManager.getLogger(CreateProcedureCommand.class);
 
-    private final UnboundFunction unboundFunction;
+    private MetaClient client;
+    private final String name;
+    private final String source;
+    private final boolean isForce;
 
-    /**
-     * constructor
-     */
-    public CallCommand(UnboundFunction unboundFunction) {
-        super(PlanType.CALL_COMMAND);
-        this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
+    public CreateProcedureCommand(String name, String source, boolean isForce) {
+        super(PlanType.CREATE_PROCEDURE_COMMAND);
+        this.client = new MetaClient();
+        this.name = name;
+        this.source = source;
+        this.isForce = isForce;
     }
 
     @Override
     public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction);
-        analyzedFunc.run();
+        client.addStoredProcedure(name, ctx.getCurrentCatalog().getName(),
+                ctx.getDatabase(),
+                ctx.getQualifiedUser(), source, isForce);
     }
 
     @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context) {
-        return visitor.visitCallCommand(this, context);
+        return visitor.visitCreateProcedureCommand(this, context);
     }
-
 }

@@ -469,10 +469,10 @@ public class MysqlChannel {
         }
     }
 
-    public void sendOnePacket(Object[] row) throws IOException {
+    public void sendOnePacket(Object[] rows) throws IOException {
         ByteBuffer packet;
         serializer.reset();
-        for (Object value : row) {
+        for (Object value : rows) {
             byte[] bytes = String.valueOf(value).getBytes();
             serializer.writeVInt(bytes.length);
             serializer.writeBytes(bytes);

@@ -33,8 +33,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class DorisQueryExecutor implements QueryExecutor {
-    public DorisQueryExecutor() {
+public class DorisQueryExecutor implements QueryExecutor { // 这个不应该放到hpl目录下，应该放到一个单独的doris目录，保持原有
+    // 目录结构 文件和原来hpl包相同，主要改的是executor 和 store 这两个目录对吧
+    public DorisQueryExecutor() { // 改名叫 HplSqlQueryExecutor
     }
 
     @Override
@@ -42,6 +43,7 @@ public class DorisQueryExecutor implements QueryExecutor {
         try {
             // A cursor may correspond to a query, and if the user opens multiple cursors, need to save multiple
             // query states, so here each query constructs a ConnectProcessor and the ConnectContext shares some data.
+            // 为啥每次都copy一个ConnectContext? hplsql支持同时执行多个语句，通过cursor同时保存多个sql的结果
             ConnectContext context = ConnectContext.get().createContext();
             ConnectProcessor processor = new MysqlConnectProcessor(context);
             processor.executeQuery(MysqlCommand.COM_QUERY, sql);

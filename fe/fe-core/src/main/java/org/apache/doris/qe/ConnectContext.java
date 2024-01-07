@@ -337,9 +337,9 @@ public class ConnectContext {
         init();
     }
 
-    public ConnectContext createContext() {
+    public ConnectContext createContext() { // hplsql, 为啥要这个方法 // 这里现在都是共享，要再看看哪里可以copy，哪里可以共享
         ConnectContext context = new ConnectContext();
-        context.setSessionVariable(sessionVariable);
+        context.setSessionVariable(sessionVariable); // 不应该共享，应该深度copy
         context.setEnv(env);
         context.setDatabase(currentDb);
         context.setQualifiedUser(qualifiedUser);

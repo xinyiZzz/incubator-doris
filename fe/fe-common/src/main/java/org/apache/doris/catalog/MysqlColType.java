@@ -23,10 +23,10 @@ package org.apache.doris.catalog;
 // http://dev.mysql.com/doc/internals/en/com-query-response.html
 // typeName from https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
 public enum MysqlColType {
-    MYSQL_TYPE_DECIMAL(0, "DECIMAL", "DECIMAL"),
-    MYSQL_TYPE_TINY(1, "TINYINT", "TINY INT"),
-    MYSQL_TYPE_SHORT(2, "SMALLINT", "SMALL INT"),
-    MYSQL_TYPE_LONG(3, "INTEGER", "INT"),
+    MYSQL_TYPE_DECIMAL(0, "DECIMAL", "DECIMAL"), // hplsql, 这些mysql type的名称，是mysql标准名称么
+    MYSQL_TYPE_TINY(1, "TINYINT", "TINY INT"), // ，看样子之前序列化成mysql结果只用的query的type code，
+    MYSQL_TYPE_SHORT(2, "SMALLINT", "SMALL INT"), // 而hplsql中必须用string类型的type
+    MYSQL_TYPE_LONG(3, "INTEGER", "INT"), // 类型名称来自文档，但有些我们有的类型mysql没有，没有测
     MYSQL_TYPE_FLOAT(4, "FLOAT", "FLOAT"),
     MYSQL_TYPE_DOUBLE(5, "DOUBLE", "DOUBLE"),
     MYSQL_TYPE_NULL(6, "NULL", "NULL"),

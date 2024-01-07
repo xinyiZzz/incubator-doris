@@ -47,7 +47,7 @@ public class Metadata {
         return at(columnIndex).getTypeName();
     }
 
-    public Type columnType(int columnIndex) {
+    public Type dorisType(int columnIndex) {
         return at(columnIndex).getDorisType();
     }
 

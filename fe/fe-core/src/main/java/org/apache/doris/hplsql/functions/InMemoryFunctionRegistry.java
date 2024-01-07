@@ -36,7 +36,7 @@ import java.util.Map;
 /**
  * HPL/SQL functions
  */
-public class InMemoryFunctionRegistry implements FunctionRegistry {
+public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xinyi 这个还有用么 // 脚本执行的时候用这个
     Exec exec;
     private BuiltinFunctions builtinFunctions;
     HashMap<String, HplsqlParser.Create_function_stmtContext> funcMap = new HashMap<>();

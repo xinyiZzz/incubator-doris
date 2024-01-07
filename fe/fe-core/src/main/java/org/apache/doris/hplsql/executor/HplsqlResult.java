@@ -32,7 +32,8 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-public class HplsqlResult implements ResultListener, Console {
+public class HplsqlResult implements ResultListener, Console { // 如果是mysql client连接，先发送列信息，再将
+    // ByteBuffer 通过 mysql channel send packet // 如果是脚本连接，直接序列化后发送结果
 
     private static final Logger LOG = LogManager.getLogger(HplsqlResult.class);
     private ConnectProcessor processor;
@@ -130,8 +131,8 @@ public class HplsqlResult implements ResultListener, Console {
         // send field one by one
         for (int i = 0; i < metadata.columnCount(); ++i) {
             serializer.reset();
-            serializer.writeField(metadata.columnName(i), metadata.columnType(i));
-            ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+            serializer.writeField(metadata.columnName(i), metadata.dorisType(i)); // 能不能把 doristype 从 metadata 移除
+            ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer()); // ，用其他方式传进来？不好搞
         }
         // send EOF
         serializer.reset();

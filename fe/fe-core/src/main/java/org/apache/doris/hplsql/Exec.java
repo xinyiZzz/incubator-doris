@@ -164,14 +164,14 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
 
     public Exec() {
         exec = this;
-        queryExecutor = new JdbcQueryExecutor(this);
+        queryExecutor = new JdbcQueryExecutor(this); // hpl-sql, hplsql.sh走的这 // 对的
     }
 
     public Exec(Conf conf, Console console, QueryExecutor queryExecutor, ResultListener resultListener) {
         this.conf = conf;
         this.exec = this;
         this.console = console;
-        this.queryExecutor = queryExecutor;
+        this.queryExecutor = queryExecutor; // 什么时候用doris executor，什么时候用jdbc executor
         this.resultListener = resultListener;
         this.client = new MetaClient();
     }
@@ -987,7 +987,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
             // SERVER_MORE_RESULTS_EXISTS should be specified when sending results other than the last stmt.
             List<StmtContext> stmtContexts = ctx.block().stmt();
             for (int i = stmtContexts.size() - 1; i >= 0; --i) {
-                if (stmtContexts.get(i).semicolon_stmt() == null) {
+                if (stmtContexts.get(i).semicolon_stmt() == null) { // 不是分号，找到最后一条有效语句
                     lastStmt = stmtContexts.get(i);
                     break;
                 }
@@ -1089,10 +1089,12 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
             console.printLine(prev.toString());
         }
         Integer rc = visitChildren(ctx);
-        if (ctx != lastStmt) {
+        if (ctx != lastStmt) { // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
+            // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
             // printExceptions();
-            resultListener.onFinalize();
-            console.flushConsole();
+            resultListener.onFinalize(); // 是用 mysql client 执行 hqlsql，走这个 // 有些情况是不需要经过反序列化再返回mysql
+            // client，比如 select xxx from tbl; 此时hplsql没有计算，比如 select count(*) into result 有 result
+            console.flushConsole(); // 用 hplsql.sh执行 hqlsql
         }
         return rc;
     }
@@ -1632,12 +1634,12 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
 
     @Override
     public Integer visitSet_doris_session_option(
-            org.apache.doris.hplsql.HplsqlParser.Set_doris_session_optionContext ctx) {
+            org.apache.doris.hplsql.HplsqlParser.Set_doris_session_optionContext ctx) {  // HplSQL.g4 解析后走这里
         StringBuilder sql = new StringBuilder("set ");
         for (int i = 0; i < ctx.getChildCount(); i++) {
             sql.append(ctx.getChild(i).getText()).append(" ");
         }
-        QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
+        QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx); // 又封装成了一条sql发到doris执行
         if (query.error()) {
             exec.signal(query);
             return 1;

@@ -1417,9 +1417,9 @@ service FrontendService {
     TGetTabletReplicaInfosResult getTabletReplicaInfos(1: TGetTabletReplicaInfosRequest request)
 
     TStoredProcedureResult addStoredProcedure(1: TAddStoredProcedureRequest request)
-    TStoredProcedureResult dropStoredProcedure(1: TStoredProcedureRequest request)
+    TStoredProcedureResult dropStoredProcedure(1: TStoredProcedureRequest request) // TDropStoredProcedureRequest
     THplsqlPackageResult addHplsqlPackage(1: TAddHplsqlPackageRequest request)
-    THplsqlPackageResult dropHplsqlPackage(1: THplsqlPackageRequest request)
+    THplsqlPackageResult dropHplsqlPackage(1: THplsqlPackageRequest request) // TDropHplsqlPackageRequest
 
     TGetMasterTokenResult getMasterToken(1: TGetMasterTokenRequest request)
 

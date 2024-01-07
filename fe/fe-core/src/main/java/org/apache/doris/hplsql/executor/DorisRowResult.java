@@ -32,7 +32,7 @@ import java.sql.Date;
 import java.sql.Time;
 import java.util.List;
 
-public class DorisRowResult implements RowResult {
+public class DorisRowResult implements RowResult { // 只有mysql client连接时会用到，get next读取doris查询结果，并返回jdbc ByteBuffer格式
 
     private Coordinator coord;
 
@@ -90,7 +90,7 @@ public class DorisRowResult implements RowResult {
 
     @Override
     public <T> T get(int columnIndex, Class<T> type) {
-        if (isLazyLoading) {
+        if (isLazyLoading) { // hplsql, isLazyLoading 是干嘛用的
             convertToJavaType(batch.getBatch().getRows().get(index));
             isLazyLoading = false;
         }

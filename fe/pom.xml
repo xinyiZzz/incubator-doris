@@ -1481,14 +1481,14 @@ under the License.
                 <classifier>all</classifier>
             </dependency>
             <dependency>
-                <groupId>com.oracle.database.jdbc</groupId>
+                <groupId>com.oracle.database.jdbc</groupId> <!-- hplsql-xinyi 为什么引入ojdbc6？之前已经引入了ojdbc8 // 应该不需要再引入，上面有ojdbc8了，hpl是否需要ojdbc存疑  -->
                 <artifactId>ojdbc6</artifactId>
                 <version>${ojdbc6.version}</version>
             </dependency>
             <!-- https://mvnrepository.com/artifact/com.mysql/mysql-connector-j -->
             <dependency>
                 <groupId>com.mysql</groupId>
-                <artifactId>mysql-connector-j</artifactId>
+                <artifactId>mysql-connector-j</artifactId> <!-- hplsql-xinyi 为什么引mysql-connector-j  -->
                 <version>${mysql-connector-j.version}</version>
             </dependency>
             <!-- https://mvnrepository.com/artifact/joda-time/joda-time -->

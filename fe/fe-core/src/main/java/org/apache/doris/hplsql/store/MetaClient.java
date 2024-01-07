@@ -169,7 +169,7 @@ public class MetaClient {
                 throw e;
             }
 
-            status = sendRequest.apply(request, client);
+            status = sendRequest.apply(request, client); // hqlsql-xinyi 这是为了重试一次对么 // 是为了重试，其他client也有重试
             checkResult(status);
         } finally {
             if (isReturnToPool) {

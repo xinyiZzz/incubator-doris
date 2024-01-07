@@ -139,10 +139,10 @@ public class Select {
                     trace(ctx, "Standalone SELECT executed: " + cols + " columns in the result set");
                 }
                 while (query.next()) {
-                    if (resultListener instanceof HplsqlResult) {
+                    if (resultListener instanceof HplsqlResult) { //hplsql.sh 不会走，mysql client中set hpl=true会走
                         resultListener.onMysqlRow(query.mysqlRow());
-                    } else {
-                        Object[] row = new Object[cols];
+                    } else { // hplsql 什么时候走到这, hplsql.sh
+                        Object[] row = new Object[cols]; // hplsql，这数据量要是很大岂不炸了
                         for (int i = 0; i < cols; i++) {
                             row[i] = query.column(i, Object.class);
                             if (i > 0) {

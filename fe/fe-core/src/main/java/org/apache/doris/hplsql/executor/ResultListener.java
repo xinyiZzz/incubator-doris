@@ -22,7 +22,7 @@ package org.apache.doris.hplsql.executor;
 
 import java.nio.ByteBuffer;
 
-public interface ResultListener {
+public interface ResultListener { // hplsql，为什么挪到executor，而不是保持原有目录
     void onMysqlRow(ByteBuffer rows);
 
     void onRow(Object[] rows);

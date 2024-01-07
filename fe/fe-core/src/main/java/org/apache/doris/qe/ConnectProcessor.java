@@ -176,11 +176,13 @@ public abstract class ConnectProcessor {
         }
 
         try {
-            if (ctx.sessionVariable.isEnableHplsql()) {
-                HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor();
-                if (hplsqlQueryExecutor == null) {
+            if (ctx.sessionVariable.isEnableHplsql()) { // hplsql, 为false，也可以执行hplsql啊，这样session veriable开启了，
+                // 所有sql就都走hpl了 // 比如 show bakcends；就会失败，要么在 g4 那个文件定义语法，要么直接转到mysql执行，
+                // 只有query走hpl // 先不支持create table
+                HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
+                if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
                     hplsqlQueryExecutor = new HplsqlQueryExecutor(this);
-                    ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor);
+                    ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
                 }
                 hplsqlQueryExecutor.execute(originStmt);
             } else {
@@ -191,7 +193,7 @@ public abstract class ConnectProcessor {
         }
     }
 
-    public void executeQuery(MysqlCommand mysqlCommand, String originStmt) throws Exception {
+    public void executeQuery(MysqlCommand mysqlCommand, String originStmt) throws Exception { // hplsql-xinyi，这里要改
         String convertedStmt = SQLDialectUtils.convertStmtWithDialect(originStmt, ctx, mysqlCommand);
 
         String sqlHash = DigestUtils.md5Hex(convertedStmt);
@@ -294,7 +296,8 @@ public abstract class ConnectProcessor {
             } catch (Throwable throwable) {
                 handleQueryException(throwable, auditStmt, executor.getParsedStmt(),
                         executor.getQueryStatisticsForAuditLog());
-                throw throwable;
+                throw throwable; // hplsql, 为什么改成抛异常呢 // 不会对mysql client有影响么 /
+                // / 或者 is_hplsql 才抛异常 // 继承一个HPLprocessor就不需要在这里抛了？
             }
 
         }
@@ -426,7 +429,7 @@ public abstract class ConnectProcessor {
     // When any request is completed, it will generally need to send a response packet to the client
     // This method is used to send a response packet to the client
     // only Mysql protocol
-    public void finalizeCommand() throws IOException {
+    public void finalizeCommand() throws IOException { // hplsql, 想办法不改成public，让hpl也继承一个connectprocessor
         Preconditions.checkState(connectType.equals(ConnectType.MYSQL));
         ByteBuffer packet;
         if (executor != null && executor.isForwardToMaster()
