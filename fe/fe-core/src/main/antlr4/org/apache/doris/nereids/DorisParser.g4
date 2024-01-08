@@ -103,7 +103,7 @@ statement
     | ALTER TABLE table=relation
         DROP CONSTRAINT constraintName=errorCapturingIdentifier           #dropConstraint
     | CALL functionName=identifier LEFT_PAREN (expression (COMMA expression)*)? RIGHT_PAREN #callProcedure
-    | (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)? #createProcedure
+    | (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)? SEMICOLON END #createProcedure
     ;
 
 constraint
