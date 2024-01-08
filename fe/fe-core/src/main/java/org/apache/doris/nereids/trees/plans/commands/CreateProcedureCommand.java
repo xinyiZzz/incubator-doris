@@ -41,6 +41,9 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
     private final boolean isForce;
     private final CreateProcedureContext ctx;
 
+    /**
+     * constructor
+     */
     public CreateProcedureCommand(String name, String source, boolean isForce, CreateProcedureContext ctx) {
         super(PlanType.CREATE_PROCEDURE_COMMAND);
         this.client = new MetaClient();
