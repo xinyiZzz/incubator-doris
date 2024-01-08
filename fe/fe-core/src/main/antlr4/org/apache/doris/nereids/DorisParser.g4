@@ -578,7 +578,7 @@ createRoutineParamItem
 //    : declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
 //    ;
 
-block : ((beginEndBlock | singleStatement) GO?)+ ;
+block : ((beginEndBlock | statement SEMICOLON*) GO?)+ ;
 
 beginEndBlock :
        BEGIN block blockEnd
@@ -590,7 +590,7 @@ blockEnd :
 
 procBlock :
        beginEndBlock
-     | singleStatement+ GO?
+     | (statement SEMICOLON*)+ GO?
      ;
 
 //declare_block :         // Declaration block
