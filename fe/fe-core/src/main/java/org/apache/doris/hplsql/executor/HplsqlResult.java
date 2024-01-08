@@ -42,18 +42,22 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
     private StringBuilder error;
     private boolean isSendFields;
 
-    HplsqlResult(ConnectProcessor processor) {
-        this.processor = processor;
+    HplsqlResult() {
         this.msg = new StringBuilder();
         this.error = new StringBuilder();
         this.isSendFields = false;
     }
 
     public void reset() {
+        processor = null;
         metadata = null;
         isSendFields = false;
         error.delete(0, error.length());
         msg.delete(0, msg.length());
+    }
+
+    public void setProcessor(ConnectProcessor processor) {
+        this.processor = processor;
     }
 
     public String getMsg() {
@@ -177,7 +181,9 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
         try {
             QueryState state = ConnectContext.get().getState();
             state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
-            processor.finalizeCommand();
+            if (processor != null) {
+                processor.finalizeCommand();
+            }
             state.reset();
         } catch (IOException e) {
             throw new QueryException(e);

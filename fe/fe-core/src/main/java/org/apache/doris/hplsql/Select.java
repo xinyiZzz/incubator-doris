@@ -92,6 +92,7 @@ public class Select {
         }
 
         QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
+        resultListener.setProcessor(query.processor());
 
         if (query.error()) {
             exec.signal(query);

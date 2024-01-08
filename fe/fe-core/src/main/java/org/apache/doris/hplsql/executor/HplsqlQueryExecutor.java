@@ -22,7 +22,6 @@ import org.apache.doris.hplsql.Arguments;
 import org.apache.doris.hplsql.Conf;
 import org.apache.doris.hplsql.Exec;
 import org.apache.doris.qe.ConnectContext;
-import org.apache.doris.qe.ConnectProcessor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -34,8 +33,8 @@ public class HplsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应
 
     private Exec exec;
 
-    public HplsqlQueryExecutor(ConnectProcessor processor) {
-        result = new HplsqlResult(processor);
+    public HplsqlQueryExecutor() {
+        result = new HplsqlResult();
         exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result);
         exec.init();
     }

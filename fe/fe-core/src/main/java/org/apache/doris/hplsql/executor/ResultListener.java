@@ -20,6 +20,8 @@
 
 package org.apache.doris.hplsql.executor;
 
+import org.apache.doris.qe.ConnectProcessor;
+
 import java.nio.ByteBuffer;
 
 public interface ResultListener { // hplsql，为什么挪到executor，而不是保持原有目录
@@ -32,6 +34,8 @@ public interface ResultListener { // hplsql，为什么挪到executor，而不�
     void onEof();
 
     void onFinalize();
+
+    void setProcessor(ConnectProcessor processor);
 
     ResultListener NONE = new ResultListener() {
         @Override
@@ -52,6 +56,10 @@ public interface ResultListener { // hplsql，为什么挪到executor，而不�
 
         @Override
         public void onFinalize() {
+        }
+
+        @Override
+        public void setProcessor(ConnectProcessor processor) {
         }
     };
 }

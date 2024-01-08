@@ -20,17 +20,21 @@
 
 package org.apache.doris.hplsql.executor;
 
+import org.apache.doris.qe.ConnectProcessor;
+
 import java.nio.ByteBuffer;
 import java.util.function.Supplier;
 
 public class QueryResult {
     private final RowResult rows;
     private final Supplier<Metadata> metadata;
+    private ConnectProcessor processor;
     private final Exception exception;
 
-    public QueryResult(RowResult rows, Supplier<Metadata> metadata, Exception exception) {
+    public QueryResult(RowResult rows, Supplier<Metadata> metadata, ConnectProcessor processor, Exception exception) {
         this.rows = rows;
         this.metadata = memoize(metadata);
+        this.processor = processor;
         this.exception = exception;
     }
 
@@ -62,6 +66,10 @@ public class QueryResult {
         if (exception != null) {
             exception.printStackTrace();
         }
+    }
+
+    public ConnectProcessor processor() {
+        return processor;
     }
 
     public Exception exception() {

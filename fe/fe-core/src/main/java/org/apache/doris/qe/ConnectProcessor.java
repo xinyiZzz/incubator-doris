@@ -181,7 +181,7 @@ public abstract class ConnectProcessor {
                 // 只有query走hpl // 先不支持create table
                 HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
                 if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
-                    hplsqlQueryExecutor = new HplsqlQueryExecutor(this);
+                    hplsqlQueryExecutor = new HplsqlQueryExecutor();
                     ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
                 }
                 hplsqlQueryExecutor.execute(originStmt);

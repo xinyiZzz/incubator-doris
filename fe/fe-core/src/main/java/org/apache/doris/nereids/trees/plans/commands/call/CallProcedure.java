@@ -18,13 +18,11 @@
 package org.apache.doris.nereids.trees.plans.commands.call;
 
 import org.apache.doris.hplsql.executor.DorisQueryExecutor;
+import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.hplsql.store.StoredProcedure;
-import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.expressions.Expression;
-import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.qe.ConnectContext;
-import org.apache.doris.qe.StmtExecutor;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -35,16 +33,19 @@ import java.util.Objects;
  * CallProcedure
  */
 public class CallProcedure extends CallFunc {
-    private StoredProcedure proc;
+    // private StoredProcedure proc;
+    private HplsqlQueryExecutor executor;
     private List<Expression> args;
     private DorisQueryExecutor queryExecutor;
     private String stmt;
+    // private ResultListener resultListener = ResultListener.NONE;
 
-    private CallProcedure(StoredProcedure proc, List<Expression> args, String stmt) {
-        this.proc = Objects.requireNonNull(proc, "user is missing");
-        this.args = Objects.requireNonNull(args, "catalogName is missing");
+    private CallProcedure(HplsqlQueryExecutor executor, List<Expression> args, String stmt) {
+        this.executor = Objects.requireNonNull(executor, "executor is missing");
+        this.args = Objects.requireNonNull(args, "args is missing");
         this.queryExecutor = new DorisQueryExecutor();
         this.stmt = stmt;
+        // resultListener = new HplsqlResult(processor);
     }
 
     private static String getOriginSql(ParserRuleContext ctx) {
@@ -59,18 +60,26 @@ public class CallProcedure extends CallFunc {
      */
     public static CallFunc create(String funcName, ConnectContext ctx, List<Expression> args) {
         MetaClient client = new MetaClient();
-        StoredProcedure proc = client.getStoredProcedure(funcName,
-                ctx.getCurrentCatalog().getName(), ctx.getDatabase());
-        StmtExecutor executor = new StmtExecutor(ctx, proc.getSource());
-        executor.parseByNereids();
-        CreateProcedureCommand logicalPlan
-                = (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
-        return new CallProcedure(proc, args,
-                getOriginSql(logicalPlan.getCreateProcedureContext().procBlock().beginEndBlock().block()));
+        StoredProcedure proc = client.getStoredProcedure(funcName, ctx.getCurrentCatalog().getName(),
+                ctx.getDatabase());
+        // StmtExecutor executor = new StmtExecutor(ctx, proc.getSource());
+        // executor.parseByNereids();
+        // CreateProcedureCommand logicalPlan
+        //         = (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
+        // return new CallProcedure(proc, args,
+        //         getOriginSql(logicalPlan.getCreateProcedureContext().procBlock().beginEndBlock().block()));
+
+        HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
+        if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
+            hplsqlQueryExecutor = new HplsqlQueryExecutor();
+            ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
+        }
+        return new CallProcedure(hplsqlQueryExecutor, args, proc.getSource());
     }
 
     @Override
     public void run() {
-        queryExecutor.executeQuery(stmt, null);
+        // QueryResult query = queryExecutor.executeQuery(stmt, null);
+        executor.execute(stmt);
     }
 }

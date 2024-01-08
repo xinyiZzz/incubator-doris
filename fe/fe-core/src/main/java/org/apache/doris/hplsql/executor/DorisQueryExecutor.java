@@ -49,9 +49,9 @@ public class DorisQueryExecutor implements QueryExecutor { // 这个不应该放
             processor.executeQuery(MysqlCommand.COM_QUERY, sql);
             StmtExecutor executor = context.getExecutor();
             return new QueryResult(new DorisRowResult(executor.getCoord(), executor.getColumns(),
-                    executor.getReturnTypes()), () -> metadata(executor), null);
+                    executor.getReturnTypes()), () -> metadata(executor), processor, null);
         } catch (Exception e) {
-            return new QueryResult(null, () -> new Metadata(Collections.emptyList()), e);
+            return new QueryResult(null, () -> new Metadata(Collections.emptyList()), null, e);
         }
     }
 
