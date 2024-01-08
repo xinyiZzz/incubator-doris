@@ -19,8 +19,6 @@ package org.apache.doris.nereids.trees.plans.commands.call;
 
 import org.apache.doris.hplsql.executor.DorisQueryExecutor;
 import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
-import org.apache.doris.hplsql.store.MetaClient;
-import org.apache.doris.hplsql.store.StoredProcedure;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.qe.ConnectContext;
 
@@ -34,10 +32,10 @@ import java.util.Objects;
  */
 public class CallProcedure extends CallFunc {
     // private StoredProcedure proc;
-    private HplsqlQueryExecutor executor;
-    private List<Expression> args;
-    private DorisQueryExecutor queryExecutor;
-    private String stmt;
+    private final HplsqlQueryExecutor executor;
+    private final List<Expression> args;
+    private final DorisQueryExecutor queryExecutor;
+    private final String stmt;
     // private ResultListener resultListener = ResultListener.NONE;
 
     private CallProcedure(HplsqlQueryExecutor executor, List<Expression> args, String stmt) {
@@ -58,10 +56,10 @@ public class CallProcedure extends CallFunc {
     /**
      * Create a CallFunc
      */
-    public static CallFunc create(String funcName, ConnectContext ctx, List<Expression> args) {
-        MetaClient client = new MetaClient();
-        StoredProcedure proc = client.getStoredProcedure(funcName, ctx.getCurrentCatalog().getName(),
-                ctx.getDatabase());
+    public static CallFunc create(String funcName, ConnectContext ctx, List<Expression> args, String stmt) {
+        // MetaClient client = new MetaClient();
+        // StoredProcedure proc = client.getStoredProcedure(funcName, ctx.getCurrentCatalog().getName(),
+        //         ctx.getDatabase());
         // StmtExecutor executor = new StmtExecutor(ctx, proc.getSource());
         // executor.parseByNereids();
         // CreateProcedureCommand logicalPlan
@@ -74,7 +72,7 @@ public class CallProcedure extends CallFunc {
             hplsqlQueryExecutor = new HplsqlQueryExecutor();
             ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
         }
-        return new CallProcedure(hplsqlQueryExecutor, args, proc.getSource());
+        return new CallProcedure(hplsqlQueryExecutor, args, stmt);
     }
 
     @Override

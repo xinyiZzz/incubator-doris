@@ -29,14 +29,15 @@ public abstract class CallFunc {
     /**
      * Get the instance of CallFunc
      */
-    public static CallFunc getFunc(ConnectContext ctx, UserIdentity user, UnboundFunction unboundFunction) {
+    public static CallFunc getFunc(ConnectContext ctx, UserIdentity user, UnboundFunction unboundFunction,
+            String stmt) {
         String funcName = unboundFunction.getName().toUpperCase(); // 大小写不区分
         switch (funcName) {
             case "EXECUTE_STMT":
                 return CallExecuteStmtFunc.create(user, unboundFunction.getArguments());
             default:
-                return CallProcedure.create(funcName, ctx, unboundFunction.getArguments());
-                // throw new IllegalArgumentException("unknown function name: " + funcName);
+                return CallProcedure.create(funcName, ctx, unboundFunction.getArguments(), stmt);
+            // throw new IllegalArgumentException("unknown function name: " + funcName);
 
         }
     }

@@ -3185,7 +3185,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
                 .<Expression>map(this::typedVisit)
                 .collect(ImmutableList.toImmutableList());
         UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
-        return new CallCommand(unboundFunction);
+        return new CallCommand(unboundFunction, getOriginSql(ctx));
     }
 
     @Override
