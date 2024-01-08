@@ -47,9 +47,9 @@ public class JdbcQueryExecutor implements QueryExecutor {
         Query query = exec.executeQuery(ctx, new Query(sql), conn);
         ResultSet resultSet = query.getResultSet();
         if (resultSet == null) { // offline mode
-            return new QueryResult(null, () -> new Metadata(Collections.emptyList()), query.getException());
+            return new QueryResult(null, () -> new Metadata(Collections.emptyList()), null, query.getException());
         } else {
-            return new QueryResult(new JdbcRowResult(resultSet), () -> metadata(resultSet), query.getException());
+            return new QueryResult(new JdbcRowResult(resultSet), () -> metadata(resultSet), null, query.getException());
         }
     }
 
@@ -58,8 +58,7 @@ public class JdbcQueryExecutor implements QueryExecutor {
             ResultSetMetaData meta = resultSet.getMetaData();
             List<ColumnMeta> colMetas = new ArrayList<>();
             for (int i = 1; i <= meta.getColumnCount(); i++) {
-                colMetas.add(new ColumnMeta(
-                        meta.getColumnName(i), meta.getColumnTypeName(i), meta.getColumnType(i)));
+                colMetas.add(new ColumnMeta(meta.getColumnName(i), meta.getColumnTypeName(i), meta.getColumnType(i)));
             }
             return new Metadata(colMetas);
         } catch (SQLException e) {
