@@ -18,6 +18,7 @@
 package org.apache.doris.nereids.trees.plans.commands;
 
 import org.apache.doris.hplsql.store.MetaClient;
+import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
 import org.apache.doris.nereids.annotation.Developing;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
@@ -38,20 +39,25 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
     private final String name;
     private final String source;
     private final boolean isForce;
+    private final CreateProcedureContext ctx;
 
-    public CreateProcedureCommand(String name, String source, boolean isForce) {
+    public CreateProcedureCommand(String name, String source, boolean isForce, CreateProcedureContext ctx) {
         super(PlanType.CREATE_PROCEDURE_COMMAND);
         this.client = new MetaClient();
         this.name = name;
         this.source = source;
         this.isForce = isForce;
+        this.ctx = ctx;
+    }
+
+    public CreateProcedureContext getCreateProcedureContext() {
+        return ctx;
     }
 
     @Override
     public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        client.addStoredProcedure(name, ctx.getCurrentCatalog().getName(),
-                ctx.getDatabase(),
-                ctx.getQualifiedUser(), source, isForce);
+        client.addStoredProcedure(name, ctx.getCurrentCatalog().getName(), ctx.getDatabase(), ctx.getQualifiedUser(),
+                source, isForce);
     }
 
     @Override

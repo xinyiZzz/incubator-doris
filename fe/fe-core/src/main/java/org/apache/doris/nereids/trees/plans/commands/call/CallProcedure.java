@@ -20,8 +20,13 @@ package org.apache.doris.nereids.trees.plans.commands.call;
 import org.apache.doris.hplsql.executor.DorisQueryExecutor;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.hplsql.store.StoredProcedure;
+import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.trees.expressions.Expression;
+import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.qe.ConnectContext;
+import org.apache.doris.qe.StmtExecutor;
+
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.List;
 import java.util.Objects;
@@ -33,11 +38,20 @@ public class CallProcedure extends CallFunc {
     private StoredProcedure proc;
     private List<Expression> args;
     private DorisQueryExecutor queryExecutor;
+    private String stmt;
 
-    private CallProcedure(StoredProcedure proc, List<Expression> args) {
+    private CallProcedure(StoredProcedure proc, List<Expression> args, String stmt) {
         this.proc = Objects.requireNonNull(proc, "user is missing");
         this.args = Objects.requireNonNull(args, "catalogName is missing");
         this.queryExecutor = new DorisQueryExecutor();
+        this.stmt = stmt;
+    }
+
+    private static String getOriginSql(ParserRuleContext ctx) {
+        int startIndex = ctx.start.getStartIndex();
+        int stopIndex = ctx.stop.getStopIndex();
+        org.antlr.v4.runtime.misc.Interval interval = new org.antlr.v4.runtime.misc.Interval(startIndex, stopIndex);
+        return ctx.start.getInputStream().getText(interval);
     }
 
     /**
@@ -47,11 +61,16 @@ public class CallProcedure extends CallFunc {
         MetaClient client = new MetaClient();
         StoredProcedure proc = client.getStoredProcedure(funcName,
                 ctx.getCurrentCatalog().getName(), ctx.getDatabase());
-        return new CallProcedure(proc, args);
+        StmtExecutor executor = new StmtExecutor(ctx, proc.getSource());
+        executor.parseByNereids();
+        CreateProcedureCommand logicalPlan
+                = (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
+        return new CallProcedure(proc, args,
+                getOriginSql(logicalPlan.getCreateProcedureContext().procBlock().beginEndBlock().block()));
     }
 
     @Override
     public void run() {
-        queryExecutor.executeQuery(proc.getSource(), null);
+        queryExecutor.executeQuery(stmt, null);
     }
 }

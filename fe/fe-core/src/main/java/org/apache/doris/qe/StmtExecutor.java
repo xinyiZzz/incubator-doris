@@ -631,7 +631,7 @@ public class StmtExecutor {
         }
     }
 
-    private void parseByNereids() {
+    public void parseByNereids() {
         if (parsedStmt != null) {
             return;
         }
