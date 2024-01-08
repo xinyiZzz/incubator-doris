@@ -3202,7 +3202,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
             // }
             // trace(ctx, "CREATE PROCEDURE " + name);
             // saveInCache(name, ctx);
-            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null , ctx);
+            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null, ctx);
             return createProcedurePlan;
         });
     }
