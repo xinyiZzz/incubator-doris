@@ -28,6 +28,9 @@ import org.apache.doris.catalog.KeysType;
 import org.apache.doris.common.Config;
 import org.apache.doris.common.FeConstants;
 import org.apache.doris.common.Pair;
+import org.apache.doris.hplsql.Conf;
+import org.apache.doris.hplsql.executor.DorisQueryExecutor;
+import org.apache.doris.hplsql.executor.HplsqlResult;
 import org.apache.doris.job.common.IntervalUnit;
 import org.apache.doris.load.loadv2.LoadTask;
 import org.apache.doris.mtmv.MTMVPartitionInfo;
@@ -48,6 +51,7 @@ import org.apache.doris.nereids.DorisParser.ArithmeticBinaryContext;
 import org.apache.doris.nereids.DorisParser.ArithmeticUnaryContext;
 import org.apache.doris.nereids.DorisParser.ArrayLiteralContext;
 import org.apache.doris.nereids.DorisParser.ArraySliceContext;
+import org.apache.doris.nereids.DorisParser.BeginEndBlockContext;
 import org.apache.doris.nereids.DorisParser.BitOperationContext;
 import org.apache.doris.nereids.DorisParser.BooleanExpressionContext;
 import org.apache.doris.nereids.DorisParser.BooleanLiteralContext;
@@ -130,6 +134,7 @@ import org.apache.doris.nereids.DorisParser.PlanTypeContext;
 import org.apache.doris.nereids.DorisParser.PredicateContext;
 import org.apache.doris.nereids.DorisParser.PredicatedContext;
 import org.apache.doris.nereids.DorisParser.PrimitiveDataTypeContext;
+import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
 import org.apache.doris.nereids.DorisParser.PropertyClauseContext;
 import org.apache.doris.nereids.DorisParser.PropertyItemContext;
 import org.apache.doris.nereids.DorisParser.PropertyItemListContext;
@@ -406,6 +411,7 @@ import org.apache.doris.nereids.util.ExpressionUtils;
 import org.apache.doris.nereids.util.RelationUtil;
 import org.apache.doris.policy.FilterType;
 import org.apache.doris.policy.PolicyTypeEnum;
+import org.apache.doris.procedure.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.SqlModeHelper;
 
@@ -439,8 +445,11 @@ import java.util.stream.Collectors;
 @SuppressWarnings({"OptionalUsedAsFieldOrParameterType", "OptionalGetWithoutIsPresent"})
 public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
+    private HplsqlResult result;
+    private Exec exec;
+
     @SuppressWarnings("unchecked")
-    protected <T> T typedVisit(ParseTree ctx) {
+    public <T> T typedVisit(ParseTree ctx) {
         return (T) ctx.accept(this);
     }
 
@@ -3179,13 +3188,43 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitCallProcedure(CallProcedureContext ctx) {
-        String functionName = ctx.functionName.getText();
-        List<Expression> arguments = ctx.expression().stream()
-                .<Expression>map(this::typedVisit)
-                .collect(ImmutableList.toImmutableList());
-        UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
-        return new CallCommand(unboundFunction, getOriginSql(ctx));
+    public LogicalPlan visitCallProcedure(CallProcedureContext ctx) {
+        // String functionName = ctx.functionName.getText();
+        // List<Expression> arguments = ctx.expression().stream()
+        //         .<Expression>map(this::typedVisit)
+        //         .collect(ImmutableList.toImmutableList());
+        // UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
+
+        result = new HplsqlResult();
+        exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result, this);
+        exec.init();
+        return new CallCommand(exec, ctx);
+    }
+
+    /**
+     * Enter BEGIN-END block
+     */
+    @Override
+    public Object visitBeginEndBlock(BeginEndBlockContext ctx) {
+        // enterScope(Scope.Type.BEGIN_END);
+        // Integer rc = visitChildren(ctx);
+        // leaveScope();
+        // return visit(ctx.block());
+        return visit(ctx.block().procedureStatement(0).procedureSelect());
+    }
+
+    // @Override
+    // public Object visitBlock(BlockContext ctx) {
+    //     return visit(ctx.block());
+    // }
+
+    // @Override
+    // public Object visitProcedureStatement(ProcedureStatementContext ctx) {
+    // }
+
+    @Override
+    public Object visitProcedureSelect(ProcedureSelectContext ctx) {
+        return exec.select.select(ctx);
     }
 
     @Override

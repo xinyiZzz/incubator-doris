@@ -42,7 +42,7 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
     private StringBuilder error;
     private boolean isSendFields;
 
-    HplsqlResult() {
+    public HplsqlResult() {
         this.msg = new StringBuilder();
         this.error = new StringBuilder();
         this.isSendFields = false;

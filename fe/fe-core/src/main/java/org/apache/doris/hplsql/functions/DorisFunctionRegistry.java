@@ -79,7 +79,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
 
     @Override
     public boolean exec(String name, HplsqlParser.Expr_func_paramsContext ctx) {
-        if (builtinFunctions.exec(name, ctx)) {
+        if (builtinFunctions.exec(name, ctx)) { // 内置函数
             return true;
         }
         if (isCached(name)) {

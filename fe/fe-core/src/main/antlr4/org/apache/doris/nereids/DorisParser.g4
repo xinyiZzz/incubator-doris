@@ -34,7 +34,7 @@ singleStatement
     ;
 
 statement
-    : explain? query outFileClause?                                    #statementDefault
+    : statementDefault # none
     | CREATE ROW POLICY (IF NOT EXISTS)? name=identifier
         ON table=multipartIdentifier
         AS type=(RESTRICTIVE | PERMISSIVE)
@@ -103,7 +103,11 @@ statement
     | ALTER TABLE table=relation
         DROP CONSTRAINT constraintName=errorCapturingIdentifier           #dropConstraint
     | CALL functionName=identifier LEFT_PAREN (expression (COMMA expression)*)? RIGHT_PAREN #callProcedure
-    | (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)? #createProcedure
+    | createProcedure #none
+    ;
+
+statementDefault
+    : explain? query outFileClause?
     ;
 
 constraint
@@ -555,9 +559,9 @@ inlineTable
     : VALUES rowConstructor (COMMA rowConstructor)*
     ;
 
-//createProcedure
-//    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)?
-//    ; // identifier 不兼容 hive ident， hive ident允许的规则更多 // create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
+createProcedure
+    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)?
+    ; // identifier 不兼容 hive ident， hive ident允许的规则更多 // create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
 
 createRoutineParams
     : LEFT_PAREN RIGHT_PAREN
@@ -578,7 +582,7 @@ createRoutineParamItem
 //    : declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
 //    ;
 
-block : ((beginEndBlock | statement SEMICOLON*) GO?)+ ;
+block : ((beginEndBlock | procedureStatement SEMICOLON*) GO?)+ ;
 
 beginEndBlock :
        BEGIN block blockEnd
@@ -590,77 +594,19 @@ blockEnd :
 
 procBlock :
        beginEndBlock
-     | (statement SEMICOLON*)+ GO?
+     | (procedureStatement SEMICOLON*)+ GO?
      ;
 
 //declare_block :         // Declaration block
 //       T_DECLARE declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
 //     ;
 
-stmt :
-//       assignment_stmt
-//     | allocate_cursor_stmt
-//     | alter_table_stmt
-//     | associate_locator_stmt
-//     | begin_transaction_stmt
-//     | break_stmt
-//     | call_stmt
-//     | collect_stats_stmt
-//     | close_stmt
-//     | cmp_stmt
-//     | copy_from_local_stmt
-//     | copy_stmt
-//     | commit_stmt
-//     | create_database_stmt
-//     | create_function_stmt
-//     | create_index_stmt
-//     | create_local_temp_table_stmt
-//     | create_package_stmt
-//     | create_package_body_stmt
-//     | create_procedure_stmt
-//     | create_table_stmt
-//     | create_table_type_stmt
-//     | declare_stmt
-//     | delete_stmt
-//     | describe_stmt
-//     | drop_stmt
-//     | end_transaction_stmt
-//     | exec_stmt
-//     | exit_stmt
-//     | fetch_stmt
-//     | for_cursor_stmt
-//     | for_range_stmt
-//     | if_stmt
-//     | include_stmt
-//     | insert_stmt
-//     | insert_directory_stmt
-//     | get_diag_stmt
-//     | grant_stmt
-//     | leave_stmt
-//     | map_object_stmt
-//     | merge_stmt
-//     | open_stmt
-//     | print_stmt
-//     | quit_stmt
-//     | raise_stmt
-//     | resignal_stmt
-//     | return_stmt
-//     | rollback_stmt
-      query
-//     | signal_stmt
-//     | summary_stmt
-//     | update_stmt
-//     | use_stmt
-//     | truncate_stmt
-//     | values_into_stmt
-//     | while_stmt
-//     | unconditional_loop_stmt
-//     | label
-//     | hive
-//     | host
-//     | null_stmt
-//     | expr_stmt
-//     | semicolon_stmt      // Placed here to allow null statements ;;...
+procedureSelect :
+       statementDefault
+     ;
+
+procedureStatement :
+      procedureSelect
      ;
 
 // -----------------Expression-----------------

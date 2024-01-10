@@ -17,17 +17,15 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
-import org.apache.doris.nereids.analyzer.UnboundFunction;
+import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.trees.plans.PlanType;
-import org.apache.doris.nereids.trees.plans.commands.call.CallFunc;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
+import org.apache.doris.procedure.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
-import java.util.Objects;
 
 /**
  * call func()
@@ -35,22 +33,33 @@ import java.util.Objects;
 public class CallCommand extends Command implements ForwardWithSync {
     public static final Logger LOG = LogManager.getLogger(CallCommand.class);
 
-    private final UnboundFunction unboundFunction;
-    private final String stmt;
+    // private final UnboundFunction unboundFunction;
+    private CallProcedureContext ctx;
+    private Exec exec;
+
+    // /**
+    //  * constructor
+    //  */
+    // public CallCommand(UnboundFunction unboundFunction, CallProcedureContext stmt) {
+    //     super(PlanType.CALL_COMMAND);
+    //     this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
+    //     this.stmt = Objects.requireNonNull(stmt, "stmt is null");
+    // }
 
     /**
      * constructor
      */
-    public CallCommand(UnboundFunction unboundFunction, String stmt) {
+    public CallCommand(Exec exec, CallProcedureContext ctx) {
         super(PlanType.CALL_COMMAND);
-        this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
-        this.stmt = Objects.requireNonNull(stmt, "stmt is null");
+        this.ctx = ctx;
+        this.exec = exec;
     }
 
     @Override
-    public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
-        analyzedFunc.run();
+    public void run(ConnectContext connectContext, StmtExecutor executor) throws Exception {
+        // CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
+        // analyzedFunc.run();
+        exec.visitCall_stmt(ctx, connectContext);
     }
 
     @Override
