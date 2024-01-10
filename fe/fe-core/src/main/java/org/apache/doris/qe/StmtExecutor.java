@@ -1569,7 +1569,7 @@ public class StmtExecutor {
                 return;
             }
 
-            if (context.sessionVariable.isEnableHplsql()) {
+            if (context.sessionVariable.isEnableHplsql() || context.isRunProcedure()) {
                 // hplsql will get the returned results without sending them to mysql client.
                 // see org/apache/doris/hplsql/executor/DorisRowResult.java
                 return;

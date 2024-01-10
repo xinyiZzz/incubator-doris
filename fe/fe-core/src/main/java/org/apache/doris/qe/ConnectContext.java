@@ -219,6 +219,7 @@ public class ConnectContext {
     // but the internal implementation will call the logic of `AlterTable`.
     // In this case, `skipAuth` needs to be set to `true` to skip the permission check of `AlterTable`
     private boolean skipAuth = false;
+    private boolean runProcedure = false;
 
     public void setUserQueryTimeout(int queryTimeout) {
         if (queryTimeout > 0) {
@@ -1054,6 +1055,14 @@ public class ConnectContext {
 
     public void setSkipAuth(boolean skipAuth) {
         this.skipAuth = skipAuth;
+    }
+
+    public boolean isRunProcedure() {
+        return runProcedure;
+    }
+
+    public void setRunProcedure(boolean runProcedure) {
+        this.runProcedure = runProcedure;
     }
 
     public int getNetReadTimeout() {
