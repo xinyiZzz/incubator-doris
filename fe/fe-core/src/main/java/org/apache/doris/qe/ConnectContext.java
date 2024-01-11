@@ -41,7 +41,6 @@ import org.apache.doris.datasource.CatalogIf;
 import org.apache.doris.datasource.InternalCatalog;
 import org.apache.doris.datasource.SessionContext;
 import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
-import org.apache.doris.hplsql.executor.HplsqlResult;
 import org.apache.doris.mysql.DummyMysqlChannel;
 import org.apache.doris.mysql.MysqlCapability;
 import org.apache.doris.mysql.MysqlChannel;
