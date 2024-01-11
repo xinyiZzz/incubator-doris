@@ -17,7 +17,11 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
+import org.apache.doris.hplsql.Conf;
+import org.apache.doris.hplsql.executor.DorisQueryExecutor;
+import org.apache.doris.hplsql.executor.HplsqlResult;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
+import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
 import org.apache.doris.procedure.Exec;
@@ -27,6 +31,8 @@ import org.apache.doris.qe.StmtExecutor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
+import java.util.List;
+
 /**
  * call func()
  */
@@ -35,7 +41,8 @@ public class CallCommand extends Command implements ForwardWithSync {
 
     // private final UnboundFunction unboundFunction;
     private CallProcedureContext ctx;
-    private Exec exec;
+    private String functionName;
+    private List<Expression> arguments;
 
     // /**
     //  * constructor
@@ -49,17 +56,22 @@ public class CallCommand extends Command implements ForwardWithSync {
     /**
      * constructor
      */
-    public CallCommand(Exec exec, CallProcedureContext ctx) {
+    public CallCommand(CallProcedureContext ctx, String functionName, List<Expression> arguments) {
         super(PlanType.CALL_COMMAND);
         this.ctx = ctx;
-        this.exec = exec;
+        this.functionName = functionName;
+        this.arguments = arguments;
     }
 
     @Override
     public void run(ConnectContext connectContext, StmtExecutor executor) throws Exception {
         // CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
         // analyzedFunc.run();
-        exec.visitCall_stmt(ctx, connectContext);
+        HplsqlResult result = new HplsqlResult();
+        Exec exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result);
+        exec.init();
+        connectContext.setProcedureExec(exec);
+        exec.visitCall_stmt(connectContext, ctx, functionName, arguments);
     }
 
     @Override

@@ -41,6 +41,7 @@ import org.apache.doris.datasource.CatalogIf;
 import org.apache.doris.datasource.InternalCatalog;
 import org.apache.doris.datasource.SessionContext;
 import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
+import org.apache.doris.hplsql.executor.HplsqlResult;
 import org.apache.doris.mysql.DummyMysqlChannel;
 import org.apache.doris.mysql.MysqlCapability;
 import org.apache.doris.mysql.MysqlChannel;
@@ -50,6 +51,7 @@ import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.stats.StatsErrorEstimator;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.plugin.AuditEvent.AuditEventBuilder;
+import org.apache.doris.procedure.Exec;
 import org.apache.doris.resource.Tag;
 import org.apache.doris.service.arrowflight.results.FlightSqlChannel;
 import org.apache.doris.statistics.ColumnStatistic;
@@ -219,6 +221,7 @@ public class ConnectContext {
     // but the internal implementation will call the logic of `AlterTable`.
     // In this case, `skipAuth` needs to be set to `true` to skip the permission check of `AlterTable`
     private boolean skipAuth = false;
+    private Exec exec;
     private boolean runProcedure = false;
 
     public void setUserQueryTimeout(int queryTimeout) {
@@ -1063,6 +1066,14 @@ public class ConnectContext {
 
     public void setRunProcedure(boolean runProcedure) {
         this.runProcedure = runProcedure;
+    }
+
+    public void setProcedureExec(Exec exec) {
+        this.exec = exec;
+    }
+
+    public Exec getProcedureExec() {
+        return exec;
     }
 
     public int getNetReadTimeout() {

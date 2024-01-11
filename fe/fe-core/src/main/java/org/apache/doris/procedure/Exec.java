@@ -26,7 +26,6 @@ import org.apache.doris.hplsql.Conn;
 import org.apache.doris.hplsql.Console;
 import org.apache.doris.hplsql.Converter;
 import org.apache.doris.hplsql.Expression;
-import org.apache.doris.hplsql.HplsqlParser.StmtContext;
 import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
 import org.apache.doris.hplsql.Scope;
@@ -42,12 +41,11 @@ import org.apache.doris.hplsql.packages.InMemoryPackageRegistry;
 import org.apache.doris.hplsql.packages.PackageRegistry;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
+import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
 import org.apache.doris.procedure.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
-
-import com.google.common.collect.ImmutableList;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -130,25 +128,21 @@ public class Exec implements Closeable {
     boolean trace = false;
     boolean info = true;
     boolean offline = false;
-    public LogicalPlanBuilder logicalPlanBuilder;
 
-    StmtContext lastStmt = null;
+    ProcedureStatementContext lastStmt = null;
 
     public Exec() {
         exec = this;
         // queryExecutor = new JdbcQueryExecutor(this); // hpl-sql, hplsql.sh走的这 // 对的
-        this.logicalPlanBuilder = new LogicalPlanBuilder();
     }
 
-    public Exec(Conf conf, Console console, QueryExecutor queryExecutor, ResultListener resultListener,
-            LogicalPlanBuilder logicalPlanBuilder) {
+    public Exec(Conf conf, Console console, QueryExecutor queryExecutor, ResultListener resultListener) {
         this.conf = conf;
         this.exec = this;
         this.console = console;
         this.queryExecutor = queryExecutor; // 什么时候用doris executor，什么时候用jdbc executor
         this.resultListener = resultListener;
         this.client = new MetaClient();
-        this.logicalPlanBuilder = logicalPlanBuilder;
     }
 
     Exec(Exec exec) {
@@ -156,7 +150,6 @@ public class Exec implements Closeable {
         this.console = exec.console;
         this.queryExecutor = exec.queryExecutor;
         this.client = exec.client;
-        this.logicalPlanBuilder = new LogicalPlanBuilder();
     }
 
     @Override
@@ -241,14 +234,46 @@ public class Exec implements Closeable {
     }
 
     /**
+     * Executing a statement
+     */
+    public Integer visitStmt(ProcedureStatementContext ctx) {
+        // if (ctx.semicolon_stmt() != null) {
+        //     return 0;
+        // }
+        // if (initRoutines && ctx.create_procedure_stmt() == null && ctx.create_function_stmt() == null) {
+        //     return 0;
+        // }
+        // if (exec.resignal) {
+        //     if (exec.currentScope != exec.currentHandlerScope.parent) {
+        //         return 0;
+        //     }
+        //     exec.resignal = false;
+        // }
+        // if (!exec.signals.empty() && exec.conf.onError != org.apache.doris.hplsql.Exec.OnError.SETERROR) {
+        //     if (!runContinueHandler()) {
+        //         return 0;
+        //     }
+        // }
+        // Var prev = stackPop();
+        // if (prev != null && prev.value != null) {
+        //     console.printLine(prev.toString());
+        // }
+        Integer rc = LogicalPlanBuilder.visitChildrenReal(ctx);
+        if (ctx != lastStmt) { // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
+            // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
+            // printExceptions();
+            resultListener.onFinalize(); // 是用 mysql client 执行 hqlsql，走这个 // 有些情况是不需要经过反序列化再返回mysql
+            // client，比如 select xxx from tbl; 此时hplsql没有计算，比如 select count(*) into result 有 result
+            console.flushConsole(); // 用 hplsql.sh执行 hqlsql
+        }
+        return rc;
+    }
+
+    /**
      * CALL statement
      */
-    public Integer visitCall_stmt(CallProcedureContext ctx, ConnectContext connectContext) {
-        String functionName = ctx.functionName.getText();
-        List<org.apache.doris.nereids.trees.expressions.Expression> arguments = ctx.expression().stream()
-                .<org.apache.doris.nereids.trees.expressions.Expression>map(logicalPlanBuilder::typedVisit)
-                .collect(ImmutableList.toImmutableList());
-
+    public Integer visitCall_stmt(ConnectContext connectContext, CallProcedureContext ctx, String functionName,
+            List<org.apache.doris.nereids.trees.expressions.Expression> arguments) {
         exec.inCallStmt = true;
         try {
             // if (ctx.expr_func() != null) {

@@ -592,7 +592,7 @@ blockEnd :
        {!_input.LT(2).getText().equalsIgnoreCase("TRANSACTION")}? END
      ;
 
-procBlock :
+procBlock : // 改成procedure
        beginEndBlock
      | (procedureStatement SEMICOLON*)+ GO?
      ;
@@ -601,12 +601,12 @@ procBlock :
 //       T_DECLARE declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
 //     ;
 
-procedureSelect :
-       statementDefault
-     ;
-
 procedureStatement :
       procedureSelect
+     ;
+
+procedureSelect :
+       statementDefault
      ;
 
 // -----------------Expression-----------------

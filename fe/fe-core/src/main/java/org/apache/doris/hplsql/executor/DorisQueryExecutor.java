@@ -47,6 +47,7 @@ public class DorisQueryExecutor implements QueryExecutor { // 这个不应该放
             ConnectContext context = ConnectContext.get().createContext();
             context.setRunProcedure(true);
             ConnectProcessor processor = new MysqlConnectProcessor(context);
+            // 可能可以直接 executor = new StmtExecutor(ctx, parsedStmt);，execute // 不用每条语句都 finalizeCommand
             processor.executeQuery(MysqlCommand.COM_QUERY, sql);
             StmtExecutor executor = context.getExecutor();
             return new QueryResult(new DorisRowResult(executor.getCoord(), executor.getColumns(),
