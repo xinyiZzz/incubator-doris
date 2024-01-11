@@ -3185,7 +3185,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
     /**
      * visitChildrenReal
      */
-    public static Integer visitChildrenReal(RuleNode node) {
+    public Integer visitChildrenReal(RuleNode node) {
         Integer result = null;
         int n = node.getChildCount();
 
