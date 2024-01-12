@@ -21,10 +21,8 @@ import org.apache.doris.hplsql.Console;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.mysql.MysqlEofPacket;
 import org.apache.doris.mysql.MysqlSerializer;
-import org.apache.doris.mysql.MysqlServerStatusFlag;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;
-import org.apache.doris.qe.QueryState;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
