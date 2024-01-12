@@ -99,7 +99,7 @@ public class Select {
         QueryResult query = queryExecutor.executeQuery(getOriginSql(ctx.statementDefault()), ctx);
         resultListener.setProcessor(query.processor());
         @SuppressWarnings("unused") AutoCloseConnectContext autoCloseCtx;
-        if（query.processor() != null){
+        if (query.processor() != null) {
             autoCloseCtx = new AutoCloseConnectContext(query.processor().getCtx());
         }
 
