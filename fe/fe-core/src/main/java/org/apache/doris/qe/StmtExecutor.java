@@ -2282,6 +2282,13 @@ public class StmtExecutor {
         }
     }
 
+    public void sendEmptyFields() throws IOException {
+        // sends how many columns
+        serializer.reset();
+        serializer.writeVInt(0);
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+    }
+
     private void sendFields(List<String> colNames, List<Type> types) throws IOException {
         Preconditions.checkState(context.getConnectType() == ConnectType.MYSQL);
         // sends how many columns

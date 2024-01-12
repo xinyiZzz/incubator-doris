@@ -245,9 +245,9 @@ public class MysqlConnectProcessor extends ConnectProcessor {
         // dispatch
         dispatch();
         // finalize
-        if (!ctx.isRunProcedure()) {
-            finalizeCommand();
-        }
+        // if (!ctx.isRunProcedure()) {
+        finalizeCommand();
+        // }
 
         ctx.setCommand(MysqlCommand.COM_SLEEP);
     }
