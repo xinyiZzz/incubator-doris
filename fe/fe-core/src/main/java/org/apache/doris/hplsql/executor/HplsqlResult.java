@@ -21,8 +21,10 @@ import org.apache.doris.hplsql.Console;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.mysql.MysqlEofPacket;
 import org.apache.doris.mysql.MysqlSerializer;
+import org.apache.doris.mysql.MysqlServerStatusFlag;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;
+import org.apache.doris.qe.QueryState;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -176,16 +178,16 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
     }
 
     private void finalizeCommand() {
-        // try {
-        //     QueryState state = ConnectContext.get().getState();
-        //     state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
-        //     if (processor != null) {
-        //         processor.finalizeCommand();
-        //     }
-        //     state.reset();
-        // } catch (IOException e) {
-        //     throw new QueryException(e);
-        // }
+        try {
+            QueryState state = ConnectContext.get().getState();
+            state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
+            if (processor != null) {
+                processor.finalizeCommand();
+            }
+            state.reset();
+        } catch (IOException e) {
+            throw new QueryException(e);
+        }
     }
 
     @FunctionalInterface
