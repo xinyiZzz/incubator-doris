@@ -67,6 +67,7 @@ public class CallCommand extends Command implements ForwardWithSync {
     public void run(ConnectContext connectContext, StmtExecutor executor) throws Exception {
         // CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
         // analyzedFunc.run();
+        connectContext.setRunProcedure(true);
         HplsqlResult result = new HplsqlResult();
         Exec exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result);
         exec.init();
