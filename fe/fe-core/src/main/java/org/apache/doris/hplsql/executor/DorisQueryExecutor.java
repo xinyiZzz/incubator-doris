@@ -41,12 +41,11 @@ public class DorisQueryExecutor implements QueryExecutor { // 这个不应该放
 
     @Override
     public QueryResult executeQuery(String sql, ParserRuleContext ctx) {
-        try {
-            // A cursor may correspond to a query, and if the user opens multiple cursors, need to save multiple
-            // query states, so here each query constructs a ConnectProcessor and the ConnectContext shares some data.
-            // 为啥每次都copy一个ConnectContext? hplsql支持同时执行多个语句，通过cursor同时保存多个sql的结果
-            ConnectContext context = ConnectContext.get().createContext();
-            AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(context);
+        // A cursor may correspond to a query, and if the user opens multiple cursors, need to save multiple
+        // query states, so here each query constructs a ConnectProcessor and the ConnectContext shares some data.
+        // 为啥每次都copy一个ConnectContext? hplsql支持同时执行多个语句，通过cursor同时保存多个sql的结果
+        ConnectContext context = ConnectContext.get().createContext();
+        try (AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(context)) {
             autoCloseCtx.call();
             context.setRunProcedure(true);
             ConnectProcessor processor = new MysqlConnectProcessor(context);

@@ -30,6 +30,7 @@ import org.apache.doris.hplsql.executor.QueryResult;
 import org.apache.doris.hplsql.executor.ResultListener;
 import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
 import org.apache.doris.qe.AutoCloseConnectContext;
+import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -98,10 +99,16 @@ public class Select {
         // QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
         QueryResult query = queryExecutor.executeQuery(getOriginSql(ctx.statementDefault()), ctx);
         resultListener.setProcessor(query.processor());
-        AutoCloseConnectContext autoCloseCtx;
+        // AutoCloseConnectContext autoCloseCtx;
+        // if (query.processor() != null) {
+        //     autoCloseCtx = new AutoCloseConnectContext(query.processor().getCtx());
+        //     autoCloseCtx.call();
+        // }
+        ConnectContext preConnectContext;
         if (query.processor() != null) {
-            autoCloseCtx = new AutoCloseConnectContext(query.processor().getCtx());
-            autoCloseCtx.call();
+            preConnectContext = query.processor().getCtx();
+        } else {
+            preConnectContext = ConnectContext.get();
         }
 
         if (query.error()) {
@@ -110,7 +117,8 @@ public class Select {
         }
         // trace(ctx, "SELECT completed successfully");
         // exec.setSqlSuccess();
-        try {
+        try (AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(preConnectContext)) {
+            autoCloseCtx.call();
             // int intoCount = getIntoCount(ctx);
             // if (intoCount > 0) {
             //     if (isBulkCollect(ctx)) {
