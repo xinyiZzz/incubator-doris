@@ -91,6 +91,10 @@ public abstract class ConnectProcessor {
         this.ctx = context;
     }
 
+    public ConnectContext getCtx() {
+        return ctx;
+    }
+
     // change current database of this session.
     protected void handleInitDb(String fullDbName) {
         String catalogName = null;

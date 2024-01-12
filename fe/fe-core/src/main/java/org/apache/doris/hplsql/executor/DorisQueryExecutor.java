@@ -22,6 +22,7 @@ import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.catalog.Type;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.mysql.MysqlCommand;
+import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;
 import org.apache.doris.qe.MysqlConnectProcessor;
@@ -45,9 +46,10 @@ public class DorisQueryExecutor implements QueryExecutor { // 这个不应该放
             // query states, so here each query constructs a ConnectProcessor and the ConnectContext shares some data.
             // 为啥每次都copy一个ConnectContext? hplsql支持同时执行多个语句，通过cursor同时保存多个sql的结果
             ConnectContext context = ConnectContext.get().createContext();
+            @SuppressWarnings("unused") AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(context);
             context.setRunProcedure(true);
             ConnectProcessor processor = new MysqlConnectProcessor(context);
-            // 可能可以直接 executor = new StmtExecutor(ctx, parsedStmt);，execute // 不用每条语句都 finalizeCommand
+            // 可能可以直接 executor = new StmtExecutor(ctx, parsedStmt);，execute // 可能不用每条语句都 finalizeCommand
             processor.executeQuery(MysqlCommand.COM_QUERY, sql);
             StmtExecutor executor = context.getExecutor();
             return new QueryResult(new DorisRowResult(executor.getCoord(), executor.getColumns(),

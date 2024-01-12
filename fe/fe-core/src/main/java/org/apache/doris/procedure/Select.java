@@ -29,6 +29,7 @@ import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.QueryResult;
 import org.apache.doris.hplsql.executor.ResultListener;
 import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
+import org.apache.doris.qe.AutoCloseConnectContext;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -97,6 +98,10 @@ public class Select {
         // QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
         QueryResult query = queryExecutor.executeQuery(getOriginSql(ctx.statementDefault()), ctx);
         resultListener.setProcessor(query.processor());
+        @SuppressWarnings("unused") AutoCloseConnectContext autoCloseCtx;
+        if（query.processor() != null){
+            autoCloseCtx = new AutoCloseConnectContext(query.processor().getCtx());
+        }
 
         if (query.error()) {
             // exec.signal(query);
