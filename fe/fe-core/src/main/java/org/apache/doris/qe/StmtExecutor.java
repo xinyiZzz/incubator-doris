@@ -186,6 +186,7 @@ import org.apache.thrift.TException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -2285,7 +2286,21 @@ public class StmtExecutor {
     public void sendEmptyFields() throws IOException {
         // sends how many columns
         serializer.reset();
-        serializer.writeVInt(0);
+        serializer.writeVInt(1);
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        serializer.reset();
+        serializer.writeField("Status", Type.getTypeFromTypeName("STRING"));
+        ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        serializer.reset();
+        serializer.writeBytes("OK".getBytes(StandardCharsets.UTF_8));
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        // send EOF
+        serializer.reset();
+        MysqlEofPacket eofPacket = new MysqlEofPacket(context.getState());
+        eofPacket.writeTo(serializer);
         context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
     }
 
