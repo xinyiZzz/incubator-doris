@@ -98,9 +98,10 @@ public class Select {
         // QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
         QueryResult query = queryExecutor.executeQuery(getOriginSql(ctx.statementDefault()), ctx);
         resultListener.setProcessor(query.processor());
-        @SuppressWarnings("unused") AutoCloseConnectContext autoCloseCtx;
+        AutoCloseConnectContext autoCloseCtx;
         if (query.processor() != null) {
             autoCloseCtx = new AutoCloseConnectContext(query.processor().getCtx());
+            autoCloseCtx.call();
         }
 
         if (query.error()) {
