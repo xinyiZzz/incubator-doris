@@ -179,12 +179,12 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
 
     private void finalizeCommand() {
         try {
-            QueryState state = ConnectContext.get().getState();
-            state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
-            if (processor != null) {
-                processor.finalizeCommand();
-            }
-            state.reset();
+            // QueryState state = ConnectContext.get().getState();
+            // state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
+            // if (processor != null) {
+            //     processor.finalizeCommand();
+            // }
+            // state.reset();
         } catch (IOException e) {
             throw new QueryException(e);
         }
