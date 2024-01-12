@@ -2293,14 +2293,14 @@ public class StmtExecutor {
         serializer.writeField("Status", Type.getTypeFromTypeName("STRING"));
         ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
 
-        serializer.reset();
-        serializer.writeBytes("OK".getBytes(StandardCharsets.UTF_8));
-        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
-
         // send EOF
         serializer.reset();
         MysqlEofPacket eofPacket = new MysqlEofPacket(context.getState());
         eofPacket.writeTo(serializer);
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        serializer.reset();
+        serializer.writeBytes("OK".getBytes(StandardCharsets.UTF_8));
         context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
     }
 
