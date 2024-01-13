@@ -183,6 +183,7 @@ public class HplsqlResult implements ResultListener, Console { // 如果是mysql
             try (AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(processor.getCtx())) {
                 autoCloseCtx.call();
                 QueryState state = ConnectContext.get().getState();
+                // https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_command_phase_sp.html
                 state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
                 processor.finalizeCommand();
                 state.reset();
