@@ -27,6 +27,7 @@ import org.apache.doris.hplsql.functions.FunctionRegistry;
 import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.types.DataType;
+import org.apache.doris.nereids.util.TypeCoercionUtils;
 import org.apache.doris.procedure.Exec;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -146,10 +147,6 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
             Map<String, DataType> procedureArgument = getCallParameter(callArguments, procedureArguments, i);
             String name = procedureArgument.keySet().iterator().next();
             DataType type = procedureArgument.get(name);
-            if (!callArguments.get(i).getDataType().equals(type)) {
-                throw new RuntimeException("Procedure " + procName + " parameter type " + type.typeName()
-                        + " not equal to call parameter type " + callArguments.get(i).getDataType().typeName());
-            }
             // String len = null;
             // String scale = null;
             // if (p.dtype_len() != null) {
@@ -158,7 +155,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
             //         scale = p.dtype_len().L_INT(1).getText();
             //     }
             // }
-            setCallParameter(name, callArguments.get(i), exec);
+            setCallParameter(name, TypeCoercionUtils.castIfNotSameType(callArguments.get(i), type), exec);
             // exec.trace(actual, "SET PARAM " + name + " = " + var.toString());
             // if (out != null && a.expr_atom() != null && a.expr_atom().qident() != null && (p.T_OUT() != null
             //         || p.T_INOUT() != null)) {
