@@ -356,7 +356,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     public Var findVariable(String name) {
         Var var;
         String name1 = name.toUpperCase();
-        String name1a = null;
+        String name1a = null; // 这变量命名太TM烂了，印度人写的吧
         String name2 = null;
         Scope cur = exec.currentScope;
         Package pack;
@@ -2523,7 +2523,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
                 if (hasSub) {
                     Var var1 = new Var(var);
                     var1.negate();
-                    exec.stackPush(var1);
+                    exec.stackPush(var1); // 使用之前保存的变量
                 } else {
                     exec.stackPush(var);
                 }

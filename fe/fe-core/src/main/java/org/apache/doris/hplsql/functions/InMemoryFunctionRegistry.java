@@ -118,7 +118,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
         visit(procCtx.proc_block());
         exec.callStackPop();
         exec.leaveScope();
-        for (Map.Entry<String, Var> i : out.entrySet()) {      // Set OUT parameters
+        for (Map.Entry<String, Var> i : out.entrySet()) {      // Set OUT parameters // 和prepare statement有关，先不用管
             exec.setVariable(i.getKey(), i.getValue());
         }
         return true;
@@ -167,13 +167,13 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
      * Create a function or procedure parameter and set its value
      */
     static Var setCallParameter(String name, String typeName, String len, String scale, Var value, Exec exec) {
-        TableClass hplClass = exec.getType(typeName);
+        TableClass hplClass = exec.getType(typeName); // 优先匹配表名
         Var var = new Var(name, hplClass == null ? typeName : Var.Type.HPL_OBJECT.name(), len, scale, null);
         if (hplClass != null) {
             var.setValue(hplClass.newInstance());
         }
-        var.cast(value);
-        exec.addVariable(var);
+        var.cast(value); // 设置变量value
+        exec.addVariable(var); // 把变量添加到exec
         return var;
     }
 

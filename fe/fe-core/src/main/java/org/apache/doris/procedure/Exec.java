@@ -28,7 +28,6 @@ import org.apache.doris.hplsql.Converter;
 import org.apache.doris.hplsql.Expression;
 import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
-import org.apache.doris.hplsql.Scope;
 import org.apache.doris.hplsql.Signal;
 import org.apache.doris.hplsql.Stmt;
 import org.apache.doris.hplsql.Var;
@@ -43,6 +42,7 @@ import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
+import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
 import org.apache.doris.procedure.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
@@ -163,7 +163,7 @@ public class Exec implements Closeable {
      * Initialize PL/HQL
      */
     public void init() {
-        // enterGlobalScope();
+        enterGlobalScope();
         // specify the default log4j2 properties file.
         // System.setProperty("log4j.configurationFile", "hive-log4j2.properties");
         // if (conf == null) {
@@ -288,5 +288,39 @@ public class Exec implements Closeable {
             exec.inCallStmt = false;
         }
         return 0;
+    }
+
+    /**
+     * Enter a new scope
+     */
+    public void enterScope(Scope scope) {
+        exec.scopes.push(scope);
+    }
+
+    public void enterScope(Scope.Type type) {
+        enterScope(type, null);
+    }
+
+    public void enterScope(Scope.Type type, Package pack) {
+        exec.currentScope = new Scope(exec.currentScope, type, pack);
+        enterScope(exec.currentScope);
+    }
+
+    public void enterGlobalScope() {
+        globalScope = new Scope(Scope.Type.GLOBAL);
+        currentScope = globalScope;
+        enterScope(globalScope);
+    }
+
+    /**
+     * Add a local variable to the current scope
+     */
+    public void addVariable(Alias var) {
+        // if (currentPackageDecl != null) {
+        //     currentPackageDecl.addVariable(var);
+        // } else if (exec.currentScope != null) {
+        if (exec.currentScope != null) {
+            exec.currentScope.addVariable(var);
+        }
     }
 }

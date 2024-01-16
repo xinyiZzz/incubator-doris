@@ -21,7 +21,6 @@
 package org.apache.doris.procedure.functions;
 
 import org.apache.doris.hplsql.HplsqlParser;
-import org.apache.doris.hplsql.Var;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.hplsql.store.StoredProcedure;
@@ -30,13 +29,13 @@ import org.apache.doris.nereids.glue.LogicalPlanAdapter;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
+import org.apache.doris.nereids.types.DataType;
 import org.apache.doris.procedure.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -81,7 +80,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
 
 
     @Override
-    public boolean exec(String name, List<Expression> arguments, ConnectContext connectContext) {
+    public boolean exec(String name, List<Expression> callArguments, ConnectContext connectContext) {
         // if (builtinFunctions.exec(name, ctx)) { // 内置函数
         //     return true;
         // }
@@ -93,8 +92,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         Optional<StoredProcedure> proc = getProc(name);
         if (proc.isPresent()) {
             // trace(ctx, "EXEC HMS FUNCTION " + name);
-            ParserRuleContext procCtx = parse(proc.get(), connectContext);
-            execProcOrFunc(procCtx, name, arguments);
+            CreateProcedureCommand createProcedureCommand = parse(proc.get(), connectContext);
+            execProcOrFunc(createProcedureCommand.getCreateProcedureContext(), name, callArguments, createProcedureCommand.getArguments());
             // saveInCache(name, procCtx);
             return true;
         }
@@ -104,12 +103,12 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     /**
      * Execute a stored procedure using CALL or EXEC statement passing parameters
      */
-    private void execProcOrFunc(ParserRuleContext procCtx, String name, List<Expression> arguments) {
+    private void execProcOrFunc(ParserRuleContext procCtx, String name, List<Expression> callArguments, List<Map<String, DataType>> procedureArguments) {
         // exec.callStackPush(name);
-        // HashMap<String, Var> out = new HashMap<>();
+        HashMap<String, Expression> out = new HashMap<>();
         // ArrayList<Var> actualParams = getActualCallParameters(ctx);
         // exec.enterScope(Scope.Type.ROUTINE);
-        callWithParameters(null, procCtx, null, null);
+        callWithParameters(procCtx, out, callArguments, procedureArguments);
         // exec.callStackPop();
         // exec.leaveScope();
         // for (Map.Entry<String, Var> i : out.entrySet()) { // Set OUT parameters
@@ -117,8 +116,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         // }
     }
 
-    private void callWithParameters(HplsqlParser.Expr_func_paramsContext ctx, ParserRuleContext procCtx,
-            HashMap<String, Var> out, ArrayList<Var> actualParams) {
+    private void callWithParameters(ParserRuleContext procCtx, HashMap<String, Expression> out,
+            List<Expression> callArguments, List<Map<String, DataType>> procedureArguments) {
         // if (procCtx instanceof HplsqlParser.Create_function_stmtContext) {
         //     HplsqlParser.Create_function_stmtContext func = (HplsqlParser.Create_function_stmtContext) procCtx;
         //     InMemoryFunctionRegistry.setCallParameters(func.ident().getText(), ctx, actualParams,
@@ -129,14 +128,15 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         //     exec.visit(func.single_block_stmt());
         // } else {
         CreateProcedureContext proc = (CreateProcedureContext) procCtx;
-        // InMemoryFunctionRegistry.setCallParameters(proc.ident(0).getText(), ctx, actualParams,
-        //         proc.create_routine_params(), out, exec);
+        InMemoryFunctionRegistry.setCallParameters(proc.identifier(0).getText(), callArguments, procedureArguments, out,
+                exec);
+
         LogicalPlanBuilder logicalPlanBuilder = new LogicalPlanBuilder(); // 每次new一个新的logicalPlanBuilder 无状态
         logicalPlanBuilder.visit(proc.procBlock());
         // }
     }
 
-    private ParserRuleContext parse(StoredProcedure proc, ConnectContext connectContext) {
+    private CreateProcedureCommand parse(StoredProcedure proc, ConnectContext connectContext) {
 
         // HplsqlLexer lexer = new HplsqlLexer(new ANTLRInputStream(proc.getSource()));
         // CommonTokenStream tokens = new CommonTokenStream(lexer);
@@ -147,10 +147,9 @@ public class DorisFunctionRegistry implements FunctionRegistry {
 
         StmtExecutor executor = new StmtExecutor(connectContext, proc.getSource());
         executor.parseByNereids();
-        CreateProcedureCommand logicalPlan
-                = (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
         // return visitor.func != null ? visitor.func : visitor.proc;
-        return logicalPlan.getCreateProcedureContext();
+        // return logicalPlan.getCreateProcedureContext();
+        return (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
     }
 
     private Optional<StoredProcedure> getProc(String name) {

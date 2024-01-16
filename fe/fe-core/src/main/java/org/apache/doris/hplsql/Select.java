@@ -76,7 +76,7 @@ public class Select {
             sql.append(evalPop(ctx.cte_select_stmt()).toString());
             sql.append("\n");
         }
-        sql.append(evalPop(ctx.fullselect_stmt()).toString());
+        sql.append(evalPop(ctx.fullselect_stmt()).toString()); //
         exec.buildSql = oldBuildSql;
         // No need to execute at this stage
         if (!(ctx.parent instanceof org.apache.doris.hplsql.HplsqlParser.StmtContext)) {
@@ -228,7 +228,7 @@ public class Select {
         StringBuilder sql = new StringBuilder();
         for (int i = 0; i < cnt; i++) {
             String part = evalPop(ctx.fullselect_stmt_item(i)).toString();
-            sql.append(part);
+            sql.append(part); // 对每个item visit后从栈中pop出结果并拼成SQL string
             if (i + 1 != cnt) {
                 sql.append("\n").append(getText(ctx.fullselect_set_clause(i))).append("\n");
             }
@@ -319,7 +319,7 @@ public class Select {
         sql.append(evalPop(ctx.from_table_clause()));
         int cnt = ctx.from_join_clause().size();
         for (int i = 0; i < cnt; i++) {
-            sql.append(evalPop(ctx.from_join_clause(i)));
+            sql.append(evalPop(ctx.from_join_clause(i))); //
         }
         exec.stackPush(sql);
         return 0;

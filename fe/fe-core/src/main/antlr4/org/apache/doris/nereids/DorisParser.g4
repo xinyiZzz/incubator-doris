@@ -560,7 +560,7 @@ inlineTable
     ;
 
 createProcedure
-    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier createRoutineParams? procBlock (identifier SEMICOLON)?
+    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN createRoutineParams? RIGHT_PAREN procBlock (identifier SEMICOLON)?
     ; // identifier 不兼容 hive ident， hive ident允许的规则更多 // create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
 
 createRoutineParams

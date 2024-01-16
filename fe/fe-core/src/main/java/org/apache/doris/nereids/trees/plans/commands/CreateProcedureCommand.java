@@ -22,11 +22,15 @@ import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
 import org.apache.doris.nereids.annotation.Developing;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
+import org.apache.doris.nereids.types.DataType;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * create table procedure
@@ -40,21 +44,28 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
     private final String source;
     private final boolean isForce;
     private final CreateProcedureContext ctx;
+    private final List<Map<String, DataType>> arguments;
 
     /**
      * constructor
      */
-    public CreateProcedureCommand(String name, String source, boolean isForce, CreateProcedureContext ctx) {
+    public CreateProcedureCommand(String name, String source, boolean isForce, CreateProcedureContext ctx,
+            List<Map<String, DataType>> arguments) {
         super(PlanType.CREATE_PROCEDURE_COMMAND);
         this.client = new MetaClient();
         this.name = name;
         this.source = source;
         this.isForce = isForce;
         this.ctx = ctx;
+        this.arguments = arguments;
     }
 
     public CreateProcedureContext getCreateProcedureContext() {
         return ctx;
+    }
+
+    public List<Map<String, DataType>> getArguments() {
+        return arguments;
     }
 
     @Override
