@@ -3267,63 +3267,9 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
             // }
             // trace(ctx, "CREATE PROCEDURE " + name);
             // saveInCache(name, ctx);
-            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null, ctx, arguments);
+            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null, ctx,
+                    arguments);
             return createProcedurePlan;
         });
-    }
-
-    @Override
-    public ColumnDefinition visitColumnDef(ColumnDefContext ctx) {
-        String colName = ctx.colName.getText();
-        DataType colType = ctx.type instanceof PrimitiveDataTypeContext
-                ? visitPrimitiveDataType(((PrimitiveDataTypeContext) ctx.type))
-                : visitComplexDataType(((ComplexDataTypeContext) ctx.type));
-        colType = colType.conversion();
-        boolean isKey = ctx.KEY() != null;
-        boolean isNotNull = ctx.NOT() != null;
-        String aggTypeString = ctx.aggType != null ? ctx.aggType.getText() : null;
-        Optional<DefaultValue> defaultValue = Optional.empty();
-        Optional<DefaultValue> onUpdateDefaultValue = Optional.empty();
-        if (ctx.DEFAULT() != null) {
-            if (ctx.INTEGER_VALUE() != null) {
-                defaultValue = Optional.of(new DefaultValue(ctx.INTEGER_VALUE().getText()));
-            } else if (ctx.stringValue != null) {
-                defaultValue = Optional.of(new DefaultValue(toStringValue(ctx.stringValue.getText())));
-            } else if (ctx.nullValue != null) {
-                defaultValue = Optional.of(DefaultValue.NULL_DEFAULT_VALUE);
-            } else if (ctx.CURRENT_TIMESTAMP() != null) {
-                if (ctx.defaultValuePrecision == null) {
-                    defaultValue = Optional.of(DefaultValue.CURRENT_TIMESTAMP_DEFAULT_VALUE);
-                } else {
-                    defaultValue = Optional.of(DefaultValue
-                            .currentTimeStampDefaultValueWithPrecision(
-                                    Long.valueOf(ctx.defaultValuePrecision.getText())));
-                }
-            }
-        }
-        if (ctx.UPDATE() != null) {
-            if (ctx.onUpdateValuePrecision == null) {
-                onUpdateDefaultValue = Optional.of(DefaultValue.CURRENT_TIMESTAMP_DEFAULT_VALUE);
-            } else {
-                onUpdateDefaultValue = Optional.of(DefaultValue
-                        .currentTimeStampDefaultValueWithPrecision(
-                                Long.valueOf(ctx.onUpdateValuePrecision.getText())));
-            }
-        }
-        AggregateType aggType = null;
-        if (aggTypeString != null) {
-            try {
-                aggType = AggregateType.valueOf(aggTypeString.toUpperCase());
-            } catch (Exception e) {
-                throw new AnalysisException(String.format("Aggregate type %s is unsupported", aggTypeString),
-                        e.getCause());
-            }
-        }
-        // comment should remove '\' and '(") at the beginning and end
-        String comment = ctx.comment != null ? ctx.comment.getText().substring(1, ctx.comment.getText().length() - 1)
-                .replace("\\", "") : "";
-        boolean isAutoInc = ctx.AUTO_INCREMENT() != null;
-        return new ColumnDefinition(colName, colType, isKey, aggType, !isNotNull, isAutoInc, defaultValue,
-                onUpdateDefaultValue, comment);
     }
 }

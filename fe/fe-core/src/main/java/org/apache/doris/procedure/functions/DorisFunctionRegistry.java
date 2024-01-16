@@ -93,7 +93,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         if (proc.isPresent()) {
             // trace(ctx, "EXEC HMS FUNCTION " + name);
             CreateProcedureCommand createProcedureCommand = parse(proc.get(), connectContext);
-            execProcOrFunc(createProcedureCommand.getCreateProcedureContext(), name, callArguments, createProcedureCommand.getArguments());
+            execProcOrFunc(createProcedureCommand.getCreateProcedureContext(), name, callArguments,
+                    createProcedureCommand.getArguments());
             // saveInCache(name, procCtx);
             return true;
         }
@@ -103,7 +104,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     /**
      * Execute a stored procedure using CALL or EXEC statement passing parameters
      */
-    private void execProcOrFunc(ParserRuleContext procCtx, String name, List<Expression> callArguments, List<Map<String, DataType>> procedureArguments) {
+    private void execProcOrFunc(ParserRuleContext procCtx, String name, List<Expression> callArguments,
+            List<Map<String, DataType>> procedureArguments) {
         // exec.callStackPush(name);
         HashMap<String, Expression> out = new HashMap<>();
         // ArrayList<Var> actualParams = getActualCallParameters(ctx);
