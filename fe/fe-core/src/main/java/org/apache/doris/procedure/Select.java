@@ -38,7 +38,6 @@ import org.apache.doris.nereids.DorisParser.StatementDefaultContext;
 import org.apache.doris.nereids.DorisParser.WhereClauseContext;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
-import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 
