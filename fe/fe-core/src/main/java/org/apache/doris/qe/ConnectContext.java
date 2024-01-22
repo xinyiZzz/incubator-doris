@@ -348,6 +348,7 @@ public class ConnectContext {
         context.setDatabase(currentDb);
         context.setQualifiedUser(qualifiedUser);
         context.setCurrentUserIdentity(currentUserIdentity);
+        context.setProcedureExec(exec);
         return context;
     }
 
