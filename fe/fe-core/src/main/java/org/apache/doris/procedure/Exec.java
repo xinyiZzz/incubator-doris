@@ -30,7 +30,6 @@ import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
 import org.apache.doris.hplsql.Signal;
 import org.apache.doris.hplsql.Stmt;
-import org.apache.doris.hplsql.Var;
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.ResultListener;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
@@ -46,6 +45,10 @@ import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
 import org.apache.doris.procedure.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
+
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -83,7 +86,7 @@ public class Exec implements Closeable {
     Scope globalScope;
     Scope currentScope;
 
-    Stack<Var> stack = new Stack<>();
+    Stack<String> stack = new Stack<>();
     Stack<String> labels = new Stack<>();
     Stack<String> callStack = new Stack<>();
 
@@ -95,7 +98,7 @@ public class Exec implements Closeable {
     HashMap<String, String> managedTables = new HashMap<>();
     HashMap<String, String> objectMap = new HashMap<>();
     HashMap<String, String> objectConnMap = new HashMap<>();
-    HashMap<String, ArrayList<Var>> returnCursors = new HashMap<>();
+    HashMap<String, ArrayList<String>> returnCursors = new HashMap<>();
     HashMap<String, Package> packages = new HashMap<>();
 
     Package currentPackageDecl = null;
@@ -130,6 +133,7 @@ public class Exec implements Closeable {
     boolean offline = false;
 
     ProcedureStatementContext lastStmt = null;
+    LogicalPlanBuilder logicalPlanBuilder;
 
     public Exec() {
         exec = this;
@@ -159,6 +163,10 @@ public class Exec implements Closeable {
         // printExceptions();
     }
 
+    public Integer visitChildren(ParserRuleContext ctx) {
+        return logicalPlanBuilder.visitChildrenReal(ctx);
+    }
+
     /**
      * Initialize PL/HQL
      */
@@ -173,6 +181,7 @@ public class Exec implements Closeable {
         // conn = new Conn(this);
         // meta = new Meta(this, queryExecutor);
         // initOptions();
+        logicalPlanBuilder = new LogicalPlanBuilder();
 
         // expr = new Expression(this);
         select = new Select(this, queryExecutor);
@@ -258,8 +267,7 @@ public class Exec implements Closeable {
         // if (prev != null && prev.value != null) {
         //     console.printLine(prev.toString());
         // }
-        LogicalPlanBuilder logicalPlanBuilder = new LogicalPlanBuilder();
-        Integer rc = logicalPlanBuilder.visitChildrenReal(ctx);
+        Integer rc = visitChildren(ctx);
         if (ctx != lastStmt) { // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
             // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
             // printExceptions();
@@ -322,5 +330,105 @@ public class Exec implements Closeable {
         if (exec.currentScope != null) {
             exec.currentScope.addVariable(var);
         }
+    }
+
+    /**
+     * Find an existing variable by name
+     */
+    public String findVariable(String name) {
+        Alias var;
+        String name1 = name.toUpperCase();
+        String name1a = null;
+        // String name2 = null;
+        Scope cur = exec.currentScope;
+        // Package pack;
+        // Package packCallContext = exec.getPackageCallContext();
+        // ArrayList<String> qualified = exec.meta.splitIdentifier(name);
+        // if (qualified != null) {
+        //     name1 = qualified.get(0).toUpperCase();
+        //     name2 = qualified.get(1).toUpperCase();
+        //     pack = findPackage(name1);
+        //     if (pack != null) {
+        //         var = pack.findVariable(name2);
+        //         if (var != null) {
+        //             return var;
+        //         }
+        //     }
+        // }
+        if (name1.startsWith(":")) {
+            name1a = name1.substring(1);
+        }
+        while (cur != null) {
+            var = findVariable(cur.vars, name1);
+            if (var == null && name1a != null) {
+                var = findVariable(cur.vars, name1a);
+            }
+            // if (var == null && packCallContext != null) {
+            //     var = packCallContext.findVariable(name1);
+            // }
+            if (var != null) {
+                return var.getName();
+            }
+            if (cur.type == Scope.Type.ROUTINE) {
+                cur = exec.globalScope;
+            } else {
+                cur = cur.parent;
+            }
+        }
+        return null;
+    }
+
+    // public Var findVariable(Var name) {
+    //     return findVariable(name.getName());
+    // }
+    //
+    Alias findVariable(Map<String, Alias> vars, String name) {
+        return vars.get(name.toUpperCase());
+    }
+
+    /**
+     * Push a value to the stack
+     */
+    public void stackPush(String var) {
+        exec.stack.push(var);
+    }
+
+    public void stackPush(StringBuilder val) {
+        stackPush(val.toString());
+    }
+
+    /**
+     * Select a value from the stack, but not remove
+     */
+    public String stackPeek() {
+        return exec.stack.peek();
+    }
+
+    /**
+     * Pop a value from the stack
+     */
+    public String stackPop() {
+        if (!exec.stack.isEmpty()) {
+            return exec.stack.pop();
+        }
+        return null;
+    }
+
+    /**
+     * Append the text preserving the formatting (space symbols) between tokens
+     */
+    void append(StringBuilder str, String appendStr, Token start, Token stop) {
+        String spaces = start.getInputStream()
+                .getText(new org.antlr.v4.runtime.misc.Interval(start.getStartIndex(), stop.getStopIndex()));
+        spaces = spaces.substring(start.getText().length(), spaces.length() - stop.getText().length());
+        str.append(spaces);
+        str.append(appendStr);
+    }
+
+    void append(StringBuilder str, TerminalNode start, TerminalNode stop) {
+        String text = start.getSymbol().getInputStream().getText(
+                new org.antlr.v4.runtime.misc.Interval(start.getSymbol().getStartIndex(),
+                        stop.getSymbol().getStopIndex()));
+        str.append(text);
     }
 }

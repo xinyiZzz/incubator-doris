@@ -77,6 +77,7 @@ public class CallCommand extends Command implements ForwardWithSync {
         connectContext.getMysqlChannel().reset();
         // connectContext.getExecutor().sendEmptyFields();
         connectContext.getState().setOk();
+        connectContext.setRunProcedure(false);
     }
 
     @Override

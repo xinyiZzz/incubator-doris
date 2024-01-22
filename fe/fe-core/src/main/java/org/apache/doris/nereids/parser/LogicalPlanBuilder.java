@@ -470,6 +470,10 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitStatementDefault(StatementDefaultContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            ConnectContext.get().getProcedureExec().select.visitStatementDefault(ctx);
+            return null;
+        }
         LogicalPlan plan = plan(ctx.query());
         if (ctx.outFileClause() != null) {
             plan = withOutFile(plan, ctx.outFileClause());
@@ -1087,6 +1091,10 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitQuery(QueryContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            ConnectContext.get().getProcedureExec().select.visitQuery(ctx);
+            return null;
+        }
         return ParserUtils.withOrigin(ctx, () -> {
             // TODO: need to add withQueryResultClauses and withCTE
             LogicalPlan query = plan(ctx.queryTerm());
@@ -1177,6 +1185,10 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitRegularQuerySpecification(RegularQuerySpecificationContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            ConnectContext.get().getProcedureExec().select.visitRegularQuerySpecification(ctx);
+            return null;
+        }
         return ParserUtils.withOrigin(ctx, () -> {
             SelectClauseContext selectCtx = ctx.selectClause();
             LogicalPlan selectPlan;
@@ -2052,6 +2064,14 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
     @Override
     public UnboundSlot visitColumnReference(ColumnReferenceContext ctx) {
         // todo: handle quoted and unquoted
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            String var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
+            if (var != null) {
+                return UnboundSlot.quoted(var);
+            } else {
+                return UnboundSlot.quoted(ctx.getText());
+            }
+        }
         return UnboundSlot.quoted(ctx.getText());
     }
 
@@ -2179,11 +2199,19 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitRelation(RelationContext ctx) {
+        // if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+        //     ConnectContext.get().getProcedureExec().select.visitRelation(ctx);
+        //     return null;
+        // }
         return plan(ctx.relationPrimary());
     }
 
     @Override
     public LogicalPlan visitFromClause(FromClauseContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            ConnectContext.get().getProcedureExec().select.visitFromClause(ctx);
+            return null;
+        }
         return ParserUtils.withOrigin(ctx, () -> withRelations(null, ctx.relation()));
     }
 
@@ -2566,7 +2594,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
      * Create an expression from the given context. This method just passes the context on to the
      * visitor and only takes care of typing (We assume that the visitor returns an Expression here).
      */
-    private Expression getExpression(ParserRuleContext ctx) {
+    public Expression getExpression(ParserRuleContext ctx) {
         return typedVisit(ctx);
     }
 
@@ -3017,7 +3045,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
         });
     }
 
-    private List<NamedExpression> getNamedExpressions(NamedExpressionSeqContext namedCtx) {
+    public List<NamedExpression> getNamedExpressions(NamedExpressionSeqContext namedCtx) {
         return ParserUtils.withOrigin(namedCtx, () -> visit(namedCtx.namedExpression(), NamedExpression.class));
     }
 

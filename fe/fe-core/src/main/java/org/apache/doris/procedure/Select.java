@@ -22,23 +22,35 @@ package org.apache.doris.procedure;
 
 import org.apache.doris.hplsql.Conf;
 import org.apache.doris.hplsql.Console;
-import org.apache.doris.hplsql.Var;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.hplsql.executor.HplsqlResult;
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.QueryResult;
 import org.apache.doris.hplsql.executor.ResultListener;
+import org.apache.doris.nereids.DorisParser.FromClauseContext;
 import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
+import org.apache.doris.nereids.DorisParser.QueryContext;
+import org.apache.doris.nereids.DorisParser.RegularQuerySpecificationContext;
+import org.apache.doris.nereids.DorisParser.RelationContext;
+import org.apache.doris.nereids.DorisParser.SelectClauseContext;
+import org.apache.doris.nereids.DorisParser.SelectColumnClauseContext;
+import org.apache.doris.nereids.DorisParser.StatementDefaultContext;
+import org.apache.doris.nereids.DorisParser.WhereClauseContext;
+import org.apache.doris.nereids.trees.expressions.NamedExpression;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
+import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 
+import java.util.List;
 import java.util.Stack;
 
 public class Select {
     Exec exec = null;
-    Stack<Var> stack = null;
+    Stack<Literal> stack = null;
     Conf conf;
     Console console;
     ResultListener resultListener = ResultListener.NONE;
@@ -74,15 +86,17 @@ public class Select {
         //     exec.stmtConnList.clear();
         //     trace(ctx, "SELECT");
         // }
-        // boolean oldBuildSql = exec.buildSql;
-        // exec.buildSql = true;
+        boolean oldBuildSql = exec.buildSql;
+        exec.buildSql = false; // TODO
         // StringBuilder sql = new StringBuilder();
         // if (ctx.cte_select_stmt() != null) {
         //     sql.append(evalPop(ctx.cte_select_stmt()).toString());
         //     sql.append("\n");
         // }
-        // sql.append(evalPop(ctx.fullselect_stmt()).toString());
-        // exec.buildSql = oldBuildSql;
+        // LogicalPlan l = exec.logicalPlanBuilder.visitStatementDefault(ctx.statementDefault());
+        // System.out.println(l.toString());
+        // sql.append(evalPop(ctx.statementDefault()));
+        exec.buildSql = oldBuildSql;
         // // No need to execute at this stage
         // if (!(ctx.parent instanceof HplsqlParser.StmtContext)) {
         //     exec.stackPush(sql);
@@ -238,110 +252,170 @@ public class Select {
     //         return 0;
     //     }
     //
-    //     /**
-    //      * Part of SELECT
-    //      */
-    //     public Integer fullselect(HplsqlParser.Fullselect_stmtContext ctx) {
-    //         int cnt = ctx.fullselect_stmt_item().size();
-    //         StringBuilder sql = new StringBuilder();
-    //         for (int i = 0; i < cnt; i++) {
-    //             String part = evalPop(ctx.fullselect_stmt_item(i)).toString();
-    //             sql.append(part);
-    //             if (i + 1 != cnt) {
-    //                 sql.append("\n").append(getText(ctx.fullselect_set_clause(i))).append("\n");
-    //             }
-    //         }
-    //         exec.stackPush(sql);
-    //         return 0;
-    //     }
-    //
-    //     public Integer subselect(HplsqlParser.Subselect_stmtContext ctx) {
-    //         StringBuilder sql = new StringBuilder();
-    //         sql.append(ctx.start.getText());
-    //         exec.append(sql, evalPop(ctx.select_list()).toString(), ctx.start, ctx.select_list().getStart());
-    //         Token last = ctx.select_list().stop;
-    //         if (ctx.into_clause() != null) {
-    //             last = ctx.into_clause().stop;
-    //         }
-    //         if (ctx.from_clause() != null) {
-    //             exec.append(sql, evalPop(ctx.from_clause()).toString(), last, ctx.from_clause().getStart());
-    //             last = ctx.from_clause().stop;
-    //         } else if (conf.dualTable != null) {
-    //             sql.append(" FROM ").append(conf.dualTable);
-    //         }
-    //         if (ctx.where_clause() != null) {
-    //             exec.append(sql, evalPop(ctx.where_clause()).toString(), last, ctx.where_clause().getStart());
-    //             last = ctx.where_clause().stop;
-    //         }
-    //         if (ctx.group_by_clause() != null) {
-    //             exec.append(sql, getText(ctx.group_by_clause()), last, ctx.group_by_clause().getStart());
-    //             last = ctx.group_by_clause().stop;
-    //         }
-    //         if (ctx.having_clause() != null) {
-    //             exec.append(sql, getText(ctx.having_clause()), last, ctx.having_clause().getStart());
-    //             last = ctx.having_clause().stop;
-    //         }
-    //         if (ctx.qualify_clause() != null) {
-    //             exec.append(sql, getText(ctx.qualify_clause()), last, ctx.qualify_clause().getStart());
-    //             last = ctx.qualify_clause().stop;
-    //         }
-    //         if (ctx.order_by_clause() != null) {
-    //             exec.append(sql, getText(ctx.order_by_clause()), last, ctx.order_by_clause().getStart());
-    //             last = ctx.order_by_clause().stop;
-    //         }
-    //         if (ctx.select_options() != null) {
-    //             Var opt = evalPop(ctx.select_options());
-    //             if (!opt.isNull()) {
-    //                 sql.append(" " + opt.toString());
-    //             }
-    //         }
-    //         if (ctx.select_list().select_list_limit() != null) {
-    //             sql.append(" LIMIT " + evalPop(ctx.select_list().select_list_limit().expr()));
-    //         }
-    //         exec.stackPush(sql);
-    //         return 0;
-    //     }
-    //
-    //     /**
-    //      * SELECT list
-    //      */
-    //     public Integer selectList(HplsqlParser.Select_listContext ctx) {
-    //         StringBuilder sql = new StringBuilder();
-    //         if (ctx.select_list_set() != null) {
-    //             sql.append(exec.getText(ctx.select_list_set())).append(" ");
-    //         }
-    //         int cnt = ctx.select_list_item().size();
-    //         for (int i = 0; i < cnt; i++) {
-    //             if (ctx.select_list_item(i).select_list_asterisk() == null) {
-    //                 sql.append(evalPop(ctx.select_list_item(i).expr()));
-    //                 if (ctx.select_list_item(i).select_list_alias() != null) {
-    //                     sql.append(" " + exec.getText(ctx.select_list_item(i).select_list_alias()));
-    //                 }
-    //             } else {
-    //                 sql.append(exec.getText(ctx.select_list_item(i).select_list_asterisk()));
-    //             }
-    //             if (i + 1 < cnt) {
-    //                 sql.append(", ");
-    //             }
-    //         }
-    //         exec.stackPush(sql);
-    //         return 0;
-    //     }
-    //
-    //     /**
-    //      * FROM clause
-    //      */
-    //     public Integer from(HplsqlParser.From_clauseContext ctx) {
-    //         StringBuilder sql = new StringBuilder();
-    //         sql.append(ctx.T_FROM().getText()).append(" ");
-    //         sql.append(evalPop(ctx.from_table_clause()));
-    //         int cnt = ctx.from_join_clause().size();
-    //         for (int i = 0; i < cnt; i++) {
-    //             sql.append(evalPop(ctx.from_join_clause(i)));
-    //         }
-    //         exec.stackPush(sql);
-    //         return 0;
-    //     }
+
+    /**
+     * Part of SELECT
+     */
+    public Integer visitStatementDefault(StatementDefaultContext ctx) {
+        // int cnt = ctx.fullselect_stmt_item().size();
+        StringBuilder sql = new StringBuilder();
+        // for (int i = 0; i < cnt; i++) {
+        String part = evalPop(ctx.query());
+        sql.append(part);
+        // if (i + 1 != cnt) {
+        //     sql.append("\n").append(getText(ctx.fullselect_set_clause(i))).append("\n");
+        // }
+        // }
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    /**
+     * Part of SELECT
+     */
+    public Integer visitQuery(QueryContext ctx) {
+        StringBuilder sql = new StringBuilder();
+        String part = evalPop(ctx.queryTerm());
+        sql.append(part);
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    public Integer visitRegularQuerySpecification(RegularQuerySpecificationContext ctx) {
+        // SelectClauseContext selectCtx = ctx.selectClause();
+        // relation = visitFromClause(ctx.fromClause());
+        // selectPlan = withSelectQuerySpecification(
+        //         ctx, relation,
+        //         selectCtx,
+        //         Optional.ofNullable(ctx.whereClause()),
+        //         Optional.ofNullable(ctx.aggClause()),
+        //         Optional.ofNullable(ctx.havingClause()));
+        // selectPlan = withQueryOrganization(selectPlan, ctx.queryOrganization());
+        // return withSelectHint(selectPlan, selectCtx.selectHint());
+
+        StringBuilder sql = new StringBuilder();
+        sql.append(ctx.selectClause().SELECT());
+        visitSelectClause(ctx.selectClause());
+        exec.append(sql, exec.stackPop(), ctx.selectClause().getStart(),
+                ctx.selectClause().selectColumnClause().getStart());
+        Token last = ctx.selectClause().selectColumnClause().stop;
+        // if (ctx.into_clause() != null) {
+        //     last = ctx.into_clause().stop;
+        // }
+        if (ctx.fromClause() != null) {
+            exec.append(sql, evalPop(ctx.fromClause()), last, ctx.fromClause().getStart());
+            last = ctx.fromClause().stop;
+            // } else if (conf.dualTable != null) {
+            //     sql.append(" FROM ").append(conf.dualTable);
+            // relation = withOneRowRelation(columnCtx);
+        }
+        if (ctx.whereClause() != null) {
+            sql.append(ctx.whereClause().WHERE());
+            visitWhereClause(ctx.whereClause());
+            exec.append(sql, exec.stackPop(), last, ctx.whereClause().getStart());
+            // last = ctx.whereClause().stop;
+        }
+        // if (ctx.group_by_clause() != null) {
+        //     exec.append(sql, getText(ctx.group_by_clause()), last, ctx.group_by_clause().getStart());
+        //     last = ctx.group_by_clause().stop;
+        // }
+        // if (ctx.having_clause() != null) {
+        //     exec.append(sql, getText(ctx.having_clause()), last, ctx.having_clause().getStart());
+        //     last = ctx.having_clause().stop;
+        // }
+        // if (ctx.qualify_clause() != null) {
+        //     exec.append(sql, getText(ctx.qualify_clause()), last, ctx.qualify_clause().getStart());
+        //     last = ctx.qualify_clause().stop;
+        // }
+        // if (ctx.order_by_clause() != null) {
+        //     exec.append(sql, getText(ctx.order_by_clause()), last, ctx.order_by_clause().getStart());
+        //     last = ctx.order_by_clause().stop;
+        // }
+        // if (ctx.select_options() != null) {
+        //     Var opt = evalPop(ctx.select_options());
+        //     if (!opt.isNull()) {
+        //         sql.append(" " + opt.toString());
+        //     }
+        // }
+        // if (ctx.select_list().select_list_limit() != null) {
+        //     sql.append(" LIMIT " + evalPop(ctx.select_list().select_list_limit().expr()));
+        // }
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    /**
+     * SELECT list
+     */
+    public Integer visitSelectClause(SelectClauseContext ctx) {
+        StringBuilder sql = new StringBuilder();
+        SelectColumnClauseContext selectColumnCtx = ctx.selectColumnClause();
+        // if (ctx.select_list_set() != null) {
+        //     sql.append(exec.getText(ctx.select_list_set())).append(" ");
+        // }
+        List<NamedExpression> namedExpressions = exec.logicalPlanBuilder.getNamedExpressions(
+                selectColumnCtx.namedExpressionSeq());
+        int cnt = namedExpressions.size();
+        for (int i = 0; i < cnt; i++) {
+            sql.append(namedExpressions.get(i).toSql());
+            if (i + 1 < cnt) {
+                sql.append(", ");
+            }
+        }
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    public Integer visitWhereClause(WhereClauseContext ctx) {
+        StringBuilder sql = new StringBuilder();
+        sql.append(exec.logicalPlanBuilder.getExpression(ctx.booleanExpression()).toSql());
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    /**
+     * FROM clause
+     */
+    public Integer visitFromClause(FromClauseContext ctx) {
+        // 不能直接 ctx.getText() 会丢失空格
+        StringBuilder sql = new StringBuilder();
+        sql.append(ctx.FROM().getText()).append(" ");
+        // sql.append(evalPop(ctx.from_table_clause()));
+        if (ctx.relation() == null) {
+            //
+        }
+        // LogicalPlan left = inputPlan;
+        for (RelationContext relation : ctx.relation()) {
+            // // build left deep join tree
+            // LogicalPlan right = withJoinRelations(visitRelation(relation), relation);
+            // left = (left == null) ? right :
+            //         new LogicalJoin<>(
+            //                 JoinType.CROSS_JOIN,
+            //                 ExpressionUtils.EMPTY_CONDITION,
+            //                 ExpressionUtils.EMPTY_CONDITION,
+            //                 JoinHint.NONE,
+            //                 Optional.empty(),
+            //                 left,
+            //                 right);
+            // TODO: pivot and lateral view
+            visitRelation(relation);
+            sql.append(exec.stackPop());
+        }
+        exec.stackPush(sql);
+        return 0;
+    }
+
+    /**
+     * FROM Relation
+     */
+    public Integer visitRelation(RelationContext ctx) {
+        StringBuilder sql = new StringBuilder();
+        // sql.append(evalPop(ctx.relationPrimary()));
+        sql.append(ctx.relationPrimary().getText()).append(" ");
+        exec.stackPush(sql);
+        return 0;
+    }
+
     //
     //     /**
     //      * Single table name in FROM
@@ -524,16 +598,15 @@ public class Select {
     //         exec.stackPush(Var.Null);
     //     }
     //
-    //     /**
-    //      * Evaluate the expression and pop value from the stack
-    //      */
-    //     Var evalPop(ParserRuleContext ctx) {
-    //         exec.visit(ctx);
-    //         if (!exec.stack.isEmpty()) {
-    //             return exec.stackPop();
-    //         }
-    //         return Var.Empty;
-    //     }
+
+    /**
+     * Evaluate the expression and pop value from the stack
+     */
+    String evalPop(ParserRuleContext ctx) {
+        ctx.accept(exec.logicalPlanBuilder);
+        return exec.stackPop();
+    }
+
     //
     //     /**
     //      * Get node text including spaces

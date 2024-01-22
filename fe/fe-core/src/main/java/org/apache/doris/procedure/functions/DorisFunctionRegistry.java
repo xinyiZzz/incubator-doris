@@ -147,6 +147,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         //         visitor = new org.apache.doris.hplsql.functions.DorisFunctionRegistry.ProcVisitor();
         // parser.program().accept(visitor);
 
+        //
         StmtExecutor executor = new StmtExecutor(connectContext, proc.getSource());
         executor.parseByNereids();
         // return visitor.func != null ? visitor.func : visitor.proc;
