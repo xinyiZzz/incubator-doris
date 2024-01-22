@@ -25,7 +25,6 @@ import org.apache.doris.hplsql.Conf;
 import org.apache.doris.hplsql.Conn;
 import org.apache.doris.hplsql.Console;
 import org.apache.doris.hplsql.Converter;
-import org.apache.doris.hplsql.Expression;
 import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
 import org.apache.doris.hplsql.Signal;
@@ -42,6 +41,7 @@ import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Alias;
+import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
 import org.apache.doris.procedure.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
@@ -211,7 +211,7 @@ public class Exec implements Closeable {
     }
 
     private int functionCall(CallProcedureContext ctx, String name,
-            List<org.apache.doris.nereids.trees.expressions.Expression> arguments, ConnectContext connectContext) {
+            List<Expression> arguments, ConnectContext connectContext) {
         // if (exec.buildSql) {
         //     exec.execSql(name, params);
         // } else {
@@ -282,7 +282,7 @@ public class Exec implements Closeable {
      * CALL statement
      */
     public Integer visitCall_stmt(ConnectContext connectContext, CallProcedureContext ctx, String functionName,
-            List<org.apache.doris.nereids.trees.expressions.Expression> arguments) {
+            List<Expression> arguments) {
         exec.inCallStmt = true;
         try {
             // if (ctx.expr_func() != null) {
@@ -335,7 +335,7 @@ public class Exec implements Closeable {
     /**
      * Find an existing variable by name
      */
-    public String findVariable(String name) {
+    public Expression findVariable(String name) {
         Alias var;
         String name1 = name.toUpperCase();
         String name1a = null;
@@ -367,7 +367,7 @@ public class Exec implements Closeable {
             //     var = packCallContext.findVariable(name1);
             // }
             if (var != null) {
-                return var.getName();
+                return var.child(0);
             }
             if (cur.type == Scope.Type.ROUTINE) {
                 cur = exec.globalScope;

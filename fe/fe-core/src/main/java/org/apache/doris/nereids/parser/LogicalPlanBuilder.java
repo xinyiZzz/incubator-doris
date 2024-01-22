@@ -2062,13 +2062,13 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
     }
 
     @Override
-    public UnboundSlot visitColumnReference(ColumnReferenceContext ctx) {
+    public Expression visitColumnReference(ColumnReferenceContext ctx) {
         // todo: handle quoted and unquoted
         // if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
         if (ConnectContext.get().isRunProcedure()) {
-            String var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
+            Expression var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
             if (var != null) {
-                return UnboundSlot.quoted(var);
+                return var;
             } else {
                 return UnboundSlot.quoted(ctx.getText());
             }
