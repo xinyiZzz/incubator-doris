@@ -41,7 +41,7 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
 
     private MetaClient client;
     private final String name;
-    private final String source;
+    private final String originSql;
     private final boolean isForce;
     private final CreateProcedureContext ctx;
     private final List<Map<String, DataType>> arguments;
@@ -49,12 +49,12 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
     /**
      * constructor
      */
-    public CreateProcedureCommand(String name, String source, boolean isForce, CreateProcedureContext ctx,
+    public CreateProcedureCommand(String name, String originSql, boolean isForce, CreateProcedureContext ctx,
             List<Map<String, DataType>> arguments) {
         super(PlanType.CREATE_PROCEDURE_COMMAND);
         this.client = new MetaClient();
         this.name = name;
-        this.source = source;
+        this.originSql = originSql;
         this.isForce = isForce;
         this.ctx = ctx;
         this.arguments = arguments;
@@ -71,7 +71,7 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
     @Override
     public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
         client.addStoredProcedure(name, ctx.getCurrentCatalog().getName(), ctx.getDatabase(), ctx.getQualifiedUser(),
-                source, isForce);
+                originSql, isForce);
     }
 
     @Override

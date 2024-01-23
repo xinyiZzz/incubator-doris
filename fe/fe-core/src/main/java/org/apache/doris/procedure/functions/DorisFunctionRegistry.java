@@ -26,7 +26,7 @@ import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.hplsql.store.StoredProcedure;
 import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
-import org.apache.doris.nereids.parser.LogicalPlanBuilder;
+import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.nereids.types.DataType;
@@ -133,7 +133,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         InMemoryFunctionRegistry.setCallParameters(proc.identifier(0).getText(), callArguments, procedureArguments, out,
                 exec);
 
-        LogicalPlanBuilder logicalPlanBuilder = new LogicalPlanBuilder(); // 每次new一个新的logicalPlanBuilder 无状态
+        PLSqlLogicalPlanBuilder logicalPlanBuilder = new PLSqlLogicalPlanBuilder(); // 每次new一个新的logicalPlanBuilder 无状态
         logicalPlanBuilder.visit(proc.procBlock());
         // }
     }

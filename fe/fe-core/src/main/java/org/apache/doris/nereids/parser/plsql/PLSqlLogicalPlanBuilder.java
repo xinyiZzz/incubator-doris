@@ -156,45 +156,4 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
     public Object visitProcedureSelect(ProcedureSelectContext ctx) {
         return ConnectContext.get().getProcedureExec().select.select(ctx);
     }
-
-    // @Override
-    // public LogicalPlan visitAliasedQuery(DorisParser.AliasedQueryContext ctx) {
-    //     LogicalPlan plan = withTableAlias(visitQuery(ctx.query()), ctx.tableAlias());
-    //     for (DorisParser.LateralViewContext lateralViewContext : ctx.lateralView()) {
-    //         plan = withGenerate(plan, lateralViewContext);
-    //     }
-    //     return plan;
-    // }
-    //
-    // @Override
-    // public Expression visitFunctionCallExpression(DorisParser.FunctionCallExpressionContext ctx) {
-    //     Expression expression = super.visitFunctionCallExpression(ctx);
-    //     if (!(expression instanceof UnboundFunction)) {
-    //         return expression;
-    //     }
-    //     UnboundFunction sourceFunction = (UnboundFunction) expression;
-    //     Function transformedFunction = SparkSql3FnCallTransformers.getSingleton().transform(
-    //             sourceFunction.getName(),
-    //             sourceFunction.getArguments(),
-    //             this.parserContext
-    //     );
-    //     if (transformedFunction == null) {
-    //         return expression;
-    //     }
-    //     return transformedFunction;
-    // }
-    //
-    // private LogicalPlan withTableAlias(LogicalPlan plan, DorisParser.TableAliasContext ctx) {
-    //     if (ctx.strictIdentifier() == null) {
-    //         return plan;
-    //     }
-    //     return ParserUtils.withOrigin(ctx.strictIdentifier(), () -> {
-    //         String alias = StringUtils.isEmpty(ctx.strictIdentifier().getText())
-    //                 ? DEFAULT_TABLE_ALIAS : ctx.strictIdentifier().getText();
-    //         if (null != ctx.identifierList()) {
-    //             throw new ParseException("Do not implemented", ctx);
-    //         }
-    //         return new LogicalSubQueryAlias<>(alias, plan);
-    //     });
-    // }
 }
