@@ -48,7 +48,6 @@ import org.apache.doris.nereids.DorisParser.ArithmeticBinaryContext;
 import org.apache.doris.nereids.DorisParser.ArithmeticUnaryContext;
 import org.apache.doris.nereids.DorisParser.ArrayLiteralContext;
 import org.apache.doris.nereids.DorisParser.ArraySliceContext;
-import org.apache.doris.nereids.DorisParser.BeginEndBlockContext;
 import org.apache.doris.nereids.DorisParser.BitOperationContext;
 import org.apache.doris.nereids.DorisParser.BooleanExpressionContext;
 import org.apache.doris.nereids.DorisParser.BooleanLiteralContext;
@@ -70,8 +69,6 @@ import org.apache.doris.nereids.DorisParser.ComplexDataTypeContext;
 import org.apache.doris.nereids.DorisParser.ConstantContext;
 import org.apache.doris.nereids.DorisParser.ConstantSeqContext;
 import org.apache.doris.nereids.DorisParser.CreateMTMVContext;
-import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
-import org.apache.doris.nereids.DorisParser.CreateRoutineParamItemContext;
 import org.apache.doris.nereids.DorisParser.CreateRowPolicyContext;
 import org.apache.doris.nereids.DorisParser.CreateTableContext;
 import org.apache.doris.nereids.DorisParser.CteContext;
@@ -132,9 +129,6 @@ import org.apache.doris.nereids.DorisParser.PlanTypeContext;
 import org.apache.doris.nereids.DorisParser.PredicateContext;
 import org.apache.doris.nereids.DorisParser.PredicatedContext;
 import org.apache.doris.nereids.DorisParser.PrimitiveDataTypeContext;
-import org.apache.doris.nereids.DorisParser.ProcBlockContext;
-import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
-import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.DorisParser.PropertyClauseContext;
 import org.apache.doris.nereids.DorisParser.PropertyItemContext;
 import org.apache.doris.nereids.DorisParser.PropertyItemListContext;
@@ -338,7 +332,6 @@ import org.apache.doris.nereids.trees.plans.commands.Command;
 import org.apache.doris.nereids.trees.plans.commands.Constraint;
 import org.apache.doris.nereids.trees.plans.commands.CreateMTMVCommand;
 import org.apache.doris.nereids.trees.plans.commands.CreatePolicyCommand;
-import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.nereids.trees.plans.commands.CreateTableCommand;
 import org.apache.doris.nereids.trees.plans.commands.DeleteFromCommand;
 import org.apache.doris.nereids.trees.plans.commands.DeleteFromUsingCommand;
@@ -621,7 +614,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
      * @param ctx context
      * @return originSql
      */
-    private String getOriginSql(ParserRuleContext ctx) {
+    protected String getOriginSql(ParserRuleContext ctx) {
         int startIndex = ctx.start.getStartIndex();
         int stopIndex = ctx.stop.getStopIndex();
         org.antlr.v4.runtime.misc.Interval interval = new org.antlr.v4.runtime.misc.Interval(startIndex, stopIndex);
@@ -2064,15 +2057,6 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
     @Override
     public Expression visitColumnReference(ColumnReferenceContext ctx) {
         // todo: handle quoted and unquoted
-        // if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-        if (ConnectContext.get().isRunProcedure()) {
-            Expression var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
-            if (var != null) {
-                return var;
-            } else {
-                return UnboundSlot.quoted(ctx.getText());
-            }
-        }
         return UnboundSlot.quoted(ctx.getText());
     }
 
@@ -3212,22 +3196,6 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
         return new TableSample(rows, false, seek);
     }
 
-    /**
-     * visitChildrenReal
-     */
-    public Integer visitChildrenReal(RuleNode node) {
-        Integer result = null;
-        int n = node.getChildCount();
-
-        for (int i = 0; i < n && this.shouldVisitNextChild(node, result); ++i) {
-            ParseTree c = node.getChild(i);
-            Integer childResult = (Integer) c.accept(this);
-            result = (Integer) this.aggregateResult(result, childResult);
-        }
-
-        return result;
-    }
-
     @Override
     public LogicalPlan visitCallProcedure(CallProcedureContext ctx) {
         String functionName = ctx.functionName.getText();
@@ -3236,69 +3204,5 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
                 .collect(ImmutableList.toImmutableList());
         // UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
         return new CallCommand(ctx, functionName, arguments);
-    }
-
-    @Override
-    public Integer visitProcBlock(ProcBlockContext ctx) {
-        return visitChildrenReal(ctx);
-    }
-
-    /**
-     * Enter BEGIN-END block
-     */
-    @Override
-    public Integer visitBeginEndBlock(BeginEndBlockContext ctx) {
-        // enterScope(Scope.Type.BEGIN_END);
-        // leaveScope();
-        return visitChildrenReal(ctx);
-        // return visit(ctx.block().procedureStatement(0).procedureSelect());
-    }
-
-    @Override
-    public Integer visitBlock(DorisParser.BlockContext ctx) {
-        return visitChildrenReal(ctx);
-    }
-
-    @Override
-    public Object visitProcedureStatement(ProcedureStatementContext ctx) {
-        return ConnectContext.get().getProcedureExec().visitStmt(ctx);
-    }
-
-    @Override
-    public Object visitProcedureSelect(ProcedureSelectContext ctx) {
-        return ConnectContext.get().getProcedureExec().select.select(ctx);
-    }
-
-    @Override
-    public LogicalPlan visitCreateProcedure(CreateProcedureContext ctx) {
-        return ParserUtils.withOrigin(ctx, () -> {
-            // exec.functions.addUserProcedure(ctx);
-            // addLocalUdf(ctx);                      // Add procedures as they can be invoked by functions
-
-            LogicalPlan createProcedurePlan;
-            String name = ctx.identifier(0).getText().toUpperCase();
-
-            List<Map<String, DataType>> arguments = new ArrayList<>();
-            for (CreateRoutineParamItemContext routineParamItem : ctx.createRoutineParams().createRoutineParamItem()) {
-                String argName = routineParamItem.identifier().getText();
-                if (!(routineParamItem.dataType() instanceof PrimitiveDataTypeContext)) {
-                    throw new ParseException("Procedure parameter type not support ComplexDataType ", ctx);
-                }
-                DataType argType = visitPrimitiveDataType(((PrimitiveDataTypeContext) routineParamItem.dataType()));
-                argType = argType.conversion();
-                Map<String, DataType> arg = new HashMap<>();
-                arg.put(argName, argType);
-                arguments.add(arg);
-            }
-            // if (builtinFunctions.exists(name)) {
-            //     exec.info(ctx, name + " is a built-in function which cannot be redefined.");
-            //     return;
-            // }
-            // trace(ctx, "CREATE PROCEDURE " + name);
-            // saveInCache(name, ctx);
-            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null, ctx,
-                    arguments);
-            return createProcedurePlan;
-        });
     }
 }

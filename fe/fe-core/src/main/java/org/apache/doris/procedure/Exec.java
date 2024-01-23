@@ -39,7 +39,7 @@ import org.apache.doris.hplsql.packages.PackageRegistry;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
-import org.apache.doris.nereids.parser.LogicalPlanBuilder;
+import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
@@ -133,7 +133,7 @@ public class Exec implements Closeable {
     boolean offline = false;
 
     ProcedureStatementContext lastStmt = null;
-    LogicalPlanBuilder logicalPlanBuilder;
+    PLSqlLogicalPlanBuilder logicalPlanBuilder;
 
     public Exec() {
         exec = this;
@@ -181,7 +181,7 @@ public class Exec implements Closeable {
         // conn = new Conn(this);
         // meta = new Meta(this, queryExecutor);
         // initOptions();
-        logicalPlanBuilder = new LogicalPlanBuilder();
+        logicalPlanBuilder = new PLSqlLogicalPlanBuilder();
 
         // expr = new Expression(this);
         select = new Select(this, queryExecutor);
