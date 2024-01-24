@@ -96,17 +96,17 @@ public class Stmt {
         //         var.setValue(cursor);
         //     }
         // } else {                                                 // Declared cursor
-            var = exec.findVariable(cursorName);
-            if (var != null && var.type == Var.Type.CURSOR) {
-                cursor = (Cursor) var.value;
-                if (cursor.getSqlExpr() != null) {
-                    // sql = evalPop(cursor.getSqlExpr()).toString();
-                    cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlExpr()));
-                } else if (cursor.getSqlSelect() != null) {
-                    // sql = evalPop(cursor.getSqlSelect()).toString();
-                    cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlSelect()));
-                }
+        var = exec.findVariable(cursorName);
+        if (var != null && var.type == Var.Type.CURSOR) {
+            cursor = (Cursor) var.value;
+            if (cursor.getSqlExpr() != null) {
+                // sql = evalPop(cursor.getSqlExpr()).toString();
+                cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlExpr()));
+            } else if (cursor.getSqlSelect() != null) {
+                // sql = evalPop(cursor.getSqlSelect()).toString();
+                cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlSelect()));
             }
+        }
         // }
         if (cursor != null) {
             // if (trace) {
@@ -177,30 +177,30 @@ public class Stmt {
             //         }
             //     }
             // } else {
-                if (queryResult.next()) {
-                    cursor.setFetch(true);
-                    for (int i = 0; i < cols; i++) {
-                        Var var = exec.findVariable(ctx.identifier(i + 1).getText()); // FETCH into 后面的变量
-                        if (var != null) { // 变量要提前DECLARE定义
-                            if (var.type != Var.Type.ROW) {
-                                // TODO 应该生成 doris 常量 expression，后面SQL中使用变量
-                                var.setExpressionValue(queryResult, i); // 将每一列的值 set 到变量中
-                            } else {
-                                var.setRowValues(queryResult); // ？
-                            }
-                            // if (trace) {
-                            //     trace(ctx, var, queryResult.metadata(), i);
-                            // }
-                        // } else if (trace) {
-                        //     trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
+            if (queryResult.next()) {
+                cursor.setFetch(true);
+                for (int i = 0; i < cols; i++) {
+                    Var var = exec.findVariable(ctx.identifier(i + 1).getText()); // FETCH into 后面的变量
+                    if (var != null) { // 变量要提前DECLARE定义
+                        if (var.type != Var.Type.ROW) {
+                            // TODO 应该生成 doris 常量 expression，后面SQL中使用变量
+                            var.setExpressionValue(queryResult, i); // 将每一列的值 set 到变量中
+                        } else {
+                            var.setRowValues(queryResult); // ？
                         }
+                        // if (trace) {
+                        //     trace(ctx, var, queryResult.metadata(), i);
+                        // }
+                    // } else if (trace) {
+                    //     trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
                     }
-                    // exec.incRowCount();
-                    // exec.setSqlSuccess();
-                } else {
-                    cursor.setFetch(false);
-                    // exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
                 }
+                // exec.incRowCount();
+                // exec.setSqlSuccess();
+            } else {
+                cursor.setFetch(false);
+                // exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
+            }
             // }
         } catch (QueryException e) {
             // exec.setSqlCode(e);

@@ -194,10 +194,6 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
         }
         DataType type = visitPrimitiveDataType(((PrimitiveDataTypeContext) ctx.dataType()));
         type = type.conversion();
-
-        // String argName = routineParamItem.identifier().getText();
-
-
         // if (ctx.dtype_len() != null) {
         //     len = ctx.dtype_len().L_INT(0).getText();
         //     if (ctx.dtype_len().L_INT(1) != null) {

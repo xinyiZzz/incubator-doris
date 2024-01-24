@@ -103,7 +103,8 @@ public class Select {
         // }
 
         // QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
-        QueryResult query = queryExecutor.executeQuery(exec.logicalPlanBuilder.getOriginSql(ctx.statementDefault()), ctx);
+        QueryResult query = queryExecutor.executeQuery(exec.logicalPlanBuilder.getOriginSql(ctx.statementDefault()),
+                ctx);
         resultListener.setProcessor(query.processor());
         // AutoCloseConnectContext autoCloseCtx;
         // if (query.processor() != null) {
