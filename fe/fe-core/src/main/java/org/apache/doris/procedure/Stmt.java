@@ -191,8 +191,8 @@ public class Stmt {
                         // if (trace) {
                         //     trace(ctx, var, queryResult.metadata(), i);
                         // }
-                    // } else if (trace) {
-                    //     trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
+                        // } else if (trace) {
+                        //     trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
                     }
                 }
                 // exec.incRowCount();
