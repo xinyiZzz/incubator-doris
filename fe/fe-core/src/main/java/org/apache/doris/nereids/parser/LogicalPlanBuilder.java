@@ -614,7 +614,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
      * @param ctx context
      * @return originSql
      */
-    protected String getOriginSql(ParserRuleContext ctx) {
+    public String getOriginSql(ParserRuleContext ctx) {
         int startIndex = ctx.start.getStartIndex();
         int stopIndex = ctx.stop.getStopIndex();
         org.antlr.v4.runtime.misc.Interval interval = new org.antlr.v4.runtime.misc.Interval(startIndex, stopIndex);

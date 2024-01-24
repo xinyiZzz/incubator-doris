@@ -70,13 +70,6 @@ public class Select {
         this.resultListener = resultListener;
     }
 
-    private static String getOriginSql(ParserRuleContext ctx) {
-        int startIndex = ctx.start.getStartIndex();
-        int stopIndex = ctx.stop.getStopIndex();
-        org.antlr.v4.runtime.misc.Interval interval = new org.antlr.v4.runtime.misc.Interval(startIndex, stopIndex);
-        return ctx.start.getInputStream().getText(interval);
-    }
-
     /**
      * Executing or building SELECT statement
      */
@@ -110,7 +103,7 @@ public class Select {
         // }
 
         // QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
-        QueryResult query = queryExecutor.executeQuery(getOriginSql(ctx.statementDefault()), ctx);
+        QueryResult query = queryExecutor.executeQuery(exec.logicalPlanBuilder.getOriginSql(ctx.statementDefault()), ctx);
         resultListener.setProcessor(query.processor());
         // AutoCloseConnectContext autoCloseCtx;
         // if (query.processor() != null) {
@@ -259,7 +252,7 @@ public class Select {
         // int cnt = ctx.fullselect_stmt_item().size();
         StringBuilder sql = new StringBuilder();
         // for (int i = 0; i < cnt; i++) {
-        String part = evalPop(ctx.query());
+        String part = evalPop(ctx.query()).toString();
         sql.append(part);
         // if (i + 1 != cnt) {
         //     sql.append("\n").append(getText(ctx.fullselect_set_clause(i))).append("\n");
@@ -274,7 +267,7 @@ public class Select {
      */
     public Integer visitQuery(QueryContext ctx) {
         StringBuilder sql = new StringBuilder();
-        String part = evalPop(ctx.queryTerm());
+        String part = evalPop(ctx.queryTerm()).toString();
         sql.append(part);
         exec.stackPush(sql);
         return 0;
@@ -295,14 +288,14 @@ public class Select {
         StringBuilder sql = new StringBuilder();
         sql.append(ctx.selectClause().SELECT());
         visitSelectClause(ctx.selectClause());
-        exec.append(sql, exec.stackPop(), ctx.selectClause().getStart(),
+        exec.append(sql, exec.stackPop().toString(), ctx.selectClause().getStart(),
                 ctx.selectClause().selectColumnClause().getStart());
         Token last = ctx.selectClause().selectColumnClause().stop;
         // if (ctx.into_clause() != null) {
         //     last = ctx.into_clause().stop;
         // }
         if (ctx.fromClause() != null) {
-            exec.append(sql, evalPop(ctx.fromClause()), last, ctx.fromClause().getStart());
+            exec.append(sql, evalPop(ctx.fromClause()).toString(), last, ctx.fromClause().getStart());
             last = ctx.fromClause().stop;
             // } else if (conf.dualTable != null) {
             //     sql.append(" FROM ").append(conf.dualTable);
@@ -311,7 +304,7 @@ public class Select {
         if (ctx.whereClause() != null) {
             sql.append(ctx.whereClause().WHERE());
             visitWhereClause(ctx.whereClause());
-            exec.append(sql, exec.stackPop(), last, ctx.whereClause().getStart());
+            exec.append(sql, exec.stackPop().toString(), last, ctx.whereClause().getStart());
             // last = ctx.whereClause().stop;
         }
         // if (ctx.group_by_clause() != null) {
@@ -601,9 +594,12 @@ public class Select {
     /**
      * Evaluate the expression and pop value from the stack
      */
-    String evalPop(ParserRuleContext ctx) {
+    Var evalPop(ParserRuleContext ctx) {
         ctx.accept(exec.logicalPlanBuilder);
-        return exec.stackPop();
+        if (!exec.stack.isEmpty()) {
+            return exec.stackPop();
+        }
+        return Var.Empty;
     }
 
     //

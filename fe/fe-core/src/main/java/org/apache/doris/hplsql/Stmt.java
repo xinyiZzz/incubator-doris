@@ -535,12 +535,12 @@ public class Stmt {
                 if (queryResult.next()) {
                     cursor.setFetch(true);
                     for (int i = 0; i < cols; i++) {
-                        Var var = exec.findVariable(ctx.ident(i + 1).getText());
-                        if (var != null) {
+                        Var var = exec.findVariable(ctx.ident(i + 1).getText()); // FETCH into 后面的变量
+                        if (var != null) { // 变量要提前DECLARE定义
                             if (var.type != Var.Type.ROW) {
-                                var.setValue(queryResult, i);
+                                var.setValue(queryResult, i); // 将每一列的值 set 到变量中
                             } else {
-                                var.setRowValues(queryResult);
+                                var.setRowValues(queryResult); // ？
                             }
                             if (trace) {
                                 trace(ctx, var, queryResult.metadata(), i);
@@ -553,7 +553,7 @@ public class Stmt {
                     exec.setSqlSuccess();
                 } else {
                     cursor.setFetch(false);
-                    exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
+                    exec.setSqlCode(SqlCodes.NO_DATA_FOUND); // 退出
                 }
             }
         } catch (QueryException e) {

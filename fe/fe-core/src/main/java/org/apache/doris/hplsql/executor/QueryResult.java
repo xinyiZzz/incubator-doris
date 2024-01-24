@@ -20,6 +20,8 @@
 
 package org.apache.doris.hplsql.executor;
 
+import org.apache.doris.common.AnalysisException;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.qe.ConnectProcessor;
 
 import java.nio.ByteBuffer;
@@ -52,6 +54,10 @@ public class QueryResult {
      */
     public <T> T column(int columnIndex, Class<T> type) {
         return rows.get(columnIndex, type);
+    }
+
+    public Literal column(int columnIndex) throws AnalysisException {
+        return rows.get(columnIndex);
     }
 
     public ByteBuffer mysqlRow() {

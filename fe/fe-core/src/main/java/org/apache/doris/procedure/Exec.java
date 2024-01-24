@@ -28,7 +28,6 @@ import org.apache.doris.hplsql.Converter;
 import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
 import org.apache.doris.hplsql.Signal;
-import org.apache.doris.hplsql.Stmt;
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.ResultListener;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
@@ -40,8 +39,8 @@ import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
-import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Expression;
+import org.apache.doris.procedure.Var.Type;
 import org.apache.doris.procedure.functions.DorisFunctionRegistry;
 import org.apache.doris.procedure.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
@@ -86,7 +85,7 @@ public class Exec implements Closeable {
     Scope globalScope;
     Scope currentScope;
 
-    Stack<String> stack = new Stack<>();
+    Stack<Var> stack = new Stack<>();
     Stack<String> labels = new Stack<>();
     Stack<String> callStack = new Stack<>();
 
@@ -111,7 +110,7 @@ public class Exec implements Closeable {
     Converter converter;
     Meta meta;
     public Select select;
-    Stmt stmt;
+    public Stmt stmt;
     Conn conn;
     Console console = Console.STANDARD;
     ResultListener resultListener = ResultListener.NONE;
@@ -186,7 +185,7 @@ public class Exec implements Closeable {
         // expr = new Expression(this);
         select = new Select(this, queryExecutor);
         select.setResultListener(resultListener);
-        // stmt = new Stmt(this, queryExecutor);
+        stmt = new Stmt(this, queryExecutor);
         // converter = new Converter(this);
         //
         // builtinFunctions = new BuiltinFunctions(this, queryExecutor);
@@ -323,7 +322,7 @@ public class Exec implements Closeable {
     /**
      * Add a local variable to the current scope
      */
-    public void addVariable(Alias var) {
+    public void addVariable(Var var) {
         // if (currentPackageDecl != null) {
         //     currentPackageDecl.addVariable(var);
         // } else if (exec.currentScope != null) {
@@ -335,8 +334,8 @@ public class Exec implements Closeable {
     /**
      * Find an existing variable by name
      */
-    public Expression findVariable(String name) {
-        Alias var;
+    public Var findVariable(String name) {
+        Var var;
         String name1 = name.toUpperCase();
         String name1a = null;
         // String name2 = null;
@@ -367,7 +366,7 @@ public class Exec implements Closeable {
             //     var = packCallContext.findVariable(name1);
             // }
             if (var != null) {
-                return var.child(0);
+                return var;
             }
             if (cur.type == Scope.Type.ROUTINE) {
                 cur = exec.globalScope;
@@ -382,15 +381,33 @@ public class Exec implements Closeable {
     //     return findVariable(name.getName());
     // }
     //
-    Alias findVariable(Map<String, Alias> vars, String name) {
+    Var findVariable(Map<String, Var> vars, String name) {
         return vars.get(name.toUpperCase());
+    }
+
+    /**
+     * Find a cursor variable by name
+     */
+    public Var findCursor(String name) {
+        Var cursor = exec.findVariable(name);
+        if (cursor != null && cursor.type == Type.CURSOR) {
+            return cursor;
+        }
+        return null;
     }
 
     /**
      * Push a value to the stack
      */
-    public void stackPush(String var) {
+    public void stackPush(Var var) {
         exec.stack.push(var);
+    }
+
+    /**
+     * Push a string value to the stack
+     */
+    public void stackPush(String val) {
+        exec.stack.push(new Var(val));
     }
 
     public void stackPush(StringBuilder val) {
@@ -400,18 +417,18 @@ public class Exec implements Closeable {
     /**
      * Select a value from the stack, but not remove
      */
-    public String stackPeek() {
+    public Var stackPeek() {
         return exec.stack.peek();
     }
 
     /**
      * Pop a value from the stack
      */
-    public String stackPop() {
+    public Var stackPop() {
         if (!exec.stack.isEmpty()) {
             return exec.stack.pop();
         }
-        return null;
+        return Var.Empty;
     }
 
     /**
@@ -430,5 +447,9 @@ public class Exec implements Closeable {
                 new org.antlr.v4.runtime.misc.Interval(start.getSymbol().getStartIndex(),
                         stop.getSymbol().getStopIndex()));
         str.append(text);
+    }
+
+    public boolean getOffline() {
+        return exec.offline;
     }
 }

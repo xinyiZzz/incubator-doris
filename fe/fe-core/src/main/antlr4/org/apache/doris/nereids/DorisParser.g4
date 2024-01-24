@@ -560,8 +560,8 @@ inlineTable
     ;
 
 createProcedure
-    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN createRoutineParams? RIGHT_PAREN procBlock (identifier SEMICOLON)?
-    ; // identifier 不兼容 hive ident， hive ident允许的规则更多 // create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
+    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN createRoutineParams? RIGHT_PAREN procedureBlock (identifier SEMICOLON)?
+    ; // TODO create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
 
 createRoutineParams
     : LEFT_PAREN RIGHT_PAREN
@@ -574,40 +574,85 @@ createRoutineParams
     ;
 
 createRoutineParamItem
-    : (IN | OUT | INOUT | IN OUT)? identifier dataType number?// dtype_attr* dtype_default?
-    | identifier (IN | OUT | INOUT | IN OUT)? dataType number?// dtype_attr* dtype_default?
+    : (IN | OUT | INOUT | IN OUT)? identifier dataType number? // TODO number? dtype_attr* dtype_default?
+    | identifier (IN | OUT | INOUT | IN OUT)? dataType number? // TODO number? dtype_attr* dtype_default?
     ;
 
-//declare_block_inplace
-//    : declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
-//    ;
+block
+    : ((beginEndBlock | procedureStatement SEMICOLON*) GO?)+
+    ;
 
-block : ((beginEndBlock | procedureStatement SEMICOLON*) GO?)+ ;
+beginEndBlock
+    : BEGIN block blockEnd // TODO declare_block? exception_block?
+    ;
 
-beginEndBlock :
-       BEGIN block blockEnd
-     ; // declare_block? exception_block?
+blockEnd
+    : {!_input.LT(2).getText().equalsIgnoreCase("TRANSACTION")}? END
+    ;
 
-blockEnd :
-       {!_input.LT(2).getText().equalsIgnoreCase("TRANSACTION")}? END
+procedureBlock
+    : beginEndBlock
+    | (procedureStatement SEMICOLON*)+ GO?
+    ;
+
+procedureStatement
+     : procedureSelect
+     | unconditionalLoopStmt
+     | declareStatement
+     | openStmt
+     | fetchStmt
+     | ifStmt
      ;
 
-procBlock : // 改成procedure
-       beginEndBlock
-     | (procedureStatement SEMICOLON*)+ GO?
+procedureSelect
+    : statementDefault
+    ;
+
+unconditionalLoopStmt
+    : LOOP block END LOOP
+    ;
+
+declareStatement
+    : DECLARE declareStatementItem (COMMA declareStatementItem)*
+    ;
+
+declareStatementItem // TODO declare_condition_item declare_handler_item declare_temporary_table_item
+    : declareCursorItem
+    | declareVarItem
+    ;
+
+declareCursorItem
+    : (CURSOR identifier | identifier CURSOR) (IS | AS | FOR) (query | expression ) // TODO (cursor_with_return | cursor_without_return)?
+    ;
+
+declareVarItem
+    : identifier (COMMA identifier)* AS? dataType // TODO dtype_len? dtype_attr* dtype_default?
+    | identifier CONSTANT AS? dataType // TODO  dtype_len? dtype_default
+    ;
+
+openStmt
+    : OPEN identifier (FOR (query | expression))?
+    ;
+
+fetchStmt
+    : FETCH FROM? identifier INTO identifier (COMMA identifier)* // TODO bulk_collect_clause? fetch_limit?
+    ;
+
+ifStmt
+    : ifPlsqlStmt // TODO if_tsql_stmt if_bteq_stmt
+    ;
+
+ifPlsqlStmt :
+       IF booleanExpression THEN block elseifBlock* elseBlock? END IF
      ;
 
-//declare_block :         // Declaration block
-//       T_DECLARE declare_stmt_item T_SEMICOLON (declare_stmt_item T_SEMICOLON)*
-//     ;
+elseifBlock
+    : (ELSIF | ELSEIF) booleanExpression THEN block
+    ;
 
-procedureStatement :
-      procedureSelect
-     ;
-
-procedureSelect :
-       statementDefault
-     ;
+elseBlock
+    : ELSE block
+    ;
 
 // -----------------Expression-----------------
 namedExpression

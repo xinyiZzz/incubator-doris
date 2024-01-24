@@ -20,9 +20,11 @@
 
 package org.apache.doris.hplsql.executor;
 
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.hplsql.Exec;
 import org.apache.doris.hplsql.Query;
 import org.apache.doris.hplsql.exception.QueryException;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -89,6 +91,11 @@ public class JdbcQueryExecutor implements QueryExecutor {
             } catch (SQLException e) {
                 throw new QueryException(e);
             }
+        }
+
+        @Override
+        public Literal get(int columnIndex) throws AnalysisException {
+            throw new RuntimeException("no support");
         }
 
         @Override

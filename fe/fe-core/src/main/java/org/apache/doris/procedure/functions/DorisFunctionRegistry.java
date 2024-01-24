@@ -134,7 +134,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
                 exec);
 
         PLSqlLogicalPlanBuilder logicalPlanBuilder = new PLSqlLogicalPlanBuilder(); // 每次new一个新的logicalPlanBuilder 无状态
-        logicalPlanBuilder.visit(proc.procBlock());
+        logicalPlanBuilder.visit(proc.procedureBlock());
         // }
     }
 

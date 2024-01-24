@@ -21,14 +21,13 @@
 package org.apache.doris.procedure.functions;
 
 import org.apache.doris.hplsql.HplsqlParser;
-import org.apache.doris.hplsql.Var;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
 import org.apache.doris.hplsql.functions.FunctionRegistry;
-import org.apache.doris.nereids.trees.expressions.Alias;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.types.DataType;
 import org.apache.doris.nereids.util.TypeCoercionUtils;
 import org.apache.doris.procedure.Exec;
+import org.apache.doris.procedure.Var;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -180,7 +179,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
         // exec.addVariable(var); // 把变量添加到exec
         // return var;
         // callArgument.get
-        Alias var = new Alias(callArgument, name);
+        Var var = new Var(name, callArgument);
         exec.addVariable(var);
         return callArgument;
     }

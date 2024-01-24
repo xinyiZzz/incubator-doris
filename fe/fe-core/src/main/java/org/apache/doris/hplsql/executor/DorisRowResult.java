@@ -17,11 +17,14 @@
 
 package org.apache.doris.hplsql.executor;
 
+import org.apache.doris.analysis.LiteralExpr;
 import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.catalog.Type;
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.nereids.trees.expressions.literal.DateTimeLiteral;
 import org.apache.doris.nereids.trees.expressions.literal.DateTimeV2Literal;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.qe.Coordinator;
 import org.apache.doris.qe.RowBatch;
 import org.apache.doris.statistics.util.InternalQueryBuffer;
@@ -90,8 +93,8 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
 
     @Override
     public <T> T get(int columnIndex, Class<T> type) {
-        if (isLazyLoading) { // hplsql, isLazyLoading 是干嘛用的
-            convertToJavaType(batch.getBatch().getRows().get(index));
+        if (isLazyLoading) {
+            readFromJavaType(batch.getBatch().getRows().get(index));
             isLazyLoading = false;
         }
         if (current[columnIndex] == null) {
@@ -116,11 +119,31 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
     }
 
     @Override
+    public Literal get(int columnIndex) throws AnalysisException {
+        if (isLazyLoading) {
+            readFromDorisType(batch.getBatch().getRows().get(index));
+            isLazyLoading = false;
+        }
+        if (current[columnIndex] == null) {
+            return null;
+        }
+        return (Literal) current[columnIndex];
+    }
+
+    @Override
     public ByteBuffer getMysqlRow() {
         return batch.getBatch().getRows().get(index);
     }
 
-    private void convertToJavaType(ByteBuffer buffer) {
+    private void readFromDorisType(ByteBuffer buffer) throws AnalysisException {
+        InternalQueryBuffer queryBuffer = new InternalQueryBuffer(buffer.slice());
+        for (int i = 0; i < columnNames.size(); i++) {
+            String value = queryBuffer.readStringWithLength();
+            current[i] = Literal.fromLegacyLiteral(LiteralExpr.create(value, dorisTypes.get(i)), dorisTypes.get(i));
+        }
+    }
+
+    private void readFromJavaType(ByteBuffer buffer) {
         InternalQueryBuffer queryBuffer = new InternalQueryBuffer(buffer.slice());
         for (int i = 0; i < columnNames.size(); i++) {
             String value = queryBuffer.readStringWithLength();

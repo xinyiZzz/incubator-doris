@@ -22,7 +22,6 @@ package org.apache.doris.procedure;
 
 import org.apache.doris.hplsql.Handler;
 import org.apache.doris.hplsql.Package;
-import org.apache.doris.nereids.trees.expressions.Alias;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,7 +36,7 @@ public class Scope {
         GLOBAL, BEGIN_END, LOOP, HANDLER, PACKAGE, ROUTINE
     }
 
-    Map<String, Alias> vars = new HashMap<>();
+    Map<String, Var> vars = new HashMap<>();
     ArrayList<Handler> handlers = new ArrayList<Handler>();
     Scope parent;
     Type type;
@@ -64,8 +63,8 @@ public class Scope {
     /**
      * Add a local variable
      */
-    void addVariable(Alias var) {
-        vars.put(var.getName().toUpperCase(), var);
+    void addVariable(Var var) {
+        vars.put(var.name.toUpperCase(), var);
     }
 
     /**
