@@ -21,6 +21,8 @@ import org.apache.doris.nereids.DorisParser;
 import org.apache.doris.nereids.DorisParser.BeginEndBlockContext;
 import org.apache.doris.nereids.DorisParser.ColumnReferenceContext;
 import org.apache.doris.nereids.DorisParser.DeclareCursorItemContext;
+import org.apache.doris.nereids.DorisParser.DeclareStatementContext;
+import org.apache.doris.nereids.DorisParser.DeclareStatementItemContext;
 import org.apache.doris.nereids.DorisParser.DeclareVarItemContext;
 import org.apache.doris.nereids.DorisParser.FetchStmtContext;
 import org.apache.doris.nereids.DorisParser.OpenStmtContext;
@@ -100,13 +102,23 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
     }
 
     @Override
-    public Object visitProcedureStatement(ProcedureStatementContext ctx) {
+    public Integer visitProcedureStatement(ProcedureStatementContext ctx) {
         return ConnectContext.get().getProcedureExec().visitStmt(ctx);
     }
 
     @Override
-    public Object visitProcedureSelect(ProcedureSelectContext ctx) {
+    public Integer visitProcedureSelect(ProcedureSelectContext ctx) {
         return ConnectContext.get().getProcedureExec().select.select(ctx);
+    }
+
+    @Override
+    public Integer visitDeclareStatement(DeclareStatementContext ctx) {
+        return visitChildrenReal(ctx);
+    }
+
+    @Override
+    public Integer visitDeclareStatementItem(DeclareStatementItemContext ctx) {
+        return visitChildrenReal(ctx);
     }
 
     /**
