@@ -68,7 +68,8 @@ public class CallCommand extends Command implements ForwardWithSync {
         // CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
         // analyzedFunc.run();
         connectContext.setRunProcedure(true);
-        connectContext.getSessionVariable().enableFallbackToOriginalPlanner = false;
+        connectContext.getSessionVariable().enableFallbackToOriginalPlanner = false; // TODO delete
+        String oldDialect = connectContext.getSessionVariable().getSqlDialect();
         connectContext.getSessionVariable().setSqlDialect("plsql");
         HplsqlResult result = new HplsqlResult();
         Exec exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result);
@@ -79,6 +80,7 @@ public class CallCommand extends Command implements ForwardWithSync {
         // connectContext.getExecutor().sendEmptyFields();
         connectContext.getState().setOk();
         connectContext.setRunProcedure(false);
+        connectContext.getSessionVariable().setSqlDialect(oldDialect);
     }
 
     @Override
