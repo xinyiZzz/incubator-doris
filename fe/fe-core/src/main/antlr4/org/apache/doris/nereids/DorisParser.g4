@@ -574,8 +574,8 @@ createRoutineParams
     ;
 
 createRoutineParamItem
-    : (IN | OUT | INOUT | IN OUT)? identifier dataType number? // TODO number? dtype_attr* dtype_default?
-    | identifier (IN | OUT | INOUT | IN OUT)? dataType number? // TODO number? dtype_attr* dtype_default?
+    : (IN | OUT | INOUT | IN OUT)? identifier dataType // TODO dtype_len? dtype_attr* dtype_default?
+    | identifier (IN | OUT | INOUT | IN OUT)? dataType // TODO dtype_len? dtype_attr* dtype_default?
     ;
 
 block
