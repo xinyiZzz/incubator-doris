@@ -70,11 +70,8 @@ public class CreateProcedureCommand extends Command implements ForwardWithSync {
 
     @Override
     public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
-        String oldDialect = ctx.getSessionVariable().getSqlDialect();
-        ctx.getSessionVariable().setSqlDialect("plsql");
         client.addStoredProcedure(name, ctx.getCurrentCatalog().getName(), ctx.getDatabase(), ctx.getQualifiedUser(),
                 source, isForce);
-        ctx.getSessionVariable().setSqlDialect(oldDialect);
     }
 
     @Override
