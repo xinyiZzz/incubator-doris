@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/functions/FunctionRegistry.java
 // and modified by Doris
 
-package org.apache.doris.procedure.functions;
+package org.apache.doris.plsql.functions;
 
 import org.apache.doris.hplsql.HplsqlParser;
 import org.apache.doris.nereids.trees.expressions.Expression;

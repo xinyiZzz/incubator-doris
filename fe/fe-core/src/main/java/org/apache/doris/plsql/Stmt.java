@@ -18,16 +18,20 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Stmt.java
 // and modified by Doris
 
-package org.apache.doris.procedure;
+package org.apache.doris.plsql;
 
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.QueryResult;
+import org.apache.doris.nereids.DorisParser.CloseStmtContext;
 import org.apache.doris.nereids.DorisParser.DeclareCursorItemContext;
 import org.apache.doris.nereids.DorisParser.FetchStmtContext;
+import org.apache.doris.nereids.DorisParser.IfPlsqlStmtContext;
+import org.apache.doris.nereids.DorisParser.LeaveStmtContext;
 import org.apache.doris.nereids.DorisParser.OpenStmtContext;
-import org.apache.doris.procedure.Var.Type;
+import org.apache.doris.nereids.DorisParser.UnconditionalLoopStmtContext;
+import org.apache.doris.plsql.Var.Type;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -183,7 +187,6 @@ public class Stmt {
                     Var var = exec.findVariable(ctx.identifier(i + 1).getText()); // FETCH into 后面的变量
                     if (var != null) { // 变量要提前DECLARE定义
                         if (var.type != Var.Type.ROW) {
-                            // TODO 应该生成 doris 常量 expression，后面SQL中使用变量
                             var.setExpressionValue(queryResult, i); // 将每一列的值 set 到变量中
                         } else {
                             var.setRowValues(queryResult); // ？
@@ -212,6 +215,123 @@ public class Stmt {
     }
 
     /**
+     * CLOSE cursor statement
+     */
+    public Integer close(CloseStmtContext ctx) {
+        // trace(ctx, "CLOSE");
+        String name = ctx.identifier().getText();
+        Var var = exec.findVariable(name);
+        if (var != null && var.type == Var.Type.CURSOR) {
+            ((Cursor) var.value).close();
+            // exec.setSqlCode(SqlCodes.SUCCESS);
+            // } else if (trace) {
+            //     trace(ctx, "Cursor not found: " + name);
+        }
+        return 0;
+    }
+
+    /**
+     * IF statement (PL/SQL syntax)
+     */
+    public Integer ifPlsql(IfPlsqlStmtContext ctx) {
+        // boolean trueExecuted = false;
+        // // trace(ctx, "IF");
+        // Expression expr = exec.logicalPlanBuilder.getExpression(ctx.booleanExpression());
+        // if (expr instanceof BinaryOperator) {
+        //     BinaryOperator condition = (BinaryOperator) expr;
+        //     condition.
+        // } else {
+        //
+        // }
+        //
+        // // Map<Expression, Expression> replaceMap =
+        // //         filter.child().getOutputs().stream().filter(e -> e instanceof Alias)
+        // //                 .collect(Collectors.toMap(NamedExpression::toSlot, e -> ((Alias) e).child()));
+        //
+        // Expression foldExpression =
+        //         FoldConstantRule.INSTANCE.rewrite(newExpr, context);
+        //
+        // if (foldExpression == BooleanLiteral.FALSE) {
+        //     return new LogicalEmptyRelation(
+        //             ctx.statementContext.getNextRelationId(), filter.getOutput());
+        // } else if (foldExpression != BooleanLiteral.TRUE) {
+        //     newConjuncts.add(expression);
+        // }
+        //
+        // if (evalPop(ctx.booleanExpression()).isTrue()) {
+        //     // trace(ctx, "IF TRUE executed");
+        //     visit(ctx.block());
+        //     trueExecuted = true;
+        // } else if (ctx.elseif_block() != null) {
+        //     int cnt = ctx.elseif_block().size();
+        //     for (int i = 0; i < cnt; i++) {
+        //         if (evalPop(ctx.elseif_block(i).bool_expr()).isTrue()) {
+        //             trace(ctx, "ELSE IF executed");
+        //             visit(ctx.elseif_block(i).block());
+        //             trueExecuted = true;
+        //             break;
+        //         }
+        //     }
+        // }
+        // if (!trueExecuted && ctx.else_block() != null) {
+        //     trace(ctx, "ELSE executed");
+        //     visit(ctx.else_block());
+        // }
+        return 0;
+    }
+
+    /**
+     * Check if an exception is raised or EXIT executed, and we should leave the block
+     */
+    boolean canContinue(String label) {
+        Signal signal = exec.signalPeek();
+        if (signal != null && signal.type == Signal.Type.SQLEXCEPTION) {
+            return false;
+        }
+        signal = exec.signalPeek();
+        if (signal != null && signal.type == Signal.Type.LEAVE_LOOP) {
+            if (signal.value == null || signal.value.isEmpty() || (label != null && label.equalsIgnoreCase(
+                    signal.value))) {
+                exec.signalPop();
+            } // why?
+            return false;
+        }
+        return true;
+    }
+
+    public Integer unconditionalLoop(UnconditionalLoopStmtContext ctx) {
+        // trace(ctx, "UNCONDITIONAL LOOP - ENTERED");
+        String label = exec.labelPop();
+        do {
+            exec.enterScope(Scope.Type.LOOP);
+            visit(ctx.block());
+            exec.leaveScope();
+        } while (canContinue(label));
+        // trace(ctx, "UNCONDITIONAL LOOP - LEFT");
+        return 0;
+    }
+
+    /**
+     * Leave the specified or innermost loop unconditionally
+     */
+    public void leaveLoop(String value) {
+        exec.signal(Signal.Type.LEAVE_LOOP, value);
+    }
+
+    /**
+     * LEAVE statement (leave the specified loop unconditionally)
+     */
+    public Integer leave(LeaveStmtContext ctx) {
+        // trace(ctx, "LEAVE");
+        String label = "";
+        if (ctx.identifier() != null) {
+            label = ctx.identifier().getText();
+        }
+        leaveLoop(label);
+        return 0;
+    }
+
+    /**
      * Evaluate the expression and pop value from the stack
      */
     Var evalPop(ParserRuleContext ctx) {
@@ -228,5 +348,12 @@ public class Stmt {
             return exec.stackPop();
         }
         return new Var(def);
+    }
+
+    /**
+     * Execute rules
+     */
+    Object visit(ParserRuleContext ctx) {
+        return ctx.accept(exec.logicalPlanBuilder);
     }
 }

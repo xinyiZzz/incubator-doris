@@ -602,6 +602,8 @@ procedureStatement
      | openStmt
      | fetchStmt
      | ifStmt
+     | leaveStmt
+     | label
      ;
 
 procedureSelect
@@ -610,6 +612,10 @@ procedureSelect
 
 unconditionalLoopStmt
     : LOOP block END LOOP
+    ;
+
+leaveStmt
+    : LEAVE identifier?
     ;
 
 declareStatement
@@ -638,6 +644,10 @@ fetchStmt
     : FETCH FROM? identifier INTO identifier (COMMA identifier)* // TODO bulk_collect_clause? fetch_limit?
     ;
 
+closeStmt
+    : CLOSE identifier // TODO use label
+    ;
+
 ifStmt
     : ifPlsqlStmt // TODO if_tsql_stmt if_bteq_stmt
     ;
@@ -652,6 +662,10 @@ elseifBlock
 
 elseBlock
     : ELSE block
+    ;
+
+label
+    : identifier // TODO label should not contain special characters
     ;
 
 // -----------------Expression-----------------

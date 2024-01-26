@@ -24,7 +24,7 @@ import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
-import org.apache.doris.procedure.Exec;
+import org.apache.doris.plsql.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 

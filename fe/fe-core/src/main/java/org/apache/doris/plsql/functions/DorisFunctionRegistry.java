@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/functions/HmsFunctionRegistry.java
 // and modified by Doris
 
-package org.apache.doris.procedure.functions;
+package org.apache.doris.plsql.functions;
 
 import org.apache.doris.hplsql.HplsqlParser;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
@@ -30,7 +30,7 @@ import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.commands.CreateProcedureCommand;
 import org.apache.doris.nereids.types.DataType;
-import org.apache.doris.procedure.Exec;
+import org.apache.doris.plsql.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 

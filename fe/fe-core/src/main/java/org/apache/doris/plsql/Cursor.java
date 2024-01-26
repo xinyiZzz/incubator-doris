@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Cursor.java
 // and modified by Doris
 
-package org.apache.doris.procedure;
+package org.apache.doris.plsql;
 
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.QueryResult;

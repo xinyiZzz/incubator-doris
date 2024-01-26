@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Var.java
 // and modified by Doris
 
-package org.apache.doris.procedure;
+package org.apache.doris.plsql;
 
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.hplsql.Interval;

@@ -19,17 +19,22 @@ package org.apache.doris.nereids.parser.plsql;
 
 import org.apache.doris.nereids.DorisParser;
 import org.apache.doris.nereids.DorisParser.BeginEndBlockContext;
+import org.apache.doris.nereids.DorisParser.CloseStmtContext;
 import org.apache.doris.nereids.DorisParser.ColumnReferenceContext;
 import org.apache.doris.nereids.DorisParser.DeclareCursorItemContext;
 import org.apache.doris.nereids.DorisParser.DeclareStatementContext;
 import org.apache.doris.nereids.DorisParser.DeclareStatementItemContext;
 import org.apache.doris.nereids.DorisParser.DeclareVarItemContext;
 import org.apache.doris.nereids.DorisParser.FetchStmtContext;
+import org.apache.doris.nereids.DorisParser.IfPlsqlStmtContext;
+import org.apache.doris.nereids.DorisParser.LabelContext;
+import org.apache.doris.nereids.DorisParser.LeaveStmtContext;
 import org.apache.doris.nereids.DorisParser.OpenStmtContext;
 import org.apache.doris.nereids.DorisParser.PrimitiveDataTypeContext;
 import org.apache.doris.nereids.DorisParser.ProcedureBlockContext;
 import org.apache.doris.nereids.DorisParser.ProcedureSelectContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
+import org.apache.doris.nereids.DorisParser.UnconditionalLoopStmtContext;
 import org.apache.doris.nereids.analyzer.UnboundSlot;
 import org.apache.doris.nereids.exceptions.ParseException;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
@@ -37,8 +42,8 @@ import org.apache.doris.nereids.parser.ParseDialect;
 import org.apache.doris.nereids.parser.ParserContext;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.types.DataType;
-import org.apache.doris.procedure.Var;
-import org.apache.doris.procedure.Var.Type;
+import org.apache.doris.plsql.Var;
+import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -210,5 +215,51 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
     @Override
     public Integer visitFetchStmt(FetchStmtContext ctx) {
         return ConnectContext.get().getProcedureExec().stmt.fetch(ctx);
+    }
+
+    /**
+     * CLOSE cursor statement
+     */
+    @Override
+    public Integer visitCloseStmt(CloseStmtContext ctx) {
+        return ConnectContext.get().getProcedureExec().stmt.close(ctx);
+    }
+
+    /**
+     * IF statement (PL/SQL syntax)
+     */
+    @Override
+    public Integer visitIfPlsqlStmt(IfPlsqlStmtContext ctx) {
+        return ConnectContext.get().getProcedureExec().stmt.ifPlsql(ctx);
+    }
+
+    @Override
+    public Integer visitUnconditionalLoopStmt(UnconditionalLoopStmtContext ctx) {
+        return ConnectContext.get().getProcedureExec().stmt.unconditionalLoop(ctx);
+    }
+
+    /**
+     * Label
+     */
+    @Override
+    public Integer visitLabel(LabelContext ctx) {
+        if (ctx.identifier() != null) {
+            ConnectContext.get().getProcedureExec().labels.push(ctx.identifier().getText());
+        } else {
+            String label = ctx.identifier().getText();
+            if (label.endsWith(":")) {
+                label = label.substring(0, label.length() - 1);
+            }
+            ConnectContext.get().getProcedureExec().labels.push(label);
+        }
+        return 0;
+    }
+
+    /**
+     * LEAVE statement (leave the specified loop unconditionally)
+     */
+    @Override
+    public Integer visitLeaveStmt(LeaveStmtContext ctx) {
+        return ConnectContext.get().getProcedureExec().stmt.leave(ctx);
     }
 }

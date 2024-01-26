@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Exec.java
 // and modified by Doris
 
-package org.apache.doris.procedure;
+package org.apache.doris.plsql;
 
 import org.apache.doris.hplsql.Arguments;
 import org.apache.doris.hplsql.Conf;
@@ -27,8 +27,9 @@ import org.apache.doris.hplsql.Console;
 import org.apache.doris.hplsql.Converter;
 import org.apache.doris.hplsql.Meta;
 import org.apache.doris.hplsql.Package;
-import org.apache.doris.hplsql.Signal;
+import org.apache.doris.hplsql.Query;
 import org.apache.doris.hplsql.executor.QueryExecutor;
+import org.apache.doris.hplsql.executor.QueryResult;
 import org.apache.doris.hplsql.executor.ResultListener;
 import org.apache.doris.hplsql.functions.BuiltinFunctions;
 import org.apache.doris.hplsql.objects.TableClass;
@@ -40,9 +41,9 @@ import org.apache.doris.nereids.DorisParser.CallProcedureContext;
 import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
-import org.apache.doris.procedure.Var.Type;
-import org.apache.doris.procedure.functions.DorisFunctionRegistry;
-import org.apache.doris.procedure.functions.FunctionRegistry;
+import org.apache.doris.plsql.Var.Type;
+import org.apache.doris.plsql.functions.DorisFunctionRegistry;
+import org.apache.doris.plsql.functions.FunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -86,7 +87,7 @@ public class Exec implements Closeable {
     Scope currentScope;
 
     Stack<Var> stack = new Stack<>();
-    Stack<String> labels = new Stack<>();
+    public Stack<String> labels = new Stack<>();
     Stack<String> callStack = new Stack<>();
 
     Stack<Signal> signals = new Stack<>();
@@ -317,6 +318,86 @@ public class Exec implements Closeable {
         globalScope = new Scope(Scope.Type.GLOBAL);
         currentScope = globalScope;
         enterScope(globalScope);
+    }
+
+    /**
+     * Leave the current scope
+     */
+    public void leaveScope() {
+        if (!exec.signals.empty()) {
+            Scope scope = exec.scopes.peek();
+            Signal signal = exec.signals.peek();
+            // if (exec.conf.onError != org.apache.doris.hplsql.Exec.OnError.SETERROR) {
+            //     runExitHandler();
+            // }
+            if (signal.type == Signal.Type.LEAVE_ROUTINE && scope.type == Scope.Type.ROUTINE) {
+                exec.signals.pop();
+            }
+        }
+        exec.currentScope = exec.scopes.pop().getParent();
+    }
+
+    /**
+     * Send a signal
+     */
+    public void signal(Signal signal) {
+        exec.signals.push(signal);
+    }
+
+    public void signal(Signal.Type type, String value, Exception exception) {
+        signal(new Signal(type, value, exception));
+    }
+
+    public void signal(Signal.Type type, String value) {
+        // setSqlCode(SqlCodes.ERROR);
+        signal(type, value, null);
+    }
+
+    public void signal(Signal.Type type) {
+        // setSqlCode(SqlCodes.ERROR);
+        signal(type, null, null);
+    }
+
+    public void signal(Query query) {
+        // setSqlCode(query.getException());
+        signal(Signal.Type.SQLEXCEPTION, query.errorText(), query.getException());
+    }
+
+    public void signal(QueryResult query) {
+        // setSqlCode(query.exception());
+        signal(Signal.Type.SQLEXCEPTION, query.errorText(), query.exception());
+    }
+
+    public void signal(Exception exception) {
+        // setSqlCode(exception);
+        signal(Signal.Type.SQLEXCEPTION, exception.getMessage(), exception);
+    }
+
+    /**
+     * Pop the last signal
+     */
+    public Signal signalPop() {
+        if (!exec.signals.empty()) {
+            return exec.signals.pop();
+        }
+        return null;
+    }
+
+    /**
+     * Peek the last signal
+     */
+    public Signal signalPeek() {
+        if (!exec.signals.empty()) {
+            return exec.signals.peek();
+        }
+        return null;
+    }
+
+    public String labelPop() {
+        if (!exec.labels.empty()) {
+            return exec.labels.pop();
+        }
+        return "";
     }
 
     /**

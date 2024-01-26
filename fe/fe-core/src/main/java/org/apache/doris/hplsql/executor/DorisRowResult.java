@@ -88,7 +88,7 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
 
     @Override
     public void close() {
-
+        // TODO
     }
 
     @Override
