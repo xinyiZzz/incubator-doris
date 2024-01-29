@@ -17,67 +17,39 @@
 
 package org.apache.doris.nereids.trees.plans.commands.call;
 
-import org.apache.doris.hplsql.executor.DorisQueryExecutor;
 import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
-import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.qe.ConnectContext;
 
-import org.antlr.v4.runtime.ParserRuleContext;
-
-import java.util.List;
 import java.util.Objects;
 
 /**
  * CallProcedure
  */
 public class CallProcedure extends CallFunc {
-    // private StoredProcedure proc;
     private final HplsqlQueryExecutor executor;
-    private final List<Expression> args;
-    private final DorisQueryExecutor queryExecutor;
-    private final String stmt;
-    // private ResultListener resultListener = ResultListener.NONE;
+    private final ConnectContext ctx;
+    private final String source;
 
-    private CallProcedure(HplsqlQueryExecutor executor, List<Expression> args, String stmt) {
+    private CallProcedure(HplsqlQueryExecutor executor, ConnectContext ctx, String source) {
         this.executor = Objects.requireNonNull(executor, "executor is missing");
-        this.args = Objects.requireNonNull(args, "args is missing");
-        this.queryExecutor = new DorisQueryExecutor();
-        this.stmt = stmt;
-        // resultListener = new HplsqlResult(processor);
-    }
-
-    private static String getOriginSql(ParserRuleContext ctx) {
-        int startIndex = ctx.start.getStartIndex();
-        int stopIndex = ctx.stop.getStopIndex();
-        org.antlr.v4.runtime.misc.Interval interval = new org.antlr.v4.runtime.misc.Interval(startIndex, stopIndex);
-        return ctx.start.getInputStream().getText(interval);
+        this.ctx = ctx;
+        this.source = source;
     }
 
     /**
      * Create a CallFunc
      */
-    public static CallFunc create(String funcName, ConnectContext ctx, List<Expression> args, String stmt) {
-        // MetaClient client = new MetaClient();
-        // StoredProcedure proc = client.getStoredProcedure(funcName, ctx.getCurrentCatalog().getName(),
-        //         ctx.getDatabase());
-        // StmtExecutor executor = new StmtExecutor(ctx, proc.getSource());
-        // executor.parseByNereids();
-        // CreateProcedureCommand logicalPlan
-        //         = (CreateProcedureCommand) ((LogicalPlanAdapter) executor.getParsedStmt()).getLogicalPlan();
-        // return new CallProcedure(proc, args,
-        //         getOriginSql(logicalPlan.getCreateProcedureContext().procBlock().beginEndBlock().block()));
-
+    public static CallFunc create(ConnectContext ctx, String source) {
         HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
         if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
             hplsqlQueryExecutor = new HplsqlQueryExecutor();
             ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
         }
-        return new CallProcedure(hplsqlQueryExecutor, args, stmt);
+        return new CallProcedure(hplsqlQueryExecutor, ctx, source);
     }
 
     @Override
     public void run() {
-        // QueryResult query = queryExecutor.executeQuery(stmt, null);
-        executor.execute(stmt);
+        executor.execute(ctx, source);
     }
 }

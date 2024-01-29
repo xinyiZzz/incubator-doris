@@ -18,7 +18,7 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Exec.java
 // and modified by Doris
 
-package org.apache.doris.plsql;
+package org.apache.doris.plsqlbak;
 
 import org.apache.doris.hplsql.Arguments;
 import org.apache.doris.hplsql.Conf;
@@ -38,12 +38,10 @@ import org.apache.doris.hplsql.packages.InMemoryPackageRegistry;
 import org.apache.doris.hplsql.packages.PackageRegistry;
 import org.apache.doris.hplsql.store.MetaClient;
 import org.apache.doris.nereids.DorisParser.CallProcedureContext;
-import org.apache.doris.nereids.DorisParser.ProcedureStatementContext;
 import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
-import org.apache.doris.plsql.Var.Type;
-import org.apache.doris.plsql.functions.DorisFunctionRegistry;
-import org.apache.doris.plsql.functions.FunctionRegistry;
+import org.apache.doris.plsqlbak.Var.Type;
+import org.apache.doris.plsqlbak.functions.DorisFunctionRegistry;
 import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -132,7 +130,7 @@ public class Exec implements Closeable {
     boolean info = true;
     boolean offline = false;
 
-    ProcedureStatementContext lastStmt = null;
+    // ProcedureStatementContext lastStmt = null;
     PLSqlLogicalPlanBuilder logicalPlanBuilder;
 
     public Exec() {
@@ -289,8 +287,8 @@ public class Exec implements Closeable {
             functionCall(ctx, functionName, arguments, connectContext);
             // } else if (ctx.expr_dot() != null) {
             //     visitExpr_dot(ctx.expr_dot());
-            // } else if (ctx.ident() != null) {
-            //     functionCall(ctx, ctx.ident(), null);
+            // } else if (ctx.ident_pl() != null) {
+            //     functionCall(ctx, ctx.ident_pl(), null);
             // }
         } finally {
             exec.inCallStmt = false;

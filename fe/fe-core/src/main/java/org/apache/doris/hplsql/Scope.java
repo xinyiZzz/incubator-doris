@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * HPL/SQL block scope
+ * PL/SQL block scope
  */
 public class Scope {
 

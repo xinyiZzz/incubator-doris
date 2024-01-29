@@ -292,7 +292,7 @@ public class Expression {
      * Cursor attribute %ISOPEN, %FOUND and %NOTFOUND
      */
     public void execCursorAttribute(org.apache.doris.hplsql.HplsqlParser.Expr_cursor_attributeContext ctx) {
-        String name = ctx.ident().getText();
+        String name = ctx.ident_pl().getText();
         Var val = new Var(Var.Type.BOOL);
         Var cursorVar = exec.findCursor(name);
         if (cursorVar != null) {

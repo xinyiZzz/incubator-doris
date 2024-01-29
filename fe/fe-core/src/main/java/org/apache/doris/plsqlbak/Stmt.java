@@ -18,20 +18,9 @@
 // https://github.com/apache/hive/blob/master/hplsql/src/main/java/org/apache/hive/hplsql/Stmt.java
 // and modified by Doris
 
-package org.apache.doris.plsql;
+package org.apache.doris.plsqlbak;
 
-import org.apache.doris.common.AnalysisException;
-import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.hplsql.executor.QueryExecutor;
-import org.apache.doris.hplsql.executor.QueryResult;
-import org.apache.doris.nereids.DorisParser.CloseStmtContext;
-import org.apache.doris.nereids.DorisParser.DeclareCursorItemContext;
-import org.apache.doris.nereids.DorisParser.FetchStmtContext;
-import org.apache.doris.nereids.DorisParser.IfPlsqlStmtContext;
-import org.apache.doris.nereids.DorisParser.LeaveStmtContext;
-import org.apache.doris.nereids.DorisParser.OpenStmtContext;
-import org.apache.doris.nereids.DorisParser.UnconditionalLoopStmtContext;
-import org.apache.doris.plsql.Var.Type;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -195,7 +184,7 @@ public class Stmt {
                         //     trace(ctx, var, queryResult.metadata(), i);
                         // }
                         // } else if (trace) {
-                        //     trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
+                        //     trace(ctx, "Variable not found: " + ctx.ident_pl(i + 1).getText());
                     }
                 }
                 // exec.incRowCount();

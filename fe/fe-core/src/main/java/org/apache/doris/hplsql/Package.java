@@ -89,9 +89,9 @@ public class Package {
             if (c.declare_stmt_item() != null) {
                 visit(c);
             } else if (c.T_FUNCTION() != null) {
-                publicFuncs.add(c.ident().getText().toUpperCase());
+                publicFuncs.add(c.ident_pl().getText().toUpperCase());
             } else if (c.T_PROC() != null || c.T_PROCEDURE() != null) {
-                publicProcs.add(c.ident().getText().toUpperCase());
+                publicProcs.add(c.ident_pl().getText().toUpperCase());
             }
         }
     }
@@ -106,7 +106,7 @@ public class Package {
             if (c.declare_stmt_item() != null) {
                 visit(c);
             } else if (c.create_function_stmt() != null) {
-                func.put(c.create_function_stmt().ident().getText().toUpperCase(), c.create_function_stmt());
+                func.put(c.create_function_stmt().ident_pl().getText().toUpperCase(), c.create_function_stmt());
             } else if (c.create_procedure_stmt() != null) {
                 proc.put(c.create_procedure_stmt().ident(0).getText().toUpperCase(), c.create_procedure_stmt());
             }

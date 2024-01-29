@@ -20,8 +20,13 @@
 
 package org.apache.doris.hplsql.functions;
 
+import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_routine_param_itemContext;
+import org.apache.doris.nereids.PLParserParser.Create_routine_paramsContext;
+import org.apache.doris.nereids.PLParserParser.ExprContext;
+import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
 import org.apache.doris.hplsql.Exec;
-import org.apache.doris.hplsql.HplsqlParser;
 import org.apache.doris.hplsql.Scope;
 import org.apache.doris.hplsql.Var;
 import org.apache.doris.hplsql.exception.ArityException;
@@ -36,11 +41,11 @@ import java.util.Map;
 /**
  * HPL/SQL functions
  */
-public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xinyi 这个还有用么 // 脚本执行的时候用这个
+public class InMemoryFunctionRegistry implements FunctionRegistry { //脚本执行的时候用这个
     Exec exec;
     private BuiltinFunctions builtinFunctions;
-    HashMap<String, HplsqlParser.Create_function_stmtContext> funcMap = new HashMap<>();
-    HashMap<String, HplsqlParser.Create_procedure_stmtContext> procMap = new HashMap<>();
+    HashMap<String, Create_function_stmtContext> funcMap = new HashMap<>();
+    HashMap<String, Create_procedure_stmtContext> procMap = new HashMap<>();
     boolean trace = false;
 
     public InMemoryFunctionRegistry(Exec e, BuiltinFunctions builtinFunctions) {
@@ -61,7 +66,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     }
 
     @Override
-    public boolean exec(String name, HplsqlParser.Expr_func_paramsContext ctx) {
+    public boolean exec(String name, Expr_func_paramsContext ctx) {
         if (builtinFunctions.exec(name, ctx)) {
             return true;
         }
@@ -74,8 +79,8 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     /**
      * Execute a user-defined function
      */
-    private boolean execFunction(String name, HplsqlParser.Expr_func_paramsContext ctx) {
-        HplsqlParser.Create_function_stmtContext userCtx = funcMap.get(name);
+    private boolean execFunction(String name, Expr_func_paramsContext ctx) {
+        Create_function_stmtContext userCtx = funcMap.get(name);
         if (userCtx == null) {
             return false;
         }
@@ -96,11 +101,11 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     /**
      * Execute a stored procedure using CALL or EXEC statement passing parameters
      */
-    private boolean execProc(String name, HplsqlParser.Expr_func_paramsContext ctx) {
+    private boolean execProc(String name, Expr_func_paramsContext ctx) {
         if (trace) {
             trace(ctx == null ? null : ctx.getParent(), "EXEC PROCEDURE " + name);
         }
-        HplsqlParser.Create_procedure_stmtContext procCtx = procMap.get(name);
+        Create_procedure_stmtContext procCtx = procMap.get(name);
         if (procCtx == null) {
             trace(ctx.getParent(), "Procedure not found");
             return false;
@@ -127,8 +132,8 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     /**
      * Set parameters for user-defined function call
      */
-    public static void setCallParameters(String procName, HplsqlParser.Expr_func_paramsContext actual,
-            ArrayList<Var> actualValues, HplsqlParser.Create_routine_paramsContext formal, HashMap<String, Var> out,
+    public static void setCallParameters(String procName, Expr_func_paramsContext actual,
+            ArrayList<Var> actualValues, Create_routine_paramsContext formal, HashMap<String, Var> out,
             Exec exec) {
         if (actual == null || actual.func_param() == null || actualValues == null) {
             return;
@@ -139,9 +144,9 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
             throw new ArityException(actual.getParent(), procName, formalCnt, actualCnt);
         }
         for (int i = 0; i < actualCnt; i++) {
-            HplsqlParser.ExprContext a = actual.func_param(i).expr();
-            HplsqlParser.Create_routine_param_itemContext p = getCallParameter(actual, formal, i);
-            String name = p.ident().getText();
+            ExprContext a = actual.func_param(i).expr();
+            Create_routine_param_itemContext p = getCallParameter(actual, formal, i);
+            String name = p.ident_pl().getText();
             String type = p.dtype().getText();
             String len = null;
             String scale = null;
@@ -180,15 +185,15 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     /**
      * Get call parameter definition by name (if specified) or position
      */
-    static HplsqlParser.Create_routine_param_itemContext getCallParameter(HplsqlParser.Expr_func_paramsContext actual,
-            HplsqlParser.Create_routine_paramsContext formal, int pos) {
+    static Create_routine_param_itemContext getCallParameter(Expr_func_paramsContext actual,
+            Create_routine_paramsContext formal, int pos) {
         String named;
         int outPos = pos;
-        if (actual.func_param(pos).ident() != null) {
-            named = actual.func_param(pos).ident().getText();
+        if (actual.func_param(pos).ident_pl() != null) {
+            named = actual.func_param(pos).ident_pl().getText();
             int cnt = formal.create_routine_param_item().size();
             for (int i = 0; i < cnt; i++) {
-                if (named.equalsIgnoreCase(formal.create_routine_param_item(i).ident().getText())) {
+                if (named.equalsIgnoreCase(formal.create_routine_param_item(i).ident_pl().getText())) {
                     outPos = i;
                     break;
                 }
@@ -200,7 +205,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     /**
      * Evaluate actual call parameters
      */
-    public ArrayList<Var> getActualCallParameters(HplsqlParser.Expr_func_paramsContext actual) {
+    public ArrayList<Var> getActualCallParameters(Expr_func_paramsContext actual) {
         if (actual == null || actual.func_param() == null) {
             return null;
         }
@@ -213,8 +218,8 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     }
 
     @Override
-    public void addUserFunction(HplsqlParser.Create_function_stmtContext ctx) {
-        String name = ctx.ident().getText().toUpperCase();
+    public void addUserFunction(Create_function_stmtContext ctx) {
+        String name = ctx.ident_pl().getText().toUpperCase();
         if (builtinFunctions.exists(name)) {
             exec.info(ctx, name + " is a built-in function which cannot be redefined.");
             return;
@@ -226,8 +231,8 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // hplsql-xi
     }
 
     @Override
-    public void addUserProcedure(HplsqlParser.Create_procedure_stmtContext ctx) {
-        String name = ctx.ident(0).getText().toUpperCase();
+    public void addUserProcedure(Create_procedure_stmtContext ctx) {
+        String name = ctx.ident_pl(0).getText().toUpperCase();
         if (builtinFunctions.exists(name)) {
             exec.info(ctx, name + " is a built-in function which cannot be redefined.");
             return;

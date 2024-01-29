@@ -34,7 +34,7 @@ singleStatement
     ;
 
 statement
-    : statementDefault # none
+    : explain? query outFileClause? # statementDefault
     | CREATE ROW POLICY (IF NOT EXISTS)? name=identifier
         ON table=multipartIdentifier
         AS type=(RESTRICTIVE | PERMISSIVE)
@@ -103,11 +103,7 @@ statement
     | ALTER TABLE table=relation
         DROP CONSTRAINT constraintName=errorCapturingIdentifier           #dropConstraint
     | CALL functionName=identifier LEFT_PAREN (expression (COMMA expression)*)? RIGHT_PAREN #callProcedure
-    | createProcedure #none
-    ;
-
-statementDefault
-    : explain? query outFileClause?
+    | (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN .*? RIGHT_PAREN .*? #createProcedure
     ;
 
 constraint
@@ -557,115 +553,6 @@ tabletList
 
 inlineTable
     : VALUES rowConstructor (COMMA rowConstructor)*
-    ;
-
-createProcedure
-    : (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN createRoutineParams? RIGHT_PAREN procedureBlock (identifier SEMICOLON)?
-    ; // TODO create_routine_options?  (T_AS | T_IS)? declare_block_inplace? label?
-
-createRoutineParams
-    : LEFT_PAREN RIGHT_PAREN
-    | LEFT_PAREN createRoutineParamItem (COMMA createRoutineParamItem)* RIGHT_PAREN
-    | {!_input.LT(1).getText().equalsIgnoreCase("IS") &&
-       !_input.LT(1).getText().equalsIgnoreCase("AS") &&
-       !(_input.LT(1).getText().equalsIgnoreCase("DYNAMIC") && _input.LT(2).getText().equalsIgnoreCase("RESULT"))
-       }?
-      createRoutineParamItem (COMMA createRoutineParamItem)*
-    ;
-
-createRoutineParamItem
-    : (IN | OUT | INOUT | IN OUT)? identifier dataType // TODO dtype_len? dtype_attr* dtype_default?
-    | identifier (IN | OUT | INOUT | IN OUT)? dataType // TODO dtype_len? dtype_attr* dtype_default?
-    ;
-
-block
-    : ((beginEndBlock | procedureStatement SEMICOLON*) GO?)+
-    ;
-
-beginEndBlock
-    : BEGIN block blockEnd // TODO declare_block? exception_block?
-    ;
-
-blockEnd
-    : {!_input.LT(2).getText().equalsIgnoreCase("TRANSACTION")}? END
-    ;
-
-procedureBlock
-    : beginEndBlock
-    | (procedureStatement SEMICOLON*)+ GO?
-    ;
-
-procedureStatement
-     : procedureSelect
-     | unconditionalLoopStmt
-     | declareStatement
-     | openStmt
-     | fetchStmt
-     | ifStmt
-     | leaveStmt
-     | label
-     ;
-
-procedureSelect
-    : statementDefault
-    ;
-
-unconditionalLoopStmt
-    : LOOP block END LOOP
-    ;
-
-leaveStmt
-    : LEAVE identifier?
-    ;
-
-declareStatement
-    : DECLARE declareStatementItem (COMMA declareStatementItem)*
-    ;
-
-declareStatementItem // TODO declare_condition_item declare_handler_item declare_temporary_table_item
-    : declareCursorItem
-    | declareVarItem
-    ;
-
-declareCursorItem
-    : (CURSOR identifier | identifier CURSOR) (IS | AS | FOR) (query | expression ) // TODO (cursor_with_return | cursor_without_return)?
-    ;
-
-declareVarItem
-    : identifier (COMMA identifier)* AS? dataType // TODO dtype_len? dtype_attr* dtype_default?
-    | identifier CONSTANT AS? dataType // TODO  dtype_len? dtype_default
-    ;
-
-openStmt
-    : OPEN identifier (FOR (query | expression))?
-    ;
-
-fetchStmt
-    : FETCH FROM? identifier INTO identifier (COMMA identifier)* // TODO bulk_collect_clause? fetch_limit?
-    ;
-
-closeStmt
-    : CLOSE identifier // TODO use label
-    ;
-
-ifStmt
-    : ifPlsqlStmt // TODO if_tsql_stmt if_bteq_stmt
-    ;
-
-ifPlsqlStmt :
-       IF booleanExpression THEN block elseifBlock* elseBlock? END IF
-     ;
-
-elseifBlock
-    : (ELSIF | ELSEIF) booleanExpression THEN block
-    ;
-
-elseBlock
-    : ELSE block
-    ;
-
-label
-    : identifier // TODO label should not contain special characters
     ;
 
 // -----------------Expression-----------------

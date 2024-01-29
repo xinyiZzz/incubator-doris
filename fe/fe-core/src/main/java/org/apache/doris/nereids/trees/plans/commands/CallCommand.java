@@ -17,21 +17,17 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
-import org.apache.doris.hplsql.Conf;
-import org.apache.doris.hplsql.executor.DorisQueryExecutor;
-import org.apache.doris.hplsql.executor.HplsqlResult;
-import org.apache.doris.nereids.DorisParser.CallProcedureContext;
-import org.apache.doris.nereids.trees.expressions.Expression;
+import org.apache.doris.nereids.analyzer.UnboundFunction;
 import org.apache.doris.nereids.trees.plans.PlanType;
+import org.apache.doris.nereids.trees.plans.commands.call.CallFunc;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
-import org.apache.doris.plsql.Exec;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
+import java.util.Objects;
 
 /**
  * call func()
@@ -39,48 +35,19 @@ import java.util.List;
 public class CallCommand extends Command implements ForwardWithSync {
     public static final Logger LOG = LogManager.getLogger(CallCommand.class);
 
-    // private final UnboundFunction unboundFunction;
-    private CallProcedureContext ctx;
-    private String functionName;
-    private List<Expression> arguments;
-
-    // /**
-    //  * constructor
-    //  */
-    // public CallCommand(UnboundFunction unboundFunction, CallProcedureContext stmt) {
-    //     super(PlanType.CALL_COMMAND);
-    //     this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
-    //     this.stmt = Objects.requireNonNull(stmt, "stmt is null");
-    // }
+    private final UnboundFunction unboundFunction;
 
     /**
      * constructor
      */
-    public CallCommand(CallProcedureContext ctx, String functionName, List<Expression> arguments) {
+    public CallCommand(UnboundFunction unboundFunction) {
         super(PlanType.CALL_COMMAND);
-        this.ctx = ctx;
-        this.functionName = functionName;
-        this.arguments = arguments;
+        this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
     }
-
     @Override
-    public void run(ConnectContext connectContext, StmtExecutor executor) throws Exception {
-        // CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction, stmt);
-        // analyzedFunc.run();
-        connectContext.setRunProcedure(true);
-        connectContext.getSessionVariable().enableFallbackToOriginalPlanner = false; // TODO delete
-        String oldDialect = connectContext.getSessionVariable().getSqlDialect();
-        connectContext.getSessionVariable().setSqlDialect("plsql");
-        HplsqlResult result = new HplsqlResult();
-        Exec exec = new Exec(new Conf(), result, new DorisQueryExecutor(), result);
-        exec.init();
-        connectContext.setProcedureExec(exec);
-        exec.visitCall_stmt(connectContext, ctx, functionName, arguments);
-        connectContext.getMysqlChannel().reset();
-        // connectContext.getExecutor().sendEmptyFields();
-        connectContext.getState().setOk();
-        connectContext.setRunProcedure(false);
-        connectContext.getSessionVariable().setSqlDialect(oldDialect);
+    public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
+        CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction);
+        analyzedFunc.run();
     }
 
     @Override

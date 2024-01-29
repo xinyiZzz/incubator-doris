@@ -70,7 +70,6 @@ import org.apache.doris.nereids.DorisParser.ConstantContext;
 import org.apache.doris.nereids.DorisParser.ConstantSeqContext;
 import org.apache.doris.nereids.DorisParser.CreateMTMVContext;
 import org.apache.doris.nereids.DorisParser.CreateProcedureContext;
-import org.apache.doris.nereids.DorisParser.CreateRoutineParamItemContext;
 import org.apache.doris.nereids.DorisParser.CreateRowPolicyContext;
 import org.apache.doris.nereids.DorisParser.CreateTableContext;
 import org.apache.doris.nereids.DorisParser.CteContext;
@@ -466,10 +465,6 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitStatementDefault(StatementDefaultContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-            ConnectContext.get().getProcedureExec().select.visitStatementDefault(ctx);
-            return null;
-        }
         LogicalPlan plan = plan(ctx.query());
         if (ctx.outFileClause() != null) {
             plan = withOutFile(plan, ctx.outFileClause());
@@ -1181,10 +1176,6 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitRegularQuerySpecification(RegularQuerySpecificationContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-            ConnectContext.get().getProcedureExec().select.visitRegularQuerySpecification(ctx);
-            return null;
-        }
         return ParserUtils.withOrigin(ctx, () -> {
             SelectClauseContext selectCtx = ctx.selectClause();
             LogicalPlan selectPlan;
@@ -3205,39 +3196,16 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
         List<Expression> arguments = ctx.expression().stream()
                 .<Expression>map(this::typedVisit)
                 .collect(ImmutableList.toImmutableList());
-        // UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments);
-        return new CallCommand(ctx, functionName, arguments);
+        UnboundFunction unboundFunction = new UnboundFunction(functionName, arguments, getOriginSql(ctx));
+        return new CallCommand(unboundFunction);
     }
 
     @Override
     public LogicalPlan visitCreateProcedure(CreateProcedureContext ctx) {
         return ParserUtils.withOrigin(ctx, () -> {
-            // exec.functions.addUserProcedure(ctx);
-            // addLocalUdf(ctx);                      // Add procedures as they can be invoked by functions
-
             LogicalPlan createProcedurePlan;
-            String name = ctx.identifier(0).getText().toUpperCase();
-
-            List<Map<String, DataType>> arguments = new ArrayList<>();
-            for (CreateRoutineParamItemContext routineParamItem : ctx.createRoutineParams().createRoutineParamItem()) {
-                String argName = routineParamItem.identifier().getText();
-                if (!(routineParamItem.dataType() instanceof PrimitiveDataTypeContext)) {
-                    throw new ParseException("Procedure parameter type not support ComplexDataType ", ctx);
-                }
-                DataType argType = visitPrimitiveDataType(((PrimitiveDataTypeContext) routineParamItem.dataType()));
-                argType = argType.conversion();
-                Map<String, DataType> arg = new HashMap<>();
-                arg.put(argName, argType);
-                arguments.add(arg);
-            }
-            // if (builtinFunctions.exists(name)) {
-            //     exec.info(ctx, name + " is a built-in function which cannot be redefined.");
-            //     return;
-            // }
-            // trace(ctx, "CREATE PROCEDURE " + name);
-            // saveInCache(name, ctx);
-            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null, ctx,
-                    arguments);
+            String name = ctx.identifier().getText().toUpperCase();
+            createProcedurePlan = new CreateProcedureCommand(name, getOriginSql(ctx), ctx.REPLACE() != null);
             return createProcedurePlan;
         });
     }

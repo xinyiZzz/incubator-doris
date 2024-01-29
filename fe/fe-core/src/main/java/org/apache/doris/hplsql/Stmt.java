@@ -20,6 +20,12 @@
 
 package org.apache.doris.hplsql;
 
+import org.apache.doris.common.AnalysisException;
+import org.apache.doris.nereids.PLParserParser.Allocate_cursor_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Associate_locator_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Declare_cursor_itemContext;
+import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
 import org.apache.doris.hplsql.Var.Type;
 import org.apache.doris.hplsql.exception.QueryException;
 import org.apache.doris.hplsql.executor.Metadata;
@@ -28,13 +34,11 @@ import org.apache.doris.hplsql.executor.QueryResult;
 import org.apache.doris.hplsql.objects.Table;
 
 import org.antlr.v4.runtime.ParserRuleContext;
-import org.antlr.v4.runtime.Token;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -64,14 +68,14 @@ public class Stmt {
     /**
      * ALLOCATE CURSOR statement
      */
-    public Integer allocateCursor(org.apache.doris.hplsql.HplsqlParser.Allocate_cursor_stmtContext ctx) {
+    public Integer allocateCursor(Allocate_cursor_stmtContext ctx) {
         trace(ctx, "ALLOCATE CURSOR");
-        String name = ctx.ident(0).getText();
+        String name = ctx.ident_pl(0).getText();
         Var cur = null;
         if (ctx.T_PROCEDURE() != null) {
-            cur = exec.consumeReturnCursor(ctx.ident(1).getText());
+            cur = exec.consumeReturnCursor(ctx.ident_pl(1).getText());
         } else if (ctx.T_RESULT() != null) {
-            cur = exec.findVariable(ctx.ident(1).getText());
+            cur = exec.findVariable(ctx.ident_pl(1).getText());
             if (cur != null && cur.type != Type.RS_LOCATOR) {
                 cur = null;
             }
@@ -88,17 +92,17 @@ public class Stmt {
     /**
      * ASSOCIATE LOCATOR statement
      */
-    public Integer associateLocator(org.apache.doris.hplsql.HplsqlParser.Associate_locator_stmtContext ctx) {
+    public Integer associateLocator(Associate_locator_stmtContext ctx) {
         trace(ctx, "ASSOCIATE LOCATOR");
-        int cnt = ctx.ident().size();
+        int cnt = ctx.ident_pl().size();
         if (cnt < 2) {
             return -1;
         }
-        String procedure = ctx.ident(cnt - 1).getText();
+        String procedure = ctx.ident_pl(cnt - 1).getText();
         for (int i = 0; i < cnt - 1; i++) {
             Var cur = exec.consumeReturnCursor(procedure);
             if (cur != null) {
-                String name = ctx.ident(i).getText();
+                String name = ctx.ident_pl(i).getText();
                 Var loc = exec.findVariable(name);
                 if (loc == null) {
                     loc = new Var(name, Type.RS_LOCATOR, cur.value);
@@ -114,16 +118,16 @@ public class Stmt {
     /**
      * DECLARE cursor statement
      */
-    public Integer declareCursor(org.apache.doris.hplsql.HplsqlParser.Declare_cursor_itemContext ctx) {
-        String name = ctx.ident().getText();
+    public Integer declareCursor(Declare_cursor_itemContext ctx) {
+        String name = ctx.ident_pl().getText();
         if (trace) {
             trace(ctx, "DECLARE CURSOR " + name);
         }
         Cursor cursor = new Cursor(null);
         if (ctx.expr() != null) {
             cursor.setExprCtx(ctx.expr());
-        } else if (ctx.select_stmt() != null) {
-            cursor.setSelectCtx(ctx.select_stmt());
+        } else if (ctx.query() != null) {
+            cursor.setSelectCtx(ctx.query());
         }
         if (ctx.cursor_with_return() != null) {
             cursor.setWithReturn(true);
@@ -134,314 +138,16 @@ public class Stmt {
     }
 
     /**
-     * CREATE TABLE statement
-     */
-    public Integer createTable(org.apache.doris.hplsql.HplsqlParser.Create_table_stmtContext ctx) {
-        trace(ctx, "CREATE TABLE");
-        StringBuilder sql = new StringBuilder();
-        exec.append(sql, ctx.T_CREATE(), ctx.T_TABLE());
-        exec.append(sql, evalPop(ctx.table_name()).toString(), ctx.T_TABLE().getSymbol(), ctx.table_name().getStart());
-        Token last = ctx.table_name().getStop();
-        if (ctx.create_table_preoptions() != null) {
-            String preopt = evalPop(ctx.create_table_preoptions()).toString();
-            if (preopt != null) {
-                sql.append(" " + preopt);
-            }
-            last = ctx.create_table_preoptions().stop;
-        }
-        sql.append(createTableDefinition(ctx.create_table_definition(), last));
-        trace(ctx, sql.toString());
-        QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
-        if (query.error()) {
-            exec.signal(query);
-            return 1;
-        }
-        exec.setSqlSuccess();
-        query.close();
-        return 0;
-    }
-
-    /**
-     * Get CREATE TABLE definition (columns or query)
-     */
-    String createTableDefinition(org.apache.doris.hplsql.HplsqlParser.Create_table_definitionContext ctx, Token last) {
-        StringBuilder sql = new StringBuilder();
-        org.apache.doris.hplsql.HplsqlParser.Create_table_columnsContext colCtx = ctx.create_table_columns();
-        if (colCtx != null) {
-            int cnt = colCtx.create_table_columns_item().size();
-            for (int i = 0; i < cnt; i++) {
-                org.apache.doris.hplsql.HplsqlParser.Create_table_columns_itemContext col
-                        = colCtx.create_table_columns_item(i);
-                if (col.create_table_column_cons() != null) {
-                    last = col.getStop();
-                    continue;
-                }
-                exec.append(sql, evalPop(col.column_name()).toString(), last, col.column_name().getStop());
-                exec.append(sql, exec.evalPop(col.dtype(), col.dtype_len()), col.column_name().getStop(),
-                        col.dtype().getStart());
-                last = col.getStop();
-            }
-            exec.append(sql, ctx.T_CLOSE_P().getText(), last, ctx.T_CLOSE_P().getSymbol());
-        } else if (ctx.T_LIKE() != null) {
-            sql.append(" ").append(ctx.T_LIKE().getText()).append(" ").append(evalPop(ctx.table_name()));
-        } else { // CREATE TABLE AS SELECT statement
-            exec.append(sql, evalPop(ctx.select_stmt()).toString(), last, ctx.select_stmt().getStart());
-            if (ctx.T_CLOSE_P() != null) {
-                exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.select_stmt().stop, ctx.T_CLOSE_P().getSymbol());
-            }
-        }
-        org.apache.doris.hplsql.HplsqlParser.Create_table_optionsContext options = ctx.create_table_options();
-        if (options != null) {
-            String opt = evalPop(options).toString();
-            if (opt != null) {
-                sql.append(" " + opt);
-            }
-        }
-        return sql.toString();
-    }
-
-    /**
-     * CREATE TABLE options for Hive
-     */
-    public Integer createTableHiveOptions(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_hive_itemContext ctx) {
-        if (ctx.create_table_hive_row_format() != null) {
-            createTableHiveRowFormat(ctx.create_table_hive_row_format());
-        } else if (ctx.T_STORED() != null) {
-            evalString(exec.getText(ctx));
-        }
-        return 0;
-    }
-
-    public Integer createTableHiveRowFormat(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_hive_row_formatContext ctx) {
-        StringBuilder sql = new StringBuilder();
-        sql.append("ROW FORMAT DELIMITED");
-        int cnt = ctx.create_table_hive_row_format_fields().size();
-        for (int i = 0; i < cnt; i++) {
-            org.apache.doris.hplsql.HplsqlParser.Create_table_hive_row_format_fieldsContext c
-                    = ctx.create_table_hive_row_format_fields(i);
-            if (c.T_FIELDS() != null) {
-                sql.append(" FIELDS TERMINATED BY " + evalPop(c.expr(0)).toSqlString());
-            } else if (c.T_LINES() != null) {
-                sql.append(" LINES TERMINATED BY " + evalPop(c.expr(0)).toSqlString());
-            }
-        }
-        evalString(sql);
-        return 0;
-    }
-
-    /**
-     * CREATE TABLE options for MySQL
-     */
-    public Integer createTableMysqlOptions(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_mysql_itemContext ctx) {
-        if (ctx.T_COMMENT() != null) {
-            evalString(ctx.T_COMMENT().getText() + " " + evalPop(ctx.expr()).toSqlString());
-        }
-        return 0;
-    }
-
-    /**
-     * DECLARE TEMPORARY TABLE statement
-     */
-    public Integer declareTemporaryTable(org.apache.doris.hplsql.HplsqlParser.Declare_temporary_table_itemContext ctx) {
-        trace(ctx, "DECLARE TEMPORARY TABLE");
-        return createTemporaryTable(ctx.qident(), ctx.create_table_definition(), ctx.create_table_preoptions());
-    }
-
-    /**
-     * CREATE DATABASE | SCHEMA statement
-     */
-    public Integer createDatabase(org.apache.doris.hplsql.HplsqlParser.Create_database_stmtContext ctx) {
-        trace(ctx, "CREATE DATABASE");
-        StringBuilder sql = new StringBuilder();
-        sql.append(ctx.T_CREATE().getText() + " ");
-        if (ctx.T_DATABASE() != null) {
-            sql.append(ctx.T_DATABASE().getText() + " ");
-        } else {
-            sql.append(ctx.T_SCHEMA().getText() + " ");
-        }
-        if (ctx.T_IF() != null) {
-            sql.append(exec.getText(ctx, ctx.T_IF().getSymbol(), ctx.T_EXISTS().getSymbol()) + " ");
-        }
-        boolean oldBuildSql = exec.buildSql;
-        exec.buildSql = true;
-        sql.append(evalPop(ctx.expr()).toString());
-        exec.buildSql = oldBuildSql;
-        int cnt = ctx.create_database_option().size();
-        for (int i = 0; i < cnt; i++) {
-            org.apache.doris.hplsql.HplsqlParser.Create_database_optionContext option = ctx.create_database_option(i);
-            if (option.T_COMMENT() != null) {
-                sql.append(" " + option.T_COMMENT().getText() + " " + evalPop(option.expr()).toSqlString());
-            } else if (option.T_LOCATION() != null) {
-                sql.append(" " + option.T_LOCATION().getText() + " " + evalPop(option.expr()).toSqlString());
-            }
-        }
-        trace(ctx, sql.toString());
-        QueryResult query = queryExecutor.executeQuery(sql.toString(), ctx);
-        if (query.error()) {
-            exec.signal(query);
-            return 1;
-        }
-        exec.setSqlSuccess();
-        query.close();
-        return 0;
-    }
-
-    /**
-     * CREATE LOCAL TEMPORARY | VOLATILE TABLE statement
-     */
-    public Integer createLocalTemporaryTable(
-            org.apache.doris.hplsql.HplsqlParser.Create_local_temp_table_stmtContext ctx) {
-        trace(ctx, "CREATE LOCAL TEMPORARY TABLE");
-        return createTemporaryTable(ctx.qident(), ctx.create_table_definition(), ctx.create_table_preoptions());
-    }
-
-    /**
-     * Create a temporary table statement
-     */
-    public Integer createTemporaryTable(org.apache.doris.hplsql.HplsqlParser.QidentContext identCtx,
-            org.apache.doris.hplsql.HplsqlParser.Create_table_definitionContext defCtx,
-            org.apache.doris.hplsql.HplsqlParser.Create_table_preoptionsContext optCtx) {
-        StringBuilder sql = new StringBuilder();
-        String name = identCtx.getText();
-        String managedName = null;
-        Token last = identCtx.getStop();
-        if (optCtx != null) {
-            last = optCtx.stop;
-        }
-        if (conf.tempTables == Conf.TempTables.NATIVE) {
-            sql.append("CREATE TEMPORARY TABLE " + name);
-            sql.append(createTableDefinition(defCtx, last));
-        } else if (conf.tempTables == Conf.TempTables.MANAGED) {
-            managedName = name + "_" + UUID.randomUUID().toString().replace("-", "");
-            if (!conf.tempTablesSchema.isEmpty()) {
-                managedName = conf.tempTablesSchema + "." + managedName;
-            }
-            sql.append("CREATE TABLE " + managedName);
-            sql.append(createTableDefinition(defCtx, last));
-            if (!conf.tempTablesLocation.isEmpty()) {
-                sql.append("\nLOCATION '" + conf.tempTablesLocation + "/" + managedName + "'");
-            }
-            if (trace) {
-                trace(null, "Managed table name: " + managedName);
-            }
-        }
-        if (trace) {
-            trace(null, sql.toString());
-        }
-        if (sql != null) {
-            QueryResult query = queryExecutor.executeQuery(sql.toString(), null);
-            if (query.error()) {
-                exec.signal(query);
-                return 1;
-            }
-            if (managedName != null) {
-                exec.addManagedTable(name, managedName);
-            }
-            exec.setSqlSuccess();
-            query.close();
-        }
-        return 0;
-    }
-
-    /**
-     * DESCRIBE statement
-     */
-    public Integer describe(org.apache.doris.hplsql.HplsqlParser.Describe_stmtContext ctx) {
-        trace(ctx, "DESCRIBE");
-        String sql = "DESCRIBE " + evalPop(ctx.table_name()).toString();
-        trace(ctx, sql);
-        QueryResult query = queryExecutor.executeQuery(sql, ctx);
-        if (query.error()) {
-            exec.signal(query);
-            return 1;
-        }
-        try {
-            while (query.next()) {
-                for (int i = 0; i < query.columnCount(); i++) {
-                    if (i > 0) {
-                        console.print("\t");
-                    }
-                    console.print(query.column(i, String.class));
-                }
-                console.printLine("");
-            }
-        } catch (QueryException e) {
-            exec.signal(query);
-            query.close();
-            return 1;
-        }
-        exec.setSqlSuccess();
-        query.close();
-        return 0;
-    }
-
-    /**
-     * DROP statement
-     */
-    public Integer drop(org.apache.doris.hplsql.HplsqlParser.Drop_stmtContext ctx) {
-        trace(ctx, "DROP");
-        String sql = null;
-        if (ctx.T_TABLE() != null) {
-            sql = "DROP TABLE ";
-            if (ctx.T_EXISTS() != null) {
-                sql += "IF EXISTS ";
-            }
-            sql += evalPop(ctx.table_name()).toString();
-        } else if (ctx.T_PACKAGE() != null) {
-            exec.dropPackage(ctx, ctx.ident().getText().toUpperCase(), ctx.T_EXISTS() != null);
-        } else if (ctx.T_PROCEDURE() != null || ctx.T_FUNCTION() != null) {
-            exec.dropProcedure(ctx, ctx.ident().getText().toUpperCase(), ctx.T_EXISTS() != null);
-        } else if (ctx.T_DATABASE() != null || ctx.T_SCHEMA() != null) {
-            sql = "DROP DATABASE ";
-            if (ctx.T_EXISTS() != null) {
-                sql += "IF EXISTS ";
-            }
-            sql += evalPop(ctx.expr()).toString();
-        }
-        if (sql != null) {
-            trace(ctx, sql);
-            QueryResult query = queryExecutor.executeQuery(sql, ctx);
-            if (query.error()) {
-                exec.signal(query);
-                return 1;
-            }
-            exec.setSqlSuccess();
-            query.close();
-        }
-        return 0;
-    }
-
-    /**
-     * TRUNCATE statement
-     */
-    public Integer truncate(org.apache.doris.hplsql.HplsqlParser.Truncate_stmtContext ctx) {
-        trace(ctx, "TRUNCATE");
-        String sql = "TRUNCATE TABLE " + evalPop(ctx.table_name()).toString();
-        trace(ctx, sql);
-        QueryResult query = queryExecutor.executeQuery(sql, ctx);
-        if (query.error()) {
-            exec.signal(query);
-            return 1;
-        }
-        exec.setSqlSuccess();
-        query.close();
-        return 0;
-    }
-
-    /**
      * OPEN cursor statement
      */
-    public Integer open(org.apache.doris.hplsql.HplsqlParser.Open_stmtContext ctx) {
+    public Integer open(Open_stmtContext ctx) {
         trace(ctx, "OPEN");
         Cursor cursor = null;
         Var var = null;
-        String cursorName = ctx.ident().getText();
+        String cursorName = ctx.ident_pl().getText();
         String sql = null;
         if (ctx.T_FOR() != null) {                             // SELECT statement or dynamic SQL
-            sql = ctx.expr() != null ? evalPop(ctx.expr()).toString() : evalPop(ctx.select_stmt()).toString();
+            sql = ctx.expr() != null ? evalPop(ctx.expr()).toString() : evalPop(ctx.query()).toString();
             cursor = new Cursor(sql);
             var = exec.findCursor(cursorName);                      // Can be a ref cursor variable
             if (var == null) {
@@ -490,9 +196,9 @@ public class Stmt {
     /**
      * FETCH cursor statement
      */
-    public Integer fetch(org.apache.doris.hplsql.HplsqlParser.Fetch_stmtContext ctx) {
+    public Integer fetch(Fetch_stmtContext ctx) {
         trace(ctx, "FETCH");
-        String name = ctx.ident(0).getText();
+        String name = ctx.ident_pl(0).getText();
         Var varCursor = exec.findCursor(name);
         if (varCursor == null) {
             trace(ctx, "Cursor not found: " + name);
@@ -512,7 +218,7 @@ public class Stmt {
         // Assign values from the row to local variables
         try {
             Cursor cursor = (Cursor) varCursor.value;
-            int cols = ctx.ident().size() - 1;
+            int cols = ctx.ident_pl().size() - 1;
             QueryResult queryResult = cursor.getQueryResult();
 
             if (ctx.bulk_collect_clause() != null) {
@@ -535,10 +241,10 @@ public class Stmt {
                 if (queryResult.next()) {
                     cursor.setFetch(true);
                     for (int i = 0; i < cols; i++) {
-                        Var var = exec.findVariable(ctx.ident(i + 1).getText()); // FETCH into 后面的变量
+                        Var var = exec.findVariable(ctx.ident_pl(i + 1).getText()); // FETCH into 后面的变量
                         if (var != null) { // 变量要提前DECLARE定义
                             if (var.type != Var.Type.ROW) {
-                                var.setValue(queryResult, i); // 将每一列的值 set 到变量中
+                                var.setExpressionValue(queryResult, i); // 将每一列的值 set 到变量中
                             } else {
                                 var.setRowValues(queryResult); // ？
                             }
@@ -546,7 +252,7 @@ public class Stmt {
                                 trace(ctx, var, queryResult.metadata(), i);
                             }
                         } else if (trace) {
-                            trace(ctx, "Variable not found: " + ctx.ident(i + 1).getText());
+                            trace(ctx, "Variable not found: " + ctx.ident_pl(i + 1).getText());
                         }
                     }
                     exec.incRowCount();
@@ -559,19 +265,21 @@ public class Stmt {
         } catch (QueryException e) {
             exec.setSqlCode(e);
             exec.signal(Signal.Type.SQLEXCEPTION, e.getMessage(), e);
+        } catch (AnalysisException e) {
+            throw new RuntimeException(e);
         }
         return 0;
     }
 
-    private List<String> intoVariableNames(org.apache.doris.hplsql.HplsqlParser.Fetch_stmtContext ctx, int count) {
-        return IntStream.range(0, count).mapToObj(i -> ctx.ident(i + 1).getText()).collect(Collectors.toList());
+    private List<String> intoVariableNames(Fetch_stmtContext ctx, int count) {
+        return IntStream.range(0, count).mapToObj(i -> ctx.ident_pl(i + 1).getText()).collect(Collectors.toList());
     }
 
 
     /**
      * CLOSE cursor statement
      */
-    public Integer close(org.apache.doris.hplsql.HplsqlParser.Close_stmtContext ctx) {
+    public Integer close(Close_stmtContext ctx) {
         trace(ctx, "CLOSE");
         String name = ctx.L_ID().toString();
         Var var = exec.findVariable(name);
@@ -587,7 +295,7 @@ public class Stmt {
     /**
      * INCLUDE statement
      */
-    public Integer include(org.apache.doris.hplsql.HplsqlParser.Include_stmtContext ctx) {
+    public Integer include(Include_stmtContext ctx) {
         String file;
         if (ctx.file_name() != null) {
             file = ctx.file_name().getText();
@@ -602,7 +310,7 @@ public class Stmt {
     /**
      * IF statement (PL/SQL syntax)
      */
-    public Integer ifPlsql(org.apache.doris.hplsql.HplsqlParser.If_plsql_stmtContext ctx) {
+    public Integer ifPlsql(If_plsql_stmtContext ctx) {
         boolean trueExecuted = false;
         trace(ctx, "IF");
         if (evalPop(ctx.bool_expr()).isTrue()) {
@@ -630,7 +338,7 @@ public class Stmt {
     /**
      * IF statement (Transact-SQL syntax)
      */
-    public Integer ifTsql(org.apache.doris.hplsql.HplsqlParser.If_tsql_stmtContext ctx) {
+    public Integer ifTsql(If_tsql_stmtContext ctx) {
         trace(ctx, "IF");
         visit(ctx.bool_expr());
         if (exec.stackPop().isTrue()) {
@@ -646,7 +354,7 @@ public class Stmt {
     /**
      * IF statement (BTEQ syntax)
      */
-    public Integer ifBteq(org.apache.doris.hplsql.HplsqlParser.If_bteq_stmtContext ctx) {
+    public Integer ifBteq(If_bteq_stmtContext ctx) {
         trace(ctx, "IF");
         visit(ctx.bool_expr());
         if (exec.stackPop().isTrue()) {
@@ -659,7 +367,7 @@ public class Stmt {
     /**
      * Assignment from SELECT statement
      */
-    public Integer assignFromSelect(org.apache.doris.hplsql.HplsqlParser.Assignment_stmt_select_itemContext ctx) {
+    public Integer assignFromSelect(Assignment_stmt_select_itemContext ctx) {
         String sql = evalPop(ctx.select_stmt()).toString();
         if (trace) {
             trace(ctx, sql);
@@ -671,10 +379,10 @@ public class Stmt {
         }
         exec.setSqlSuccess();
         try {
-            int cnt = ctx.ident().size();
+            int cnt = ctx.ident_pl().size();
             if (query.next()) {
                 for (int i = 0; i < cnt; i++) {
-                    Var var = exec.findVariable(ctx.ident(i).getText());
+                    Var var = exec.findVariable(ctx.ident_pl(i).getText());
                     if (var != null) {
                         var.setValue(query, i);
                         if (trace) {
@@ -683,7 +391,7 @@ public class Stmt {
                             trace(ctx, "SET " + var.getName() + " = " + var.toString());
                         }
                     } else if (trace) {
-                        trace(ctx, "Variable not found: " + ctx.ident(i).getText());
+                        trace(ctx, "Variable not found: " + ctx.ident_pl(i).getText());
                     }
                 }
                 exec.incRowCount();
@@ -704,7 +412,7 @@ public class Stmt {
     /**
      * SQL INSERT statement
      */
-    public Integer insert(org.apache.doris.hplsql.HplsqlParser.Insert_stmtContext ctx) {
+    public Integer insert(Insert_stmtContext ctx) {
         exec.stmtConnList.clear();
         if (ctx.select_stmt() != null) {
             return insertSelect(ctx);
@@ -715,7 +423,7 @@ public class Stmt {
     /**
      * SQL INSERT SELECT statement
      */
-    public Integer insertSelect(org.apache.doris.hplsql.HplsqlParser.Insert_stmtContext ctx) {
+    public Integer insertSelect(Insert_stmtContext ctx) {
         trace(ctx, "INSERT SELECT");
         StringBuilder sql = new StringBuilder();
         sql.append(ctx.T_INSERT().getText() + " ");
@@ -743,7 +451,7 @@ public class Stmt {
     /**
      * SQL INSERT VALUES statement
      */
-    public Integer insertValues(org.apache.doris.hplsql.HplsqlParser.Insert_stmtContext ctx) {
+    public Integer insertValues(Insert_stmtContext ctx) {
         trace(ctx, "INSERT VALUES");
         String table = evalPop(ctx.table_name()).toString();
         String conn = exec.getObjectConnection(ctx.table_name().getText());
@@ -763,7 +471,7 @@ public class Stmt {
         }
         int rows = ctx.insert_stmt_rows().insert_stmt_row().size();
         for (int i = 0; i < rows; i++) {
-            org.apache.doris.hplsql.HplsqlParser.Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
+            Insert_stmt_rowContext row = ctx.insert_stmt_rows().insert_stmt_row(i);
             int cols = row.expr().size();
             for (int j = 0; j < cols; j++) {
                 String value = evalPop(row.expr(j)).toSqlString();
@@ -807,7 +515,7 @@ public class Stmt {
     /**
      * INSERT DIRECTORY statement
      */
-    public Integer insertDirectory(org.apache.doris.hplsql.HplsqlParser.Insert_directory_stmtContext ctx) {
+    public Integer insertDirectory(Insert_directory_stmtContext ctx) {
         trace(ctx, "INSERT DIRECTORY");
         StringBuilder sql = new StringBuilder();
         sql.append(ctx.T_INSERT().getText() + " " + ctx.T_OVERWRITE().getText() + " ");
@@ -831,7 +539,7 @@ public class Stmt {
      * GET DIAGNOSTICS EXCEPTION statement
      */
     public Integer getDiagnosticsException(
-            org.apache.doris.hplsql.HplsqlParser.Get_diag_stmt_exception_itemContext ctx) {
+            Get_diag_stmt_exception_itemContext ctx) {
         trace(ctx, "GET DIAGNOSTICS EXCEPTION");
         Signal signal = exec.signalPeek();
         if (signal == null || (signal != null && signal.type != Signal.Type.SQLEXCEPTION)) {
@@ -846,7 +554,7 @@ public class Stmt {
     /**
      * GET DIAGNOSTICS ROW_COUNT statement
      */
-    public Integer getDiagnosticsRowCount(org.apache.doris.hplsql.HplsqlParser.Get_diag_stmt_rowcount_itemContext ctx) {
+    public Integer getDiagnosticsRowCount(Get_diag_stmt_rowcount_itemContext ctx) {
         trace(ctx, "GET DIAGNOSTICS ROW_COUNT");
         exec.setVariable(ctx.qident().getText(), exec.getRowCount());
         return 0;
@@ -855,7 +563,7 @@ public class Stmt {
     /**
      * USE statement
      */
-    public Integer use(org.apache.doris.hplsql.HplsqlParser.Use_stmtContext ctx) {
+    public Integer use(Use_stmtContext ctx) {
         trace(ctx, "USE");
         return use(ctx, ctx.T_USE().toString() + " " + meta.normalizeIdentifierPart(ctx.expr().getText()));
     }
@@ -877,12 +585,12 @@ public class Stmt {
     /**
      * VALUES statement
      */
-    public Integer values(org.apache.doris.hplsql.HplsqlParser.Values_into_stmtContext ctx) {
+    public Integer values(Values_into_stmtContext ctx) {
         trace(ctx, "VALUES statement");
-        int cnt = ctx.ident().size();        // Number of variables and assignment expressions
+        int cnt = ctx.ident_pl().size();        // Number of variables and assignment expressions
         int ecnt = ctx.expr().size();
         for (int i = 0; i < cnt; i++) {
-            String name = ctx.ident(i).getText();
+            String name = ctx.ident_pl(i).getText();
             if (i < ecnt) {
                 visit(ctx.expr(i));
                 Var var = exec.setVariable(name);
@@ -897,7 +605,7 @@ public class Stmt {
     /**
      * WHILE statement
      */
-    public Integer while_(org.apache.doris.hplsql.HplsqlParser.While_stmtContext ctx) {
+    public Integer while_(While_stmtContext ctx) {
         trace(ctx, "WHILE - ENTERED");
         String label = exec.labelPop();
         while (true) {
@@ -918,7 +626,7 @@ public class Stmt {
     /**
      * FOR cursor statement
      */
-    public Integer forCursor(org.apache.doris.hplsql.HplsqlParser.For_cursor_stmtContext ctx) {
+    public Integer forCursor(For_cursor_stmtContext ctx) {
         trace(ctx, "FOR CURSOR - ENTERED");
         exec.enterScope(Scope.Type.LOOP);
         String cursor = ctx.L_ID().getText();
@@ -962,7 +670,7 @@ public class Stmt {
     /**
      * FOR (integer range) statement
      */
-    public Integer forRange(org.apache.doris.hplsql.HplsqlParser.For_range_stmtContext ctx) {
+    public Integer forRange(For_range_stmtContext ctx) {
         trace(ctx, "FOR RANGE - ENTERED");
         int start = evalPop(ctx.expr(0)).intValue();
         int end = evalPop(ctx.expr(1)).intValue();
@@ -979,7 +687,7 @@ public class Stmt {
         return 0;
     }
 
-    public Integer unconditionalLoop(org.apache.doris.hplsql.HplsqlParser.Unconditional_loop_stmtContext ctx) {
+    public Integer unconditionalLoop(Unconditional_loop_stmtContext ctx) {
         trace(ctx, "UNCONDITIONAL LOOP - ENTERED");
         String label = exec.labelPop();
         while (true) {
@@ -997,7 +705,7 @@ public class Stmt {
     /**
      * To set the Value index for FOR Statement
      */
-    private Var setIndex(int start, int end, org.apache.doris.hplsql.HplsqlParser.For_range_stmtContext ctx) {
+    private Var setIndex(int start, int end, For_range_stmtContext ctx) {
 
         if (ctx.T_REVERSE() == null) {
             return new Var(ctx.L_ID().getText(), Long.valueOf(start));
@@ -1009,7 +717,7 @@ public class Stmt {
     /**
      * To update the value of index for FOR Statement
      */
-    private void updateIndex(int step, Var index, org.apache.doris.hplsql.HplsqlParser.For_range_stmtContext ctx) {
+    private void updateIndex(int step, Var index, For_range_stmtContext ctx) {
 
         if (ctx.T_REVERSE() == null) {
             index.increment(step);
@@ -1021,7 +729,7 @@ public class Stmt {
     /**
      * EXEC, EXECUTE and EXECUTE IMMEDIATE statement to execute dynamic SQL or stored procedure
      */
-    public Integer exec(org.apache.doris.hplsql.HplsqlParser.Exec_stmtContext ctx) {
+    public Integer exec(Exec_stmtContext ctx) {
         if (execProc(ctx)) {
             return 0;
         }
@@ -1081,7 +789,7 @@ public class Stmt {
     /**
      * EXEC to execute a stored procedure
      */
-    public Boolean execProc(org.apache.doris.hplsql.HplsqlParser.Exec_stmtContext ctx) {
+    public Boolean execProc(Exec_stmtContext ctx) {
         String name = evalPop(ctx.expr()).toString().toUpperCase();
         if (exec.functions.exec(name, ctx.expr_func_params())) {
             return true;
@@ -1092,7 +800,7 @@ public class Stmt {
     /**
      * EXIT statement (leave the specified loop with a condition)
      */
-    public Integer exit(org.apache.doris.hplsql.HplsqlParser.Exit_stmtContext ctx) {
+    public Integer exit(Exit_stmtContext ctx) {
         trace(ctx, "EXIT");
         String label = "";
         if (ctx.L_ID() != null) {
@@ -1111,7 +819,7 @@ public class Stmt {
     /**
      * BREAK statement (leave the innermost loop unconditionally)
      */
-    public Integer break_(org.apache.doris.hplsql.HplsqlParser.Break_stmtContext ctx) {
+    public Integer break_(Break_stmtContext ctx) {
         trace(ctx, "BREAK");
         leaveLoop("");
         return 0;
@@ -1120,7 +828,7 @@ public class Stmt {
     /**
      * LEAVE statement (leave the specified loop unconditionally)
      */
-    public Integer leave(org.apache.doris.hplsql.HplsqlParser.Leave_stmtContext ctx) {
+    public Integer leave(Leave_stmtContext ctx) {
         trace(ctx, "LEAVE");
         String label = "";
         if (ctx.L_ID() != null) {
@@ -1140,7 +848,7 @@ public class Stmt {
     /**
      * UPDATE statement
      */
-    public Integer update(org.apache.doris.hplsql.HplsqlParser.Update_stmtContext ctx) {
+    public Integer update(Update_stmtContext ctx) {
         trace(ctx, "UPDATE");
         String sql = exec.getFormattedText(ctx);
         trace(ctx, sql);
@@ -1157,7 +865,7 @@ public class Stmt {
     /**
      * DELETE statement
      */
-    public Integer delete(org.apache.doris.hplsql.HplsqlParser.Delete_stmtContext ctx) {
+    public Integer delete(Delete_stmtContext ctx) {
         trace(ctx, "DELETE");
         String table = evalPop(ctx.table_name()).toString();
         StringBuilder sql = new StringBuilder();
@@ -1186,7 +894,7 @@ public class Stmt {
     /**
      * MERGE statement
      */
-    public Integer merge(org.apache.doris.hplsql.HplsqlParser.Merge_stmtContext ctx) {
+    public Integer merge(Merge_stmtContext ctx) {
         trace(ctx, "MERGE");
         String sql = exec.getFormattedText(ctx);
         trace(ctx, sql);
@@ -1203,7 +911,7 @@ public class Stmt {
     /**
      * PRINT Statement
      */
-    public Integer print(org.apache.doris.hplsql.HplsqlParser.Print_stmtContext ctx) {
+    public Integer print(Print_stmtContext ctx) {
         trace(ctx, "PRINT");
         if (ctx.expr() != null) {
             console.printLine(evalPop(ctx.expr()).toString());
@@ -1214,7 +922,7 @@ public class Stmt {
     /**
      * QUIT Statement
      */
-    public Integer quit(org.apache.doris.hplsql.HplsqlParser.Quit_stmtContext ctx) {
+    public Integer quit(Quit_stmtContext ctx) {
         trace(ctx, "QUIT");
         String rc = null;
         if (ctx.expr() != null) {
@@ -1227,7 +935,7 @@ public class Stmt {
     /**
      * SET current schema
      */
-    public Integer setCurrentSchema(org.apache.doris.hplsql.HplsqlParser.Set_current_schema_optionContext ctx) {
+    public Integer setCurrentSchema(Set_current_schema_optionContext ctx) {
         trace(ctx, "SET CURRENT SCHEMA");
         return use(ctx, "USE " + meta.normalizeIdentifierPart(evalPop(ctx.expr()).toString()));
     }
@@ -1235,9 +943,9 @@ public class Stmt {
     /**
      * SIGNAL statement
      */
-    public Integer signal(org.apache.doris.hplsql.HplsqlParser.Signal_stmtContext ctx) {
+    public Integer signal(Signal_stmtContext ctx) {
         trace(ctx, "SIGNAL");
-        Signal signal = new Signal(Signal.Type.USERDEFINED, ctx.ident().getText());
+        Signal signal = new Signal(Signal.Type.USERDEFINED, ctx.ident_pl().getText());
         exec.signal(signal);
         return 0;
     }
@@ -1245,7 +953,7 @@ public class Stmt {
     /**
      * SUMMARY statement
      */
-    public Integer summary(org.apache.doris.hplsql.HplsqlParser.Summary_stmtContext ctx) {
+    public Integer summary(Summary_stmtContext ctx) {
         trace(ctx, "SUMMARY");
         String table = null;
         String select = null;
@@ -1272,7 +980,7 @@ public class Stmt {
     }
 
     // Summary for column statistics
-    public Integer summaryStat(org.apache.doris.hplsql.HplsqlParser.Summary_stmtContext ctx, String table,
+    public Integer summaryStat(Summary_stmtContext ctx, String table,
             String select, Row row, String conn, Conn.Type connType) {
         StringBuilder sql = new StringBuilder("SELECT COUNT(*)");
         int maxColName = 11;
@@ -1358,7 +1066,7 @@ public class Stmt {
     }
 
     // Summary for top column values
-    public Integer summaryTop(org.apache.doris.hplsql.HplsqlParser.Summary_stmtContext ctx, String table, String select,
+    public Integer summaryTop(Summary_stmtContext ctx, String table, String select,
             Row row, String conn, Conn.Type connType) {
         // CAST AS INT does not work as expected (ID is still considered as STRING in ORDER BY for some reason)
         StringBuilder sql = new StringBuilder("SELECT id, col, cnt FROM ("
@@ -1500,7 +1208,7 @@ public class Stmt {
     /**
      * RESIGNAL statement
      */
-    public Integer resignal(org.apache.doris.hplsql.HplsqlParser.Resignal_stmtContext ctx) {
+    public Integer resignal(Resignal_stmtContext ctx) {
         trace(ctx, "RESIGNAL");
         if (ctx.T_SQLSTATE() != null) {
             String sqlstate = evalPop(ctx.expr(0)).toString();
@@ -1521,7 +1229,7 @@ public class Stmt {
     /**
      * RETURN statement
      */
-    public Integer return_(org.apache.doris.hplsql.HplsqlParser.Return_stmtContext ctx) {
+    public Integer return_(Return_stmtContext ctx) {
         trace(ctx, "RETURN");
         if (ctx.expr() != null) {
             eval(ctx.expr());

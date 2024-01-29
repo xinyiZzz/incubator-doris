@@ -20,8 +20,11 @@
 
 package org.apache.doris.hplsql;
 
+import org.apache.doris.common.AnalysisException;
+import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.hplsql.exception.TypeException;
 import org.apache.doris.hplsql.executor.QueryResult;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -36,7 +39,7 @@ public class Var {
     // Data types
     public enum Type {
         BOOL, CURSOR, DATE, DECIMAL, DERIVED_TYPE, DERIVED_ROWTYPE, DOUBLE, FILE, IDENT, BIGINT, INTERVAL, ROW,
-        RS_LOCATOR, STRING, STRINGLIST, TIMESTAMP, NULL, HPL_OBJECT
+        RS_LOCATOR, STRING, STRINGLIST, TIMESTAMP, NULL, HPL_OBJECT, EXPRESSION
     }
 
     public static final String DERIVED_TYPE = "DERIVED%TYPE";
@@ -63,6 +66,17 @@ public class Var {
         value = var.value;
         len = var.len;
         scale = var.scale;
+    }
+
+    public Var(Expression value) {
+        this.type = Type.EXPRESSION;
+        this.value = value;
+    }
+
+    public Var(String name, Expression value) {
+        this.name = name;
+        this.type = Type.EXPRESSION;
+        this.value = value;
     }
 
     public Var(Long value) {
@@ -204,6 +218,8 @@ public class Var {
                 value = org.apache.doris.hplsql.Utils.toDate(val.toString());
             } else if (type == Type.TIMESTAMP) {
                 value = org.apache.doris.hplsql.Utils.toTimestamp(val.toString());
+            } else if (type == Type.EXPRESSION) {
+                value = Literal.of(val.value);
             }
         } catch (NumberFormatException e) {
             throw new TypeException(null, type, val.type, val.value);
@@ -269,6 +285,11 @@ public class Var {
         } else if (type == java.sql.Types.FLOAT || type == java.sql.Types.DOUBLE) {
             cast(new Var(queryResult.column(idx, Double.class)));
         }
+        return this;
+    }
+
+    public Var setExpressionValue(QueryResult queryResult, int idx) throws AnalysisException {
+        value = queryResult.column(idx);
         return this;
     }
 

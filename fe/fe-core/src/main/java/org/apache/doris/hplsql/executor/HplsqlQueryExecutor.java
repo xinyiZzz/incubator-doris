@@ -39,8 +39,9 @@ public class HplsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应
         exec.init();
     }
 
-    public void execute(String statement) {
-        ConnectContext context = ConnectContext.get();
+    public void execute(ConnectContext ctx, String statement) {
+        ctx.setRunProcedure(true);
+        ctx.setProcedureExec(exec);
         result.reset();
         try {
             Arguments args = new Arguments();
@@ -51,13 +52,16 @@ public class HplsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应
             String error = result.getError();
             String msg = result.getMsg();
             if (!error.isEmpty()) {
-                context.getState().setError("hplsql exec error, " + error);
+                ctx.getState().setError("hplsql exec error, " + error);
             } else if (!msg.isEmpty()) {
-                context.getState().setOk(0, 0, msg);
+                ctx.getState().setOk(0, 0, msg);
             }
+            ctx.getMysqlChannel().reset();
+            ctx.getState().setOk();
+            ctx.setRunProcedure(false);
         } catch (Exception e) {
             exec.printExceptions();
-            context.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR, result.getError() + " " + e.getMessage());
+            ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR, result.getError() + " " + e.getMessage());
             LOG.warn(e);
             // } finally { // 在后面 printExceptions 可能有问题，可能拿不到错误了，踩过的坑
             //     exec.printExceptions();

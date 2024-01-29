@@ -20,14 +20,16 @@
 
 package org.apache.doris.hplsql.functions;
 
-import org.apache.doris.hplsql.HplsqlParser;
+import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
 
 public interface FunctionRegistry {
-    boolean exec(String name, HplsqlParser.Expr_func_paramsContext ctx);
+    boolean exec(String name, Expr_func_paramsContext ctx);
 
-    void addUserFunction(HplsqlParser.Create_function_stmtContext ctx);
+    void addUserFunction(Create_function_stmtContext ctx);
 
-    void addUserProcedure(HplsqlParser.Create_procedure_stmtContext ctx);
+    void addUserProcedure(Create_procedure_stmtContext ctx);
 
     boolean exists(String name);
 

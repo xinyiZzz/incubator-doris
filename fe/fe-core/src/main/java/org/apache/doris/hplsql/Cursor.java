@@ -20,6 +20,7 @@
 
 package org.apache.doris.hplsql;
 
+import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
 import org.apache.doris.hplsql.executor.QueryExecutor;
 import org.apache.doris.hplsql.executor.QueryResult;
 
@@ -74,7 +75,7 @@ public class Cursor {
         return sql;
     }
 
-    public void open(QueryExecutor queryExecutor, org.apache.doris.hplsql.HplsqlParser.Open_stmtContext ctx) {
+    public void open(QueryExecutor queryExecutor, Open_stmtContext ctx) {
         this.queryResult = queryExecutor.executeQuery(sql, ctx);
         this.state = State.OPEN;
     }

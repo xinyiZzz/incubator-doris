@@ -20,6 +20,9 @@
 
 package org.apache.doris.hplsql.functions;
 
+import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
 import org.apache.doris.hplsql.Exec;
 import org.apache.doris.hplsql.HplsqlBaseVisitor;
 import org.apache.doris.hplsql.HplsqlLexer;
@@ -78,7 +81,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
 
 
     @Override
-    public boolean exec(String name, HplsqlParser.Expr_func_paramsContext ctx) {
+    public boolean exec(String name, Expr_func_paramsContext ctx) {
         if (builtinFunctions.exec(name, ctx)) { // 内置函数
             return true;
         }
@@ -101,7 +104,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     /**
      * Execute a stored procedure using CALL or EXEC statement passing parameters
      */
-    private void execProcOrFunc(HplsqlParser.Expr_func_paramsContext ctx, ParserRuleContext procCtx, String name) {
+    private void execProcOrFunc(Expr_func_paramsContext ctx, ParserRuleContext procCtx, String name) {
         exec.callStackPush(name);
         HashMap<String, Var> out = new HashMap<>();
         ArrayList<Var> actualParams = getActualCallParameters(ctx);
@@ -114,19 +117,19 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         }
     }
 
-    private void callWithParameters(HplsqlParser.Expr_func_paramsContext ctx, ParserRuleContext procCtx,
+    private void callWithParameters(Expr_func_paramsContext ctx, ParserRuleContext procCtx,
             HashMap<String, Var> out, ArrayList<Var> actualParams) {
-        if (procCtx instanceof HplsqlParser.Create_function_stmtContext) {
-            HplsqlParser.Create_function_stmtContext func = (HplsqlParser.Create_function_stmtContext) procCtx;
-            InMemoryFunctionRegistry.setCallParameters(func.ident().getText(), ctx, actualParams,
+        if (procCtx instanceof Create_function_stmtContext) {
+            Create_function_stmtContext func = (Create_function_stmtContext) procCtx;
+            InMemoryFunctionRegistry.setCallParameters(func.ident_pl().getText(), ctx, actualParams,
                     func.create_routine_params(), null, exec);
             if (func.declare_block_inplace() != null) {
                 exec.visit(func.declare_block_inplace());
             }
             exec.visit(func.single_block_stmt());
         } else {
-            HplsqlParser.Create_procedure_stmtContext proc = (HplsqlParser.Create_procedure_stmtContext) procCtx;
-            InMemoryFunctionRegistry.setCallParameters(proc.ident(0).getText(), ctx, actualParams,
+            Create_procedure_stmtContext proc = (Create_procedure_stmtContext) procCtx;
+            InMemoryFunctionRegistry.setCallParameters(proc.ident_pl(0).getText(), ctx, actualParams,
                     proc.create_routine_params(), out, exec);
             exec.visit(proc.proc_block());
         }
@@ -146,7 +149,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
                 ConnectContext.get().getDatabase()));
     }
 
-    private ArrayList<Var> getActualCallParameters(HplsqlParser.Expr_func_paramsContext actual) {
+    private ArrayList<Var> getActualCallParameters(Expr_func_paramsContext actual) {
         if (actual == null || actual.func_param() == null) {
             return null;
         }
@@ -159,8 +162,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     @Override
-    public void addUserFunction(HplsqlParser.Create_function_stmtContext ctx) {
-        String name = ctx.ident().getText().toUpperCase();
+    public void addUserFunction(Create_function_stmtContext ctx) {
+        String name = ctx.ident_pl().getText().toUpperCase();
         if (builtinFunctions.exists(name)) {
             exec.info(ctx, name + " is a built-in function which cannot be redefined.");
             return;
@@ -171,8 +174,8 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     @Override
-    public void addUserProcedure(HplsqlParser.Create_procedure_stmtContext ctx) {
-        String name = ctx.ident(0).getText().toUpperCase();
+    public void addUserProcedure(Create_procedure_stmtContext ctx) {
+        String name = ctx.ident_pl(0).getText().toUpperCase();
         if (builtinFunctions.exists(name)) {
             exec.info(ctx, name + " is a built-in function which cannot be redefined.");
             return;
@@ -207,17 +210,17 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     private static class ProcVisitor extends HplsqlBaseVisitor<Void> {
-        HplsqlParser.Create_function_stmtContext func;
-        HplsqlParser.Create_procedure_stmtContext proc;
+        Create_function_stmtContext func;
+        Create_procedure_stmtContext proc;
 
         @Override
-        public Void visitCreate_procedure_stmt(HplsqlParser.Create_procedure_stmtContext ctx) {
+        public Void visitCreate_procedure_stmt(Create_procedure_stmtContext ctx) {
             proc = ctx;
             return null;
         }
 
         @Override
-        public Void visitCreate_function_stmt(HplsqlParser.Create_function_stmtContext ctx) {
+        public Void visitCreate_function_stmt(Create_function_stmtContext ctx) {
             func = ctx;
             return null;
         }

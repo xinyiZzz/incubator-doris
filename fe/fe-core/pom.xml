@@ -866,6 +866,7 @@ under the License.
                     <visitor>true</visitor>
                     <sourceDirectory>src/main/antlr4</sourceDirectory>
                     <treatWarningsAsErrors>true</treatWarningsAsErrors>
+                    <libDirectory>src/main/antlr4/org/apache/doris/nereids</libDirectory>
                 </configuration>
             </plugin>
             <!-- jmockit -->

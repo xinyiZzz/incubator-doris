@@ -20,7 +20,48 @@
 
 package org.apache.doris.hplsql;
 
-import org.apache.doris.hplsql.HplsqlParser.StmtContext;
+import org.apache.doris.nereids.DorisParser.ColumnReferenceContext;
+import org.apache.doris.nereids.DorisParser.FromClauseContext;
+import org.apache.doris.nereids.DorisParser.QueryContext;
+import org.apache.doris.nereids.DorisParser.RegularQuerySpecificationContext;
+import org.apache.doris.nereids.DorisParser.SelectClauseContext;
+import org.apache.doris.nereids.DorisParser.SelectColumnClauseContext;
+import org.apache.doris.nereids.DorisParser.StatementDefaultContext;
+import org.apache.doris.nereids.DorisParser.WhereClauseContext;
+import org.apache.doris.nereids.PLParserLexer;
+import org.apache.doris.nereids.PLParserParser;
+import org.apache.doris.nereids.PLParserParser.Allocate_cursor_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Assignment_stmt_collection_itemContext;
+import org.apache.doris.nereids.PLParserParser.Assignment_stmt_multiple_itemContext;
+import org.apache.doris.nereids.PLParserParser.Assignment_stmt_select_itemContext;
+import org.apache.doris.nereids.PLParserParser.Assignment_stmt_single_itemContext;
+import org.apache.doris.nereids.PLParserParser.Associate_locator_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Begin_end_blockContext;
+import org.apache.doris.nereids.PLParserParser.Bool_exprContext;
+import org.apache.doris.nereids.PLParserParser.Bool_expr_binaryContext;
+import org.apache.doris.nereids.PLParserParser.Close_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_package_body_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_package_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Declare_condition_itemContext;
+import org.apache.doris.nereids.PLParserParser.Declare_cursor_itemContext;
+import org.apache.doris.nereids.PLParserParser.Declare_handler_itemContext;
+import org.apache.doris.nereids.PLParserParser.Declare_var_itemContext;
+import org.apache.doris.nereids.PLParserParser.Exception_block_itemContext;
+import org.apache.doris.nereids.PLParserParser.ExprContext;
+import org.apache.doris.nereids.PLParserParser.Expr_funcContext;
+import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
+import org.apache.doris.nereids.PLParserParser.LabelContext;
+import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
+import org.apache.doris.nereids.PLParserParser.ProgramContext;
+import org.apache.doris.nereids.PLParserParser.Set_doris_session_optionContext;
+import org.apache.doris.nereids.PLParserParser.StmtContext;
+import org.apache.doris.nereids.analyzer.UnboundResultSink;
+import org.apache.doris.nereids.analyzer.UnboundSlot;
+import org.apache.doris.nereids.exceptions.ParseException;
+import org.apache.doris.nereids.parser.ParserUtils;
+import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.hplsql.Var.Type;
 import org.apache.doris.hplsql.exception.HplValidationException;
 import org.apache.doris.hplsql.exception.QueryException;
@@ -52,6 +93,7 @@ import org.apache.doris.hplsql.packages.DorisPackageRegistry;
 import org.apache.doris.hplsql.packages.InMemoryPackageRegistry;
 import org.apache.doris.hplsql.packages.PackageRegistry;
 import org.apache.doris.hplsql.store.MetaClient;
+import org.apache.doris.qe.ConnectContext;
 
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -88,7 +130,7 @@ import java.util.stream.Collectors;
 /**
  * HPL/SQL script executor
  */
-public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> implements Closeable {
+public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> implements Closeable {
 
     public static final String VERSION = "HPL/SQL 0.3.31";
     public static final String ERRORCODE = "ERRORCODE";
@@ -159,8 +201,6 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     boolean trace = false;
     boolean info = true;
     boolean offline = false;
-
-    StmtContext lastStmt = null;
 
     public Exec() {
         exec = this;
@@ -356,7 +396,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     public Var findVariable(String name) {
         Var var;
         String name1 = name.toUpperCase();
-        String name1a = null; // 这变量命名太TM烂了，印度人写的吧
+        String name1a = null;
         String name2 = null;
         Scope cur = exec.currentScope;
         Package pack;
@@ -425,10 +465,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
         }
         Optional<String> source = exec.packageRegistry.getPackage(name);
         if (source.isPresent()) {
-            org.apache.doris.hplsql.HplsqlLexer lexer = new org.apache.doris.hplsql.HplsqlLexer(
-                    new ANTLRInputStream(source.get()));
+            PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(source.get()));
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-            org.apache.doris.hplsql.HplsqlParser parser = newParser(tokens);
+            PLParserParser parser = newParser(tokens);
             exec.packageLoading = true;
             try {
                 visit(parser.program());
@@ -863,10 +902,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     private ParseTree parse(InputStream input) throws IOException {
-        org.apache.doris.hplsql.HplsqlLexer lexer = new org.apache.doris.hplsql.HplsqlLexer(
-                new ANTLRInputStream(input));
+        PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(input));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        org.apache.doris.hplsql.HplsqlParser parser = newParser(tokens);
+        PLParserParser parser = newParser(tokens);
         ParseTree tree = parser.program();
         if (trace) {
             console.printError("Configuration file: " + conf.getLocation());
@@ -890,8 +928,8 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
         addVariable(utlFileVar);
     }
 
-    private org.apache.doris.hplsql.HplsqlParser newParser(CommonTokenStream tokens) {
-        org.apache.doris.hplsql.HplsqlParser parser = new org.apache.doris.hplsql.HplsqlParser(tokens);
+    private PLParserParser newParser(CommonTokenStream tokens) {
+        PLParserParser parser = new PLParserParser(tokens);
         // the default listener logs into stdout, overwrite it with a custom listener that uses beeline console
         parser.removeErrorListeners();
         parser.addErrorListener(new SyntaxErrorReporter(console));
@@ -969,10 +1007,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     void include(String content) throws Exception {
         InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
-        org.apache.doris.hplsql.HplsqlLexer lexer = new org.apache.doris.hplsql.HplsqlLexer(
-                new ANTLRInputStream(input));
+        PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(input));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        org.apache.doris.hplsql.HplsqlParser parser = newParser(tokens);
+        PLParserParser parser = newParser(tokens);
         ParseTree tree = parser.program();
         visit(tree);
     }
@@ -981,18 +1018,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Start executing HPL/SQL script
      */
     @Override
-    public Integer visitProgram(org.apache.doris.hplsql.HplsqlParser.ProgramContext ctx) {
-        if (ctx.block() != null) {
-            // Record the last stmt. When mysql protocol returns multiple result sets,
-            // SERVER_MORE_RESULTS_EXISTS should be specified when sending results other than the last stmt.
-            List<StmtContext> stmtContexts = ctx.block().stmt();
-            for (int i = stmtContexts.size() - 1; i >= 0; --i) {
-                if (stmtContexts.get(i).semicolon_stmt() == null) { // 不是分号，找到最后一条有效语句
-                    lastStmt = stmtContexts.get(i);
-                    break;
-                }
-            }
-        }
+    public Integer visitProgram(ProgramContext ctx) {
         return visitChildren(ctx);
     }
 
@@ -1000,7 +1026,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Enter BEGIN-END block
      */
     @Override
-    public Integer visitBegin_end_block(org.apache.doris.hplsql.HplsqlParser.Begin_end_blockContext ctx) {
+    public Integer visitBegin_end_block(Begin_end_blockContext ctx) {
         enterScope(Scope.Type.BEGIN_END);
         Integer rc = visitChildren(ctx);
         leaveScope();
@@ -1066,7 +1092,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Executing a statement
      */
     @Override
-    public Integer visitStmt(org.apache.doris.hplsql.HplsqlParser.StmtContext ctx) {
+    public Integer visitStmt(StmtContext ctx) {
         if (ctx.semicolon_stmt() != null) {
             return 0;
         }
@@ -1089,137 +1115,78 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
             console.printLine(prev.toString());
         }
         Integer rc = visitChildren(ctx);
-        if (ctx != lastStmt) { // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
-            // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
-            // printExceptions();
-            resultListener.onFinalize(); // 是用 mysql client 执行 hqlsql，走这个 // 有些情况是不需要经过反序列化再返回mysql
-            // client，比如 select xxx from tbl; 此时hplsql没有计算，比如 select count(*) into result 有 result
-            console.flushConsole(); // 用 hplsql.sh执行 hqlsql
-        }
+
+        // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
+        // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
+        // printExceptions();
+        resultListener.onFinalize(); // 是用 mysql client 执行 hqlsql，走这个 // 有些情况是不需要经过反序列化再返回mysql
+        // client，比如 select xxx from tbl; 此时hplsql没有计算，比如 select count(*) into result 有 result
+        console.flushConsole(); // 用 hplsql.sh执行 hqlsql
         return rc;
+    }
+
+    @Override
+    public Integer visitStatementDefault(StatementDefaultContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            exec.select.select(ctx);
+        }
+        return null;
+        // LogicalPlan plan = plan(ctx.query());
+        // if (ctx.outFileClause() != null) {
+        //     plan = withOutFile(plan, ctx.outFileClause());
+        // } else {
+        //     plan = new UnboundResultSink<>(plan);
+        // }
+        // return withExplain(plan, ctx.explain());
     }
 
     /**
      * Executing or building SELECT statement
      */
     @Override
-    public Integer visitSelect_stmt(org.apache.doris.hplsql.HplsqlParser.Select_stmtContext ctx) {
-        return exec.select.select(ctx);
+    public Integer visitQuery(QueryContext ctx) {
+        return exec.select.visitQuery(ctx);
     }
 
     @Override
-    public Integer visitCte_select_stmt(org.apache.doris.hplsql.HplsqlParser.Cte_select_stmtContext ctx) {
-        return exec.select.cte(ctx);
+    public Integer visitRegularQuerySpecification(RegularQuerySpecificationContext ctx) {
+        return exec.select.visitRegularQuerySpecification(ctx);
     }
 
     @Override
-    public Integer visitFullselect_stmt(org.apache.doris.hplsql.HplsqlParser.Fullselect_stmtContext ctx) {
-        return exec.select.fullselect(ctx);
-    }
-
-    @Override
-    public Integer visitSubselect_stmt(org.apache.doris.hplsql.HplsqlParser.Subselect_stmtContext ctx) {
-        return exec.select.subselect(ctx);
-    }
-
-    @Override
-    public Integer visitSelect_list(org.apache.doris.hplsql.HplsqlParser.Select_listContext ctx) {
-        return exec.select.selectList(ctx);
-    }
-
-    @Override
-    public Integer visitFrom_clause(org.apache.doris.hplsql.HplsqlParser.From_clauseContext ctx) {
+    public Integer visitFromClause(FromClauseContext ctx) {
         return exec.select.from(ctx);
     }
 
     @Override
-    public Integer visitFrom_table_name_clause(org.apache.doris.hplsql.HplsqlParser.From_table_name_clauseContext ctx) {
-        return exec.select.fromTable(ctx);
+    public Integer visitSelectClause(SelectClauseContext ctx) {
+        return exec.select.selectList(ctx);
     }
 
     @Override
-    public Integer visitFrom_subselect_clause(org.apache.doris.hplsql.HplsqlParser.From_subselect_clauseContext ctx) {
-        return exec.select.fromSubselect(ctx);
+    public Integer visitFromClause(FromClauseContext ctx) {
+        return exec.select.from(ctx);
     }
 
     @Override
-    public Integer visitFrom_join_clause(org.apache.doris.hplsql.HplsqlParser.From_join_clauseContext ctx) {
-        return exec.select.fromJoin(ctx);
-    }
-
-    @Override
-    public Integer visitFrom_table_values_clause(
-            org.apache.doris.hplsql.HplsqlParser.From_table_values_clauseContext ctx) {
-        return exec.select.fromTableValues(ctx);
-    }
-
-    @Override
-    public Integer visitWhere_clause(org.apache.doris.hplsql.HplsqlParser.Where_clauseContext ctx) {
+    public Integer visitWhereClause(WhereClauseContext ctx) {
         return exec.select.where(ctx);
     }
 
     @Override
-    public Integer visitSelect_options_item(org.apache.doris.hplsql.HplsqlParser.Select_options_itemContext ctx) {
-        return exec.select.option(ctx);
-    }
-
-    /**
-     * Column name
-     */
-    @Override
-    public Integer visitColumn_name(org.apache.doris.hplsql.HplsqlParser.Column_nameContext ctx) {
-        stackPush(meta.normalizeIdentifierPart(ctx.getText()));
-        return 0;
-    }
-
-    /**
-     * Table name
-     */
-    @Override
-    public Integer visitTable_name(org.apache.doris.hplsql.HplsqlParser.Table_nameContext ctx) {
-        String name = ctx.getText();
-        String nameUp = name.toUpperCase();
-        String nameNorm = meta.normalizeObjectIdentifier(name);
-        String actualName = exec.managedTables.get(nameUp);
-        String conn = exec.objectConnMap.get(nameUp);
-        if (conn == null) {
-            conn = conf.defaultConnection;
+    public org.apache.doris.nereids.trees.expressions.Expression visitColumnReference(ColumnReferenceContext ctx) {
+        Var var = exec.findVariable(ctx.getText());
+        if (var != null && var.type == org.apache.doris.plsqlbak.Var.Type.EXPRESSION) {
+            return (org.apache.doris.nereids.trees.expressions.Expression) var.value;
         }
-        stmtConnList.add(conn);
-        if (actualName != null) {
-            stackPush(actualName);
-            return 0;
-        }
-        actualName = exec.objectMap.get(nameUp);
-        if (actualName != null) {
-            stackPush(actualName);
-            return 0;
-        }
-        stackPush(nameNorm);
-        return 0;
-    }
-
-    /**
-     * SQL INSERT statement
-     */
-    @Override
-    public Integer visitInsert_stmt(org.apache.doris.hplsql.HplsqlParser.Insert_stmtContext ctx) {
-        return exec.stmt.insert(ctx);
-    }
-
-    /**
-     * INSERT DIRECTORY statement
-     */
-    @Override
-    public Integer visitInsert_directory_stmt(org.apache.doris.hplsql.HplsqlParser.Insert_directory_stmtContext ctx) {
-        return exec.stmt.insertDirectory(ctx);
+        return UnboundSlot.quoted(ctx.getText());
     }
 
     /**
      * EXCEPTION block
      */
     @Override
-    public Integer visitException_block_item(org.apache.doris.hplsql.HplsqlParser.Exception_block_itemContext ctx) {
+    public Integer visitException_block_item(Exception_block_itemContext ctx) {
         if (exec.signals.empty()) {
             return 0;
         }
@@ -1241,7 +1208,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * DECLARE variable statement
      */
     @Override
-    public Integer visitDeclare_var_item(org.apache.doris.hplsql.HplsqlParser.Declare_var_itemContext ctx) {
+    public Integer visitDeclare_var_item(Declare_var_itemContext ctx) {
         String type = null;
         TableClass userDefinedType = null;
         Row row = null;
@@ -1270,9 +1237,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
             }
 
         }
-        int cnt = ctx.ident().size();        // Number of variables declared with the same data type and default
+        int cnt = ctx.ident_pl().size();        // Number of variables declared with the same data type and default
         for (int i = 0; i < cnt; i++) {
-            String name = ctx.ident(i).getText();
+            String name = ctx.ident_pl(i).getText();
             if (row == null) {
                 Var var = new Var(name, type, len, scale, defaultVar);
                 if (userDefinedType != null && defaultVar == null) {
@@ -1302,7 +1269,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     /**
      * Get the variable data type
      */
-    String getDataType(org.apache.doris.hplsql.HplsqlParser.Declare_var_itemContext ctx) {
+    String getDataType(Declare_var_itemContext ctx) {
         String type;
         if (ctx.dtype().T_TYPE() != null) {
             type = meta.getDataType(ctx, exec.conf.defaultConnection, ctx.dtype().qident().getText());
@@ -1319,7 +1286,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * ALLOCATE CURSOR statement
      */
     @Override
-    public Integer visitAllocate_cursor_stmt(org.apache.doris.hplsql.HplsqlParser.Allocate_cursor_stmtContext ctx) {
+    public Integer visitAllocate_cursor_stmt(Allocate_cursor_stmtContext ctx) {
         return exec.stmt.allocateCursor(ctx);
     }
 
@@ -1327,7 +1294,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * ASSOCIATE LOCATOR statement
      */
     @Override
-    public Integer visitAssociate_locator_stmt(org.apache.doris.hplsql.HplsqlParser.Associate_locator_stmtContext ctx) {
+    public Integer visitAssociate_locator_stmt(Associate_locator_stmtContext ctx) {
         return exec.stmt.associateLocator(ctx);
     }
 
@@ -1335,31 +1302,15 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * DECLARE cursor statement
      */
     @Override
-    public Integer visitDeclare_cursor_item(org.apache.doris.hplsql.HplsqlParser.Declare_cursor_itemContext ctx) {
+    public Integer visitDeclare_cursor_item(Declare_cursor_itemContext ctx) {
         return exec.stmt.declareCursor(ctx);
-    }
-
-    /**
-     * DESCRIBE statement
-     */
-    @Override
-    public Integer visitDescribe_stmt(org.apache.doris.hplsql.HplsqlParser.Describe_stmtContext ctx) {
-        return exec.stmt.describe(ctx);
-    }
-
-    /**
-     * DROP statement
-     */
-    @Override
-    public Integer visitDrop_stmt(org.apache.doris.hplsql.HplsqlParser.Drop_stmtContext ctx) {
-        return exec.stmt.drop(ctx);
     }
 
     /**
      * OPEN cursor statement
      */
     @Override
-    public Integer visitOpen_stmt(org.apache.doris.hplsql.HplsqlParser.Open_stmtContext ctx) {
+    public Integer visitOpen_stmt(Open_stmtContext ctx) {
         return exec.stmt.open(ctx);
     }
 
@@ -1367,7 +1318,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * FETCH cursor statement
      */
     @Override
-    public Integer visitFetch_stmt(org.apache.doris.hplsql.HplsqlParser.Fetch_stmtContext ctx) {
+    public Integer visitFetch_stmt(Fetch_stmtContext ctx) {
         return exec.stmt.fetch(ctx);
     }
 
@@ -1375,39 +1326,15 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * CLOSE cursor statement
      */
     @Override
-    public Integer visitClose_stmt(org.apache.doris.hplsql.HplsqlParser.Close_stmtContext ctx) {
+    public Integer visitClose_stmt(Close_stmtContext ctx) {
         return exec.stmt.close(ctx);
-    }
-
-    /**
-     * CMP statement
-     */
-    @Override
-    public Integer visitCmp_stmt(org.apache.doris.hplsql.HplsqlParser.Cmp_stmtContext ctx) {
-        return new Cmp(exec, queryExecutor).run(ctx);
-    }
-
-    /**
-     * COPY statement
-     */
-    @Override
-    public Integer visitCopy_stmt(org.apache.doris.hplsql.HplsqlParser.Copy_stmtContext ctx) {
-        return new Copy(exec, queryExecutor).run(ctx);
-    }
-
-    /**
-     * COPY FROM LOCAL statement
-     */
-    @Override
-    public Integer visitCopy_from_local_stmt(org.apache.doris.hplsql.HplsqlParser.Copy_from_local_stmtContext ctx) {
-        return new Copy(exec, queryExecutor).runFromLocal(ctx);
     }
 
     /**
      * DECLARE HANDLER statement
      */
     @Override
-    public Integer visitDeclare_handler_item(org.apache.doris.hplsql.HplsqlParser.Declare_handler_itemContext ctx) {
+    public Integer visitDeclare_handler_item(Declare_handler_itemContext ctx) {
         trace(ctx, "DECLARE HANDLER");
         Handler.ExecType execType = Handler.ExecType.EXIT;
         Signal.Type type = Signal.Type.SQLEXCEPTION;
@@ -1415,9 +1342,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
         if (ctx.T_CONTINUE() != null) {
             execType = Handler.ExecType.CONTINUE;
         }
-        if (ctx.ident() != null) {
+        if (ctx.ident_pl() != null) {
             type = Signal.Type.USERDEFINED;
-            value = ctx.ident().getText();
+            value = ctx.ident_pl().getText();
         } else if (ctx.T_NOT() != null && ctx.T_FOUND() != null) {
             type = Signal.Type.NOTFOUND;
         }
@@ -1429,93 +1356,15 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * DECLARE CONDITION
      */
     @Override
-    public Integer visitDeclare_condition_item(org.apache.doris.hplsql.HplsqlParser.Declare_condition_itemContext ctx) {
+    public Integer visitDeclare_condition_item(Declare_condition_itemContext ctx) {
         return 0;
-    }
-
-    /**
-     * DECLARE TEMPORARY TABLE statement
-     */
-    @Override
-    public Integer visitDeclare_temporary_table_item(
-            org.apache.doris.hplsql.HplsqlParser.Declare_temporary_table_itemContext ctx) {
-        return exec.stmt.declareTemporaryTable(ctx);
-    }
-
-    /**
-     * CREATE TABLE statement
-     */
-    @Override
-    public Integer visitCreate_table_stmt(org.apache.doris.hplsql.HplsqlParser.Create_table_stmtContext ctx) {
-        return exec.stmt.createTable(ctx);
-    }
-
-    @Override
-    public Integer visitCreate_table_options_hive_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_hive_itemContext ctx) {
-        return exec.stmt.createTableHiveOptions(ctx);
-    }
-
-    @Override
-    public Integer visitCreate_table_options_ora_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_ora_itemContext ctx) {
-        return 0;
-    }
-
-    @Override
-    public Integer visitCreate_table_options_td_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_td_itemContext ctx) {
-        return 0;
-    }
-
-    @Override
-    public Integer visitCreate_table_options_mssql_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_mssql_itemContext ctx) {
-        return 0;
-    }
-
-    @Override
-    public Integer visitCreate_table_options_db2_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_db2_itemContext ctx) {
-        return 0;
-    }
-
-    @Override
-    public Integer visitCreate_table_options_mysql_item(
-            org.apache.doris.hplsql.HplsqlParser.Create_table_options_mysql_itemContext ctx) {
-        return exec.stmt.createTableMysqlOptions(ctx);
-    }
-
-    /**
-     * CREATE LOCAL TEMPORARY | VOLATILE TABLE statement
-     */
-    @Override
-    public Integer visitCreate_local_temp_table_stmt(
-            org.apache.doris.hplsql.HplsqlParser.Create_local_temp_table_stmtContext ctx) {
-        return exec.stmt.createLocalTemporaryTable(ctx);
-    }
-
-    /**
-     * ALTER TABLE statement
-     */
-    @Override
-    public Integer visitAlter_table_stmt(org.apache.doris.hplsql.HplsqlParser.Alter_table_stmtContext ctx) {
-        return 0;
-    }
-
-    /**
-     * CREATE DATABASE | SCHEMA statement
-     */
-    @Override
-    public Integer visitCreate_database_stmt(org.apache.doris.hplsql.HplsqlParser.Create_database_stmtContext ctx) {
-        return exec.stmt.createDatabase(ctx);
     }
 
     /**
      * CREATE FUNCTION statement
      */
     @Override
-    public Integer visitCreate_function_stmt(org.apache.doris.hplsql.HplsqlParser.Create_function_stmtContext ctx) {
+    public Integer visitCreate_function_stmt(Create_function_stmtContext ctx) {
         exec.functions.addUserFunction(ctx);
         addLocalUdf(ctx);
         return 0;
@@ -1525,8 +1374,8 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * CREATE PACKAGE specification statement
      */
     @Override
-    public Integer visitCreate_package_stmt(org.apache.doris.hplsql.HplsqlParser.Create_package_stmtContext ctx) {
-        String name = ctx.ident(0).getText().toUpperCase();
+    public Integer visitCreate_package_stmt(Create_package_stmtContext ctx) {
+        String name = ctx.ident_pl(0).getText().toUpperCase();
         if (exec.packageLoading) {
             exec.currentPackageDecl = new Package(name, exec, builtinFunctions);
             exec.packages.put(name, exec.currentPackageDecl);
@@ -1545,8 +1394,8 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitCreate_package_body_stmt(
-            org.apache.doris.hplsql.HplsqlParser.Create_package_body_stmtContext ctx) {
-        String name = ctx.ident(0).getText().toUpperCase();
+            Create_package_body_stmtContext ctx) {
+        String name = ctx.ident_pl(0).getText().toUpperCase();
         if (exec.packageLoading) {
             exec.currentPackageDecl = exec.packages.get(name);
             if (exec.currentPackageDecl == null) {
@@ -1568,38 +1417,9 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * CREATE PROCEDURE statement
      */
     @Override
-    public Integer visitCreate_procedure_stmt(org.apache.doris.hplsql.HplsqlParser.Create_procedure_stmtContext ctx) {
+    public Integer visitCreate_procedure_stmt(Create_procedure_stmtContext ctx) {
         exec.functions.addUserProcedure(ctx);
         addLocalUdf(ctx);                      // Add procedures as they can be invoked by functions
-        return 0;
-    }
-
-    public void dropProcedure(org.apache.doris.hplsql.HplsqlParser.Drop_stmtContext ctx, String name,
-            boolean checkIfExists) {
-        if (checkIfExists && !functions.exists(name)) {
-            trace(ctx, name + " DOES NOT EXIST");
-            return;
-        }
-        functions.remove(name);
-        trace(ctx, name + " DROPPED");
-    }
-
-    public void dropPackage(org.apache.doris.hplsql.HplsqlParser.Drop_stmtContext ctx, String name,
-            boolean checkIfExists) {
-        if (checkIfExists && !packageRegistry.getPackage(name).isPresent()) {
-            trace(ctx, name + " DOES NOT EXIST");
-            return;
-        }
-        packages.remove(name);
-        packageRegistry.dropPackage(name);
-        trace(ctx, name + " DROPPED");
-    }
-
-    /**
-     * CREATE INDEX statement
-     */
-    @Override
-    public Integer visitCreate_index_stmt(org.apache.doris.hplsql.HplsqlParser.Create_index_stmtContext ctx) {
         return 0;
     }
 
@@ -1634,7 +1454,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
 
     @Override
     public Integer visitSet_doris_session_option(
-            org.apache.doris.hplsql.HplsqlParser.Set_doris_session_optionContext ctx) {  // HplSQL.g4 解析后走这里
+            Set_doris_session_optionContext ctx) {  // HplSQL.g4 解析后走这里
         StringBuilder sql = new StringBuilder("set ");
         for (int i = 0; i < ctx.getChildCount(); i++) {
             sql.append(ctx.getChild(i).getText()).append(" ");
@@ -1656,8 +1476,8 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitAssignment_stmt_single_item(
-            org.apache.doris.hplsql.HplsqlParser.Assignment_stmt_single_itemContext ctx) {
-        String name = ctx.ident().getText();
+            Assignment_stmt_single_itemContext ctx) {
+        String name = ctx.ident_pl().getText();
         visit(ctx.expr());
         Var var = setVariable(name);
         if (trace) {
@@ -1671,11 +1491,11 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitAssignment_stmt_multiple_item(
-            org.apache.doris.hplsql.HplsqlParser.Assignment_stmt_multiple_itemContext ctx) {
-        int cnt = ctx.ident().size();
+            Assignment_stmt_multiple_itemContext ctx) {
+        int cnt = ctx.ident_pl().size();
         int ecnt = ctx.expr().size();
         for (int i = 0; i < cnt; i++) {
-            String name = ctx.ident(i).getText();
+            String name = ctx.ident_pl(i).getText();
             if (i < ecnt) {
                 visit(ctx.expr(i));
                 Var var = setVariable(name);
@@ -1692,20 +1512,20 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitAssignment_stmt_select_item(
-            org.apache.doris.hplsql.HplsqlParser.Assignment_stmt_select_itemContext ctx) {
+            Assignment_stmt_select_itemContext ctx) {
         return stmt.assignFromSelect(ctx);
     }
 
     @Override
     public Integer visitAssignment_stmt_collection_item(
-            org.apache.doris.hplsql.HplsqlParser.Assignment_stmt_collection_itemContext ctx) {
-        org.apache.doris.hplsql.HplsqlParser.Expr_funcContext lhs = ctx.expr_func();
-        Var var = findVariable(lhs.ident().getText());
+            Assignment_stmt_collection_itemContext ctx) {
+        Expr_funcContext lhs = ctx.expr_func();
+        Var var = findVariable(lhs.ident_pl().getText());
         if (var == null || var.type != Type.HPL_OBJECT) {
             stackPush(Var.Null);
             return 0;
         }
-        MethodParams.Arity.UNARY.check(lhs.ident().getText(), lhs.expr_func_params().func_param());
+        MethodParams.Arity.UNARY.check(lhs.ident_pl().getText(), lhs.expr_func_params().func_param());
         Var index = evalPop(lhs.expr_func_params().func_param(0));
         Var value = evalPop(ctx.expr());
         dispatch(ctx, (HplObject) var.value, MethodDictionary.__SETITEM__, Arrays.asList(index, value));
@@ -1716,7 +1536,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Evaluate an expression
      */
     @Override
-    public Integer visitExpr(org.apache.doris.hplsql.HplsqlParser.ExprContext ctx) {
+    public Integer visitExpr(ExprContext ctx) {
         if (exec.buildSql) {
             exec.expr.execSql(ctx);
         } else {
@@ -1729,7 +1549,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Evaluate a boolean expression
      */
     @Override
-    public Integer visitBool_expr(org.apache.doris.hplsql.HplsqlParser.Bool_exprContext ctx) {
+    public Integer visitBool_expr(Bool_exprContext ctx) {
         if (exec.buildSql) {
             exec.expr.execBoolSql(ctx);
         } else {
@@ -1739,7 +1559,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     @Override
-    public Integer visitBool_expr_binary(org.apache.doris.hplsql.HplsqlParser.Bool_expr_binaryContext ctx) {
+    public Integer visitBool_expr_binary(Bool_expr_binaryContext ctx) {
         if (exec.buildSql) {
             exec.expr.execBoolBinarySql(ctx);
         } else {
@@ -1749,7 +1569,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     @Override
-    public Integer visitBool_expr_unary(org.apache.doris.hplsql.HplsqlParser.Bool_expr_unaryContext ctx) {
+    public Integer visitBool_expr_unary(Bool_expr_unaryContext ctx) {
         if (exec.buildSql) {
             exec.expr.execBoolUnarySql(ctx);
         } else {
@@ -1762,7 +1582,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Static SELECT statement (i.e. unquoted) or expression
      */
     @Override
-    public Integer visitExpr_select(org.apache.doris.hplsql.HplsqlParser.Expr_selectContext ctx) {
+    public Integer visitExpr_select(Expr_selectContext ctx) {
         if (ctx.select_stmt() != null) {
             stackPush(new Var(evalPop(ctx.select_stmt())));
         } else {
@@ -1775,7 +1595,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * File path (unquoted) or expression
      */
     @Override
-    public Integer visitExpr_file(org.apache.doris.hplsql.HplsqlParser.Expr_fileContext ctx) {
+    public Integer visitExpr_file(Expr_fileContext ctx) {
         if (ctx.file_name() != null) {
             stackPush(new Var(ctx.file_name().getText()));
         } else {
@@ -1788,7 +1608,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Cursor attribute %ISOPEN, %FOUND and %NOTFOUND
      */
     @Override
-    public Integer visitExpr_cursor_attribute(org.apache.doris.hplsql.HplsqlParser.Expr_cursor_attributeContext ctx) {
+    public Integer visitExpr_cursor_attribute(Expr_cursor_attributeContext ctx) {
         exec.expr.execCursorAttribute(ctx);
         return 0;
     }
@@ -1797,12 +1617,12 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Function call
      */
     @Override
-    public Integer visitExpr_func(org.apache.doris.hplsql.HplsqlParser.Expr_funcContext ctx) {
-        return functionCall(ctx, ctx.ident(), ctx.expr_func_params());
+    public Integer visitExpr_func(Expr_funcContext ctx) {
+        return functionCall(ctx, ctx.ident_pl(), ctx.expr_func_params());
     }
 
-    private int functionCall(ParserRuleContext ctx, org.apache.doris.hplsql.HplsqlParser.IdentContext ident,
-            org.apache.doris.hplsql.HplsqlParser.Expr_func_paramsContext params) {
+    private int functionCall(ParserRuleContext ctx, IdentContext ident,
+            Expr_func_paramsContext params) {
         String name = ident.getText();
         if (exec.buildSql) {
             exec.execSql(name, params);
@@ -1835,7 +1655,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     private Var dispatch(ParserRuleContext ctx, HplObject obj, String methodName,
-            org.apache.doris.hplsql.HplsqlParser.Expr_func_paramsContext paramCtx) {
+            Expr_func_paramsContext paramCtx) {
         List<Var> params = paramCtx == null
                 ? Collections.emptyList()
                 : paramCtx.func_param().stream().map(this::evalPop).collect(Collectors.toList());
@@ -1871,7 +1691,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     /**
      * User-defined function in a SQL query
      */
-    public void execSql(String name, org.apache.doris.hplsql.HplsqlParser.Expr_func_paramsContext ctx) {
+    public void execSql(String name, Expr_func_paramsContext ctx) {
         if (execUserSql(ctx, name)) {
             return;
         }
@@ -1895,7 +1715,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Execute a HPL/SQL user-defined function in a query.
      * For example converts: select fn(col) from table to select hplsql('fn(:1)', col) from table
      */
-    private boolean execUserSql(org.apache.doris.hplsql.HplsqlParser.Expr_func_paramsContext ctx, String name) {
+    private boolean execUserSql(Expr_func_paramsContext ctx, String name) {
         if (!functions.exists(name)) {
             return false;
         }
@@ -1930,7 +1750,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Aggregate or window function call
      */
     @Override
-    public Integer visitExpr_agg_window_func(org.apache.doris.hplsql.HplsqlParser.Expr_agg_window_funcContext ctx) {
+    public Integer visitExpr_agg_window_func(Expr_agg_window_funcContext ctx) {
         exec.stackPush(Exec.getFormattedText(ctx));
         return 0;
     }
@@ -1939,7 +1759,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Function with specific syntax
      */
     @Override
-    public Integer visitExpr_spec_func(org.apache.doris.hplsql.HplsqlParser.Expr_spec_funcContext ctx) {
+    public Integer visitExpr_spec_func(Expr_spec_funcContext ctx) {
         if (exec.buildSql) {
             exec.builtinFunctions.specExecSql(ctx);
         } else {
@@ -1952,7 +1772,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * INCLUDE statement
      */
     @Override
-    public Integer visitInclude_stmt(@NotNull org.apache.doris.hplsql.HplsqlParser.Include_stmtContext ctx) {
+    public Integer visitInclude_stmt(@NotNull Include_stmtContext ctx) {
         return exec.stmt.include(ctx);
     }
 
@@ -1960,7 +1780,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * IF statement (PL/SQL syntax)
      */
     @Override
-    public Integer visitIf_plsql_stmt(org.apache.doris.hplsql.HplsqlParser.If_plsql_stmtContext ctx) {
+    public Integer visitIf_plsql_stmt(If_plsql_stmtContext ctx) {
         return exec.stmt.ifPlsql(ctx);
     }
 
@@ -1968,7 +1788,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * IF statement (Transact-SQL syntax)
      */
     @Override
-    public Integer visitIf_tsql_stmt(org.apache.doris.hplsql.HplsqlParser.If_tsql_stmtContext ctx) {
+    public Integer visitIf_tsql_stmt(If_tsql_stmtContext ctx) {
         return exec.stmt.ifTsql(ctx);
     }
 
@@ -1976,7 +1796,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * IF statement (BTEQ syntax)
      */
     @Override
-    public Integer visitIf_bteq_stmt(org.apache.doris.hplsql.HplsqlParser.If_bteq_stmtContext ctx) {
+    public Integer visitIf_bteq_stmt(If_bteq_stmtContext ctx) {
         return exec.stmt.ifBteq(ctx);
     }
 
@@ -1984,7 +1804,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * USE statement
      */
     @Override
-    public Integer visitUse_stmt(org.apache.doris.hplsql.HplsqlParser.Use_stmtContext ctx) {
+    public Integer visitUse_stmt(Use_stmtContext ctx) {
         return exec.stmt.use(ctx);
     }
 
@@ -1992,7 +1812,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * VALUES statement
      */
     @Override
-    public Integer visitValues_into_stmt(org.apache.doris.hplsql.HplsqlParser.Values_into_stmtContext ctx) {
+    public Integer visitValues_into_stmt(Values_into_stmtContext ctx) {
         return exec.stmt.values(ctx);
     }
 
@@ -2000,13 +1820,13 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * WHILE statement
      */
     @Override
-    public Integer visitWhile_stmt(org.apache.doris.hplsql.HplsqlParser.While_stmtContext ctx) {
+    public Integer visitWhile_stmt(While_stmtContext ctx) {
         return exec.stmt.while_(ctx);
     }
 
     @Override
     public Integer visitUnconditional_loop_stmt(
-            org.apache.doris.hplsql.HplsqlParser.Unconditional_loop_stmtContext ctx) {
+            Unconditional_loop_stmtContext ctx) {
         return exec.stmt.unconditionalLoop(ctx);
     }
 
@@ -2014,7 +1834,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * FOR cursor statement
      */
     @Override
-    public Integer visitFor_cursor_stmt(org.apache.doris.hplsql.HplsqlParser.For_cursor_stmtContext ctx) {
+    public Integer visitFor_cursor_stmt(For_cursor_stmtContext ctx) {
         return exec.stmt.forCursor(ctx);
     }
 
@@ -2022,7 +1842,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * FOR (integer range) statement
      */
     @Override
-    public Integer visitFor_range_stmt(org.apache.doris.hplsql.HplsqlParser.For_range_stmtContext ctx) {
+    public Integer visitFor_range_stmt(For_range_stmtContext ctx) {
         return exec.stmt.forRange(ctx);
     }
 
@@ -2030,7 +1850,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * EXEC, EXECUTE and EXECUTE IMMEDIATE statement to execute dynamic SQL
      */
     @Override
-    public Integer visitExec_stmt(org.apache.doris.hplsql.HplsqlParser.Exec_stmtContext ctx) {
+    public Integer visitExec_stmt(Exec_stmtContext ctx) {
         exec.inCallStmt = true;
         Integer rc = exec.stmt.exec(ctx);
         exec.inCallStmt = false;
@@ -2041,15 +1861,15 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * CALL statement
      */
     @Override
-    public Integer visitCall_stmt(org.apache.doris.hplsql.HplsqlParser.Call_stmtContext ctx) {
+    public Integer visitCall_stmt(Call_stmtContext ctx) {
         exec.inCallStmt = true;
         try {
             if (ctx.expr_func() != null) {
-                functionCall(ctx, ctx.expr_func().ident(), ctx.expr_func().expr_func_params());
+                functionCall(ctx, ctx.expr_func().ident_pl(), ctx.expr_func().expr_func_params());
             } else if (ctx.expr_dot() != null) {
                 visitExpr_dot(ctx.expr_dot());
-            } else if (ctx.ident() != null) {
-                functionCall(ctx, ctx.ident(), null);
+            } else if (ctx.ident_pl() != null) {
+                functionCall(ctx, ctx.ident_pl(), null);
             }
         } finally {
             exec.inCallStmt = false;
@@ -2061,7 +1881,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * EXIT statement (leave the specified loop with a condition)
      */
     @Override
-    public Integer visitExit_stmt(org.apache.doris.hplsql.HplsqlParser.Exit_stmtContext ctx) {
+    public Integer visitExit_stmt(Exit_stmtContext ctx) {
         return exec.stmt.exit(ctx);
     }
 
@@ -2069,7 +1889,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * BREAK statement (leave the innermost loop unconditionally)
      */
     @Override
-    public Integer visitBreak_stmt(org.apache.doris.hplsql.HplsqlParser.Break_stmtContext ctx) {
+    public Integer visitBreak_stmt(Break_stmtContext ctx) {
         return exec.stmt.break_(ctx);
     }
 
@@ -2077,7 +1897,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * LEAVE statement (leave the specified loop unconditionally)
      */
     @Override
-    public Integer visitLeave_stmt(org.apache.doris.hplsql.HplsqlParser.Leave_stmtContext ctx) {
+    public Integer visitLeave_stmt(Leave_stmtContext ctx) {
         return exec.stmt.leave(ctx);
     }
 
@@ -2085,7 +1905,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * PRINT statement
      */
     @Override
-    public Integer visitPrint_stmt(org.apache.doris.hplsql.HplsqlParser.Print_stmtContext ctx) {
+    public Integer visitPrint_stmt(Print_stmtContext ctx) {
         return exec.stmt.print(ctx);
     }
 
@@ -2093,7 +1913,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * QUIT statement
      */
     @Override
-    public Integer visitQuit_stmt(org.apache.doris.hplsql.HplsqlParser.Quit_stmtContext ctx) {
+    public Integer visitQuit_stmt(Quit_stmtContext ctx) {
         return exec.stmt.quit(ctx);
     }
 
@@ -2101,7 +1921,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * SIGNAL statement
      */
     @Override
-    public Integer visitSignal_stmt(org.apache.doris.hplsql.HplsqlParser.Signal_stmtContext ctx) {
+    public Integer visitSignal_stmt(Signal_stmtContext ctx) {
         return exec.stmt.signal(ctx);
     }
 
@@ -2109,7 +1929,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * SUMMARY statement
      */
     @Override
-    public Integer visitSummary_stmt(org.apache.doris.hplsql.HplsqlParser.Summary_stmtContext ctx) {
+    public Integer visitSummary_stmt(Summary_stmtContext ctx) {
         return exec.stmt.summary(ctx);
     }
 
@@ -2117,7 +1937,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * RESIGNAL statement
      */
     @Override
-    public Integer visitResignal_stmt(org.apache.doris.hplsql.HplsqlParser.Resignal_stmtContext ctx) {
+    public Integer visitResignal_stmt(Resignal_stmtContext ctx) {
         return exec.stmt.resignal(ctx);
     }
 
@@ -2125,7 +1945,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * RETURN statement
      */
     @Override
-    public Integer visitReturn_stmt(org.apache.doris.hplsql.HplsqlParser.Return_stmtContext ctx) {
+    public Integer visitReturn_stmt(Return_stmtContext ctx) {
         return exec.stmt.return_(ctx);
     }
 
@@ -2134,7 +1954,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitSet_current_schema_option(
-            org.apache.doris.hplsql.HplsqlParser.Set_current_schema_optionContext ctx) {
+            Set_current_schema_optionContext ctx) {
         return exec.stmt.setCurrentSchema(ctx);
     }
 
@@ -2142,18 +1962,18 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * TRUNCATE statement
      */
     @Override
-    public Integer visitTruncate_stmt(org.apache.doris.hplsql.HplsqlParser.Truncate_stmtContext ctx) {
+    public Integer visitTruncate_stmt(Truncate_stmtContext ctx) {
         return exec.stmt.truncate(ctx);
     }
 
     @Override
-    public Integer visitCreate_table_type_stmt(org.apache.doris.hplsql.HplsqlParser.Create_table_type_stmtContext ctx) {
-        String name = ctx.ident().getText();
+    public Integer visitCreate_table_type_stmt(Create_table_type_stmtContext ctx) {
+        String name = ctx.ident_pl().getText();
         String index = ctx.dtype().getText();
         if (!"BINARY_INTEGER".equalsIgnoreCase(index)) {
             throw new TypeException(ctx, "Unsupported table index: " + index + " Use: BINARY_INTEGER");
         }
-        org.apache.doris.hplsql.HplsqlParser.Tbl_typeContext tblType = ctx.tbl_type();
+        Tbl_typeContext tblType = ctx.tbl_type();
         if (tblType.sql_type() != null) {
             String dbTable = tblType.sql_type().qident().getText();
             if (tblType.sql_type().T_ROWTYPE() != null) {
@@ -2194,19 +2014,19 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * MAP OBJECT statement
      */
     @Override
-    public Integer visitMap_object_stmt(org.apache.doris.hplsql.HplsqlParser.Map_object_stmtContext ctx) {
-        String source = ctx.ident(0).getText();
+    public Integer visitMap_object_stmt(Map_object_stmtContext ctx) {
+        String source = ctx.ident_pl(0).getText();
         String target = null;
         String conn = null;
         if (ctx.T_TO() != null) {
-            target = ctx.ident(1).getText();
+            target = ctx.ident_pl(1).getText();
             exec.objectMap.put(source.toUpperCase(), target);
         }
         if (ctx.T_AT() != null) {
             if (ctx.T_TO() == null) {
-                conn = ctx.ident(1).getText();
+                conn = ctx.ident_pl(1).getText();
             } else {
-                conn = ctx.ident(2).getText();
+                conn = ctx.ident_pl(2).getText();
             }
             exec.objectConnMap.put(source.toUpperCase(), conn);
         }
@@ -2227,7 +2047,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * UPDATE statement
      */
     @Override
-    public Integer visitUpdate_stmt(org.apache.doris.hplsql.HplsqlParser.Update_stmtContext ctx) {
+    public Integer visitUpdate_stmt(Update_stmtContext ctx) {
         return stmt.update(ctx);
     }
 
@@ -2235,7 +2055,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * DELETE statement
      */
     @Override
-    public Integer visitDelete_stmt(org.apache.doris.hplsql.HplsqlParser.Delete_stmtContext ctx) {
+    public Integer visitDelete_stmt(Delete_stmtContext ctx) {
         return stmt.delete(ctx);
     }
 
@@ -2243,7 +2063,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * MERGE statement
      */
     @Override
-    public Integer visitMerge_stmt(org.apache.doris.hplsql.HplsqlParser.Merge_stmtContext ctx) {
+    public Integer visitMerge_stmt(Merge_stmtContext ctx) {
         return stmt.merge(ctx);
     }
 
@@ -2251,7 +2071,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Run a Hive command line
      */
     @Override
-    public Integer visitHive(@NotNull org.apache.doris.hplsql.HplsqlParser.HiveContext ctx) {
+    public Integer visitHive(@NotNull HiveContext ctx) {
         trace(ctx, "HIVE");
         ArrayList<String> cmd = new ArrayList<>();
         cmd.add("hive");
@@ -2284,7 +2104,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
 
     @Override
     @SuppressWarnings("unchecked")
-    public Integer visitHive_item(org.apache.doris.hplsql.HplsqlParser.Hive_itemContext ctx) {
+    public Integer visitHive_item(Hive_itemContext ctx) {
         Var params = stackPeek();
         ArrayList<String> a = (ArrayList<String>) params.value;
         String param = ctx.getChild(1).getText();
@@ -2310,7 +2130,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Executing OS command
      */
     @Override
-    public Integer visitHost_cmd(org.apache.doris.hplsql.HplsqlParser.Host_cmdContext ctx) {
+    public Integer visitHost_cmd(Host_cmdContext ctx) {
         trace(ctx, "HOST");
         execHost(ctx, ctx.start.getInputStream().getText(
                 new org.antlr.v4.runtime.misc.Interval(ctx.start.getStartIndex(), ctx.stop.getStopIndex())));
@@ -2318,7 +2138,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     @Override
-    public Integer visitHost_stmt(org.apache.doris.hplsql.HplsqlParser.Host_stmtContext ctx) {
+    public Integer visitHost_stmt(Host_stmtContext ctx) {
         trace(ctx, "HOST");
         execHost(ctx, evalPop(ctx.expr()).toString());
         return 0;
@@ -2347,7 +2167,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Standalone expression (as a statement)
      */
     @Override
-    public Integer visitExpr_stmt(org.apache.doris.hplsql.HplsqlParser.Expr_stmtContext ctx) {
+    public Integer visitExpr_stmt(Expr_stmtContext ctx) {
         visitChildren(ctx);
         return 0;
     }
@@ -2356,7 +2176,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * String concatenation operator
      */
     @Override
-    public Integer visitExpr_concat(org.apache.doris.hplsql.HplsqlParser.Expr_concatContext ctx) {
+    public Integer visitExpr_concat(Expr_concatContext ctx) {
         if (exec.buildSql) {
             exec.expr.operatorConcatSql(ctx);
         } else {
@@ -2366,18 +2186,18 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     }
 
     @Override
-    public Integer visitExpr_dot_method_call(org.apache.doris.hplsql.HplsqlParser.Expr_dot_method_callContext ctx) {
+    public Integer visitExpr_dot_method_call(Expr_dot_method_callContext ctx) {
         if (exec.buildSql) {
             exec.stackPush(new Var(Var.Type.IDENT, ctx.getText()));
             return 0;
         }
-        Var var = ctx.ident() != null
-                ? findVariable(ctx.ident().getText())
+        Var var = ctx.ident_pl() != null
+                ? findVariable(ctx.ident_pl().getText())
                 : evalPop(ctx.expr_func(0));
 
-        if (var == null && ctx.ident() != null) {
-            Package pkg = findPackage(ctx.ident().getText());
-            String pkgFuncName = ctx.expr_func(0).ident().getText().toUpperCase();
+        if (var == null && ctx.ident_pl() != null) {
+            Package pkg = findPackage(ctx.ident_pl().getText());
+            String pkgFuncName = ctx.expr_func(0).ident_pl().getText().toUpperCase();
             boolean executed = pkg.execFunc(pkgFuncName, ctx.expr_func(0).expr_func_params());
             Package packCallContext = exec.getPackageCallContext();
             if (!executed && packCallContext != null) {
@@ -2386,10 +2206,10 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
             return 0;
         }
 
-        org.apache.doris.hplsql.HplsqlParser.Expr_funcContext method = ctx.expr_func(ctx.expr_func().size() - 1);
+        Expr_funcContext method = ctx.expr_func(ctx.expr_func().size() - 1);
         switch (var.type) {
             case HPL_OBJECT:
-                Var result = dispatch(ctx, (HplObject) var.value, method.ident().getText(), method.expr_func_params());
+                Var result = dispatch(ctx, (HplObject) var.value, method.ident_pl().getText(), method.expr_func_params());
                 stackPush(result);
                 return 0;
             default:
@@ -2399,18 +2219,18 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
 
     @Override
     public Integer visitExpr_dot_property_access(
-            org.apache.doris.hplsql.HplsqlParser.Expr_dot_property_accessContext ctx) {
+            Expr_dot_property_accessContext ctx) {
         if (exec.buildSql) {
             exec.stackPush(new Var(Var.Type.IDENT, ctx.getText()));
             return 0;
         }
         Var var = ctx.expr_func() != null
                 ? evalPop(ctx.expr_func())
-                : findVariable(ctx.ident(0).getText());
-        String property = ctx.ident(ctx.ident().size() - 1).getText();
+                : findVariable(ctx.ident_pl(0).getText());
+        String property = ctx.ident_pl(ctx.ident_pl().size() - 1).getText();
 
         if (var == null && ctx.expr_func() == null) {
-            Package pkg = findPackage(ctx.ident(0).getText());
+            Package pkg = findPackage(ctx.ident_pl(0).getText());
             Var variable = pkg.findVariable(property);
             if (variable != null) {
                 stackPush(variable);
@@ -2438,7 +2258,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Simple CASE expression
      */
     @Override
-    public Integer visitExpr_case_simple(org.apache.doris.hplsql.HplsqlParser.Expr_case_simpleContext ctx) {
+    public Integer visitExpr_case_simple(Expr_case_simpleContext ctx) {
         if (exec.buildSql) {
             exec.expr.execSimpleCaseSql(ctx);
         } else {
@@ -2451,7 +2271,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Searched CASE expression
      */
     @Override
-    public Integer visitExpr_case_searched(org.apache.doris.hplsql.HplsqlParser.Expr_case_searchedContext ctx) {
+    public Integer visitExpr_case_searched(Expr_case_searchedContext ctx) {
         if (exec.buildSql) {
             exec.expr.execSearchedCaseSql(ctx);
         } else {
@@ -2465,7 +2285,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitGet_diag_stmt_exception_item(
-            org.apache.doris.hplsql.HplsqlParser.Get_diag_stmt_exception_itemContext ctx) {
+            Get_diag_stmt_exception_itemContext ctx) {
         return exec.stmt.getDiagnosticsException(ctx);
     }
 
@@ -2474,7 +2294,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      */
     @Override
     public Integer visitGet_diag_stmt_rowcount_item(
-            org.apache.doris.hplsql.HplsqlParser.Get_diag_stmt_rowcount_itemContext ctx) {
+            Get_diag_stmt_rowcount_itemContext ctx) {
         return exec.stmt.getDiagnosticsRowCount(ctx);
     }
 
@@ -2482,7 +2302,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * GRANT statement
      */
     @Override
-    public Integer visitGrant_stmt(org.apache.doris.hplsql.HplsqlParser.Grant_stmtContext ctx) {
+    public Integer visitGrant_stmt(Grant_stmtContext ctx) {
         trace(ctx, "GRANT");
         return 0;
     }
@@ -2491,7 +2311,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Label
      */
     @Override
-    public Integer visitLabel(org.apache.doris.hplsql.HplsqlParser.LabelContext ctx) {
+    public Integer visitLabel(LabelContext ctx) {
         if (ctx.L_ID() != null) {
             exec.labels.push(ctx.L_ID().toString());
         } else {
@@ -2508,7 +2328,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Identifier
      */
     @Override
-    public Integer visitIdent(org.apache.doris.hplsql.HplsqlParser.IdentContext ctx) {
+    public Integer visitIdent(IdentContext ctx) {
         boolean hasSub = false;
         String ident = ctx.getText();
         String actualIdent = ident;
@@ -2547,7 +2367,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Single quoted string literal
      */
     @Override
-    public Integer visitSingle_quotedString(org.apache.doris.hplsql.HplsqlParser.Single_quotedStringContext ctx) {
+    public Integer visitSingle_quotedString(Single_quotedStringContext ctx) {
         if (exec.buildSql) {
             exec.stackPush(ctx.getText());
         } else {
@@ -2560,7 +2380,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Integer literal, signed or unsigned
      */
     @Override
-    public Integer visitInt_number(org.apache.doris.hplsql.HplsqlParser.Int_numberContext ctx) {
+    public Integer visitInt_number(Int_numberContext ctx) {
         exec.stack.push(new Var(Long.valueOf(ctx.getText())));
         return 0;
     }
@@ -2569,7 +2389,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Interval expression (INTERVAL '1' DAY i.e)
      */
     @Override
-    public Integer visitExpr_interval(org.apache.doris.hplsql.HplsqlParser.Expr_intervalContext ctx) {
+    public Integer visitExpr_interval(Expr_intervalContext ctx) {
         int num = evalPop(ctx.expr()).intValue();
         Interval interval = new Interval().set(num, ctx.interval_item().getText());
         stackPush(new Var(interval));
@@ -2580,7 +2400,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Decimal literal, signed or unsigned
      */
     @Override
-    public Integer visitDec_number(org.apache.doris.hplsql.HplsqlParser.Dec_numberContext ctx) {
+    public Integer visitDec_number(Dec_numberContext ctx) {
         stackPush(new Var(new BigDecimal(ctx.getText())));
         return 0;
     }
@@ -2589,7 +2409,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * Boolean literal
      */
     @Override
-    public Integer visitBool_literal(org.apache.doris.hplsql.HplsqlParser.Bool_literalContext ctx) {
+    public Integer visitBool_literal(Bool_literalContext ctx) {
         boolean val = true;
         if (ctx.T_FALSE() != null) {
             val = false;
@@ -2602,7 +2422,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * NULL constant
      */
     @Override
-    public Integer visitNull_const(org.apache.doris.hplsql.HplsqlParser.Null_constContext ctx) {
+    public Integer visitNull_const(Null_constContext ctx) {
         stackPush(new Var());
         return 0;
     }
@@ -2611,7 +2431,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * DATE 'YYYY-MM-DD' literal
      */
     @Override
-    public Integer visitDate_literal(org.apache.doris.hplsql.HplsqlParser.Date_literalContext ctx) {
+    public Integer visitDate_literal(Date_literalContext ctx) {
         if (!exec.buildSql) {
             String str = evalPop(ctx.string()).toString();
             stackPush(new Var(Var.Type.DATE, Utils.toDate(str)));
@@ -2625,7 +2445,7 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
      * TIMESTAMP 'YYYY-MM-DD HH:MI:SS.FFF' literal
      */
     @Override
-    public Integer visitTimestamp_literal(org.apache.doris.hplsql.HplsqlParser.Timestamp_literalContext ctx) {
+    public Integer visitTimestamp_literal(Timestamp_literalContext ctx) {
         if (!exec.buildSql) {
             String str = evalPop(ctx.string()).toString();
             int len = str.length();
@@ -2777,8 +2597,8 @@ public class Exec extends org.apache.doris.hplsql.HplsqlBaseVisitor<Integer> imp
     /**
      * Evaluate the data type and length
      */
-    String evalPop(org.apache.doris.hplsql.HplsqlParser.DtypeContext type,
-            org.apache.doris.hplsql.HplsqlParser.Dtype_lenContext len) {
+    String evalPop(DtypeContext type,
+            Dtype_lenContext len) {
         if (isConvert(exec.conf.defaultConnection)) {
             return exec.converter.dataType(type, len);
         }
