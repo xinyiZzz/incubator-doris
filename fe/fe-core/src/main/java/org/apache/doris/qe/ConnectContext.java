@@ -40,7 +40,7 @@ import org.apache.doris.common.util.TimeUtils;
 import org.apache.doris.datasource.CatalogIf;
 import org.apache.doris.datasource.InternalCatalog;
 import org.apache.doris.datasource.SessionContext;
-import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
+import org.apache.doris.plsql.executor.PlsqlQueryExecutor;
 import org.apache.doris.mysql.DummyMysqlChannel;
 import org.apache.doris.mysql.MysqlCapability;
 import org.apache.doris.mysql.MysqlChannel;
@@ -49,7 +49,7 @@ import org.apache.doris.mysql.MysqlSslContext;
 import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.stats.StatsErrorEstimator;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
-import org.apache.doris.hplsql.Exec;
+import org.apache.doris.plsql.Exec;
 import org.apache.doris.plugin.AuditEvent.AuditEventBuilder;
 import org.apache.doris.resource.Tag;
 import org.apache.doris.service.arrowflight.results.FlightSqlChannel;
@@ -189,7 +189,7 @@ public class ConnectContext {
     // If set to false, the system will not restrict query resources.
     private boolean isResourceTagsSet = false;
 
-    private HplsqlQueryExecutor hplsqlQueryExecutor = null;
+    private PlsqlQueryExecutor plsqlQueryExecutor = null;
 
     private String sqlHash;
 
@@ -776,12 +776,12 @@ public class ConnectContext {
         return executor;
     }
 
-    public HplsqlQueryExecutor getHplsqlQueryExecutor() {
-        return hplsqlQueryExecutor;
+    public PlsqlQueryExecutor getHplsqlQueryExecutor() {
+        return plsqlQueryExecutor;
     }
 
-    public void setHplsqlQueryExecutor(HplsqlQueryExecutor hplsqlQueryExecutor) {
-        this.hplsqlQueryExecutor = hplsqlQueryExecutor;
+    public void setHplsqlQueryExecutor(PlsqlQueryExecutor plsqlQueryExecutor) {
+        this.plsqlQueryExecutor = plsqlQueryExecutor;
     }
 
     protected void closeChannel() {

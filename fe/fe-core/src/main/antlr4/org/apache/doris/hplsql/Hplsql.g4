@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 // This file is copied from
-// https://github.com/apache/hive/blob/master/hplsql/src/main/antlr4/org/apache/hive/hplsql/Hplsql.g4
+// https://github.com/apache/hive/blob/master/hplsql/src/main/antlr4/org/apache/hive/hplsql/Plsql.g4
 // and modified by Doris
 
 // HPL/SQL Procedural SQL Extension Grammar 

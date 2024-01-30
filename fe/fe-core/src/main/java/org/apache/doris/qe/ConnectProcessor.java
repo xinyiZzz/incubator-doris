@@ -41,7 +41,7 @@ import org.apache.doris.common.util.SqlParserUtils;
 import org.apache.doris.common.util.SqlUtils;
 import org.apache.doris.common.util.Util;
 import org.apache.doris.datasource.CatalogIf;
-import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
+import org.apache.doris.plsql.executor.PlsqlQueryExecutor;
 import org.apache.doris.metric.MetricRepo;
 import org.apache.doris.mysql.MysqlChannel;
 import org.apache.doris.mysql.MysqlCommand;
@@ -183,12 +183,12 @@ public abstract class ConnectProcessor {
             if (ctx.sessionVariable.isEnableHplsql()) { // hplsql, 为false，也可以执行hplsql啊，这样session veriable开启了，
                 // 所有sql就都走hpl了 // 比如 show bakcends；就会失败，要么在 g4 那个文件定义语法，要么直接转到mysql执行，
                 // 只有query走hpl // 先不支持create table
-                HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
-                if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
-                    hplsqlQueryExecutor = new HplsqlQueryExecutor();
-                    ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
+                PlsqlQueryExecutor plsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
+                if (plsqlQueryExecutor == null) { // hplsql, 这是为啥
+                    plsqlQueryExecutor = new PlsqlQueryExecutor();
+                    ctx.setHplsqlQueryExecutor(plsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
                 }
-                hplsqlQueryExecutor.execute(originStmt);
+                plsqlQueryExecutor.execute(originStmt);
             } else {
                 executeQuery(mysqlCommand, originStmt);
             }

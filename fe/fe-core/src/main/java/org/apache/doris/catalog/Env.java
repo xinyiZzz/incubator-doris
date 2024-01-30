@@ -143,7 +143,7 @@ import org.apache.doris.ha.BDBHA;
 import org.apache.doris.ha.FrontendNodeType;
 import org.apache.doris.ha.HAProtocol;
 import org.apache.doris.ha.MasterInfo;
-import org.apache.doris.hplsql.store.HplsqlManager;
+import org.apache.doris.plsql.store.PlsqlManager;
 import org.apache.doris.httpv2.entity.ResponseBody;
 import org.apache.doris.httpv2.meta.MetaBaseAction;
 import org.apache.doris.httpv2.rest.RestApiStatusCode;
@@ -496,7 +496,7 @@ public class Env {
 
     private StatisticsCleaner statisticsCleaner;
 
-    private HplsqlManager hplsqlManager;
+    private PlsqlManager plsqlManager;
 
     private BinlogManager binlogManager;
 
@@ -745,7 +745,7 @@ public class Env {
         this.queryStats = new QueryStats();
         this.loadManagerAdapter = new LoadManagerAdapter();
         this.hiveTransactionMgr = new HiveTransactionMgr();
-        this.hplsqlManager = new HplsqlManager();
+        this.plsqlManager = new PlsqlManager();
         this.binlogManager = new BinlogManager();
         this.binlogGcer = new BinlogGcer();
         this.columnIdFlusher = new ColumnIdFlushDaemon();
@@ -839,8 +839,8 @@ public class Env {
         return workloadSchedPolicyMgr;
     }
 
-    public HplsqlManager getHplsqlManager() {
-        return hplsqlManager;
+    public PlsqlManager getHplsqlManager() {
+        return plsqlManager;
     }
 
     // use this to get correct ClusterInfoService instance
@@ -2114,7 +2114,7 @@ public class Env {
     }
 
     public long loadHplsqlStored(DataInputStream in, long checksum) throws IOException {
-        hplsqlManager = HplsqlManager.read(in);
+        plsqlManager = PlsqlManager.read(in);
         LOG.info("finished replay hplsql stored from image");
         return checksum;
     }

@@ -52,9 +52,9 @@ import org.apache.doris.datasource.ExternalObjectLog;
 import org.apache.doris.datasource.InitCatalogLog;
 import org.apache.doris.datasource.InitDatabaseLog;
 import org.apache.doris.ha.MasterInfo;
-import org.apache.doris.hplsql.store.HplsqlPackage;
-import org.apache.doris.hplsql.store.StoredKey;
-import org.apache.doris.hplsql.store.StoredProcedure;
+import org.apache.doris.plsql.store.PlsqlPackage;
+import org.apache.doris.plsql.store.StoredKey;
+import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.insertoverwrite.InsertOverwriteLog;
 import org.apache.doris.job.base.AbstractJob;
 import org.apache.doris.journal.Journal;
@@ -1105,7 +1105,7 @@ public class EditLog {
                     break;
                 }
                 case OperationType.OP_ADD_HPLSQL_PACKAGE: {
-                    env.getHplsqlManager().replayAddPackage((HplsqlPackage) journal.getData());
+                    env.getHplsqlManager().replayAddPackage((PlsqlPackage) journal.getData());
                     break;
                 }
                 case OperationType.OP_DROP_HPLSQL_PACKAGE: {
@@ -1724,7 +1724,7 @@ public class EditLog {
         logEdit(OperationType.OP_DROP_STORED_PROCEDURE, storedKey);
     }
 
-    public void logAddHplsqlPackage(HplsqlPackage pkg) {
+    public void logAddHplsqlPackage(PlsqlPackage pkg) {
         logEdit(OperationType.OP_ADD_HPLSQL_PACKAGE, pkg);
     }
 

@@ -44,9 +44,9 @@ import org.apache.doris.datasource.InitCatalogLog;
 import org.apache.doris.datasource.InitDatabaseLog;
 import org.apache.doris.datasource.InitTableLog;
 import org.apache.doris.ha.MasterInfo;
-import org.apache.doris.hplsql.store.HplsqlPackage;
-import org.apache.doris.hplsql.store.StoredKey;
-import org.apache.doris.hplsql.store.StoredProcedure;
+import org.apache.doris.plsql.store.PlsqlPackage;
+import org.apache.doris.plsql.store.StoredKey;
+import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.insertoverwrite.InsertOverwriteLog;
 import org.apache.doris.job.base.AbstractJob;
 import org.apache.doris.journal.bdbje.Timestamp;
@@ -868,7 +868,7 @@ public class JournalEntity implements Writable {
                 break;
             }
             case OperationType.OP_ADD_HPLSQL_PACKAGE: {
-                data = HplsqlPackage.read(in);
+                data = PlsqlPackage.read(in);
                 isRead = true;
                 break;
             }

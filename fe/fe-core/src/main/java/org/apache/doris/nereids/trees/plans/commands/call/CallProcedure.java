@@ -17,7 +17,7 @@
 
 package org.apache.doris.nereids.trees.plans.commands.call;
 
-import org.apache.doris.hplsql.executor.HplsqlQueryExecutor;
+import org.apache.doris.plsql.executor.PlsqlQueryExecutor;
 import org.apache.doris.qe.ConnectContext;
 
 import java.util.Objects;
@@ -26,11 +26,11 @@ import java.util.Objects;
  * CallProcedure
  */
 public class CallProcedure extends CallFunc {
-    private final HplsqlQueryExecutor executor;
+    private final PlsqlQueryExecutor executor;
     private final ConnectContext ctx;
     private final String source;
 
-    private CallProcedure(HplsqlQueryExecutor executor, ConnectContext ctx, String source) {
+    private CallProcedure(PlsqlQueryExecutor executor, ConnectContext ctx, String source) {
         this.executor = Objects.requireNonNull(executor, "executor is missing");
         this.ctx = ctx;
         this.source = source;
@@ -40,12 +40,12 @@ public class CallProcedure extends CallFunc {
      * Create a CallFunc
      */
     public static CallFunc create(ConnectContext ctx, String source) {
-        HplsqlQueryExecutor hplsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
-        if (hplsqlQueryExecutor == null) { // hplsql, 这是为啥
-            hplsqlQueryExecutor = new HplsqlQueryExecutor();
-            ctx.setHplsqlQueryExecutor(hplsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
+        PlsqlQueryExecutor plsqlQueryExecutor = ctx.getHplsqlQueryExecutor(); // 这段逻辑，移到 Mysql processer
+        if (plsqlQueryExecutor == null) { // hplsql, 这是为啥
+            plsqlQueryExecutor = new PlsqlQueryExecutor();
+            ctx.setHplsqlQueryExecutor(plsqlQueryExecutor); // hplsql, 这些逻辑放到 hpl connect processor
         }
-        return new CallProcedure(hplsqlQueryExecutor, ctx, source);
+        return new CallProcedure(plsqlQueryExecutor, ctx, source);
     }
 
     @Override

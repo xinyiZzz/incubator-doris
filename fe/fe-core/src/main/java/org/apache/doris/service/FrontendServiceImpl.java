@@ -73,9 +73,9 @@ import org.apache.doris.cooldown.CooldownDelete;
 import org.apache.doris.datasource.CatalogIf;
 import org.apache.doris.datasource.ExternalCatalog;
 import org.apache.doris.datasource.InternalCatalog;
-import org.apache.doris.hplsql.store.HplsqlPackage;
-import org.apache.doris.hplsql.store.StoredKey;
-import org.apache.doris.hplsql.store.StoredProcedure;
+import org.apache.doris.plsql.store.PlsqlPackage;
+import org.apache.doris.plsql.store.StoredKey;
+import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.load.routineload.RoutineLoadJob;
 import org.apache.doris.master.MasterImpl;
 import org.apache.doris.mysql.privilege.AccessControllerManager;
@@ -2962,7 +2962,7 @@ public class FrontendServiceImpl implements FrontendService.Iface {
         }
 
         try {
-            Env.getCurrentEnv().getHplsqlManager().addPackage(HplsqlPackage.fromThrift(request.getHplsqlPackage()),
+            Env.getCurrentEnv().getHplsqlManager().addPackage(PlsqlPackage.fromThrift(request.getHplsqlPackage()),
                     request.isSetIsForce() && request.isIsForce());
         } catch (RuntimeException e) {
             status.setStatusCode(TStatusCode.ALREADY_EXIST);
