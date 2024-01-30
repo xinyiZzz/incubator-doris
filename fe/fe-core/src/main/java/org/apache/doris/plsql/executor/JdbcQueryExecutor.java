@@ -21,10 +21,10 @@
 package org.apache.doris.plsql.executor;
 
 import org.apache.doris.common.AnalysisException;
+import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Query;
 import org.apache.doris.plsql.exception.QueryException;
-import org.apache.doris.nereids.trees.expressions.literal.Literal;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 

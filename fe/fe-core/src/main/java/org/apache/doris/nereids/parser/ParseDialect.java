@@ -35,11 +35,7 @@ public enum ParseDialect {
     /**
      * Spark parser and it's version is 3.x.
      */
-    SPARK_SQL_3_ALL(Dialect.SPARK_SQL, Version.SPARK_SQL_3_ALL),
-    /**
-     * PL parser and it's version is 1.0.
-     */
-    PLSQL_1_ALL(Dialect.PLSQL, Version.PLSQL_1_ALL);
+    SPARK_SQL_3_ALL(Dialect.SPARK_SQL, Version.SPARK_SQL_3_ALL);
 
     private final Dialect dialect;
     private final Version version;
@@ -72,11 +68,7 @@ public enum ParseDialect {
         /**
          * Spark sql parser and it's version is 3.x.
          */
-        SPARK_SQL_3_ALL("3.*"),
-        /**
-         * PL sql parser and it's version is 1.x.
-         */
-        PLSQL_1_ALL("1.*");
+        SPARK_SQL_3_ALL("3.*");
         private final String version;
 
         Version(String version) {
@@ -107,11 +99,7 @@ public enum ParseDialect {
         /**
          * Spark sql parser dialect
          */
-        SPARK_SQL("spark_sql"),
-        /**
-         * PL sql parser dialect
-         */
-        PLSQL("plsql");
+        SPARK_SQL("spark_sql");
 
         private String dialectName;
 

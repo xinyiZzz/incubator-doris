@@ -404,6 +404,7 @@ import org.apache.doris.nereids.types.VarcharType;
 import org.apache.doris.nereids.types.coercion.CharacterType;
 import org.apache.doris.nereids.util.ExpressionUtils;
 import org.apache.doris.nereids.util.RelationUtil;
+import org.apache.doris.plsql.Var;
 import org.apache.doris.policy.FilterType;
 import org.apache.doris.policy.PolicyTypeEnum;
 import org.apache.doris.qe.ConnectContext;
@@ -1082,10 +1083,6 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitQuery(QueryContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-            ConnectContext.get().getProcedureExec().select.visitQuery(ctx);
-            return null;
-        }
         return ParserUtils.withOrigin(ctx, () -> {
             // TODO: need to add withQueryResultClauses and withCTE
             LogicalPlan query = plan(ctx.queryTerm());
@@ -2050,6 +2047,12 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public Expression visitColumnReference(ColumnReferenceContext ctx) {
+        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+            Var var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
+            if (var != null && var.type == Var.Type.EXPRESSION) {
+                return (Expression) var.value;
+            }
+        }
         // todo: handle quoted and unquoted
         return UnboundSlot.quoted(ctx.getText());
     }
@@ -2178,19 +2181,11 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public LogicalPlan visitRelation(RelationContext ctx) {
-        // if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-        //     ConnectContext.get().getProcedureExec().select.visitRelation(ctx);
-        //     return null;
-        // }
         return plan(ctx.relationPrimary());
     }
 
     @Override
     public LogicalPlan visitFromClause(FromClauseContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-            ConnectContext.get().getProcedureExec().select.visitFromClause(ctx);
-            return null;
-        }
         return ParserUtils.withOrigin(ctx, () -> withRelations(null, ctx.relation()));
     }
 

@@ -53,7 +53,11 @@ public class UnboundFunction extends Function implements Unbound, PropagateNulla
     }
 
     public UnboundFunction(String name, boolean isDistinct, List<Expression> arguments) {
-        this(null, name, isDistinct, arguments, null));
+        this(null, name, isDistinct, arguments, null);
+    }
+
+    public UnboundFunction(String dbName, String name, boolean isDistinct, List<Expression> arguments) {
+        this(dbName, name, isDistinct, arguments, null);
     }
 
     public UnboundFunction(String dbName, String name, boolean isDistinct, List<Expression> arguments, String source) {

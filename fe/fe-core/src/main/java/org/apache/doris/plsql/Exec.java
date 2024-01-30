@@ -20,13 +20,6 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.DorisParser.ColumnReferenceContext;
-import org.apache.doris.nereids.DorisParser.FromClauseContext;
-import org.apache.doris.nereids.DorisParser.QueryContext;
-import org.apache.doris.nereids.DorisParser.RegularQuerySpecificationContext;
-import org.apache.doris.nereids.DorisParser.SelectClauseContext;
-import org.apache.doris.nereids.DorisParser.StatementDefaultContext;
-import org.apache.doris.nereids.DorisParser.WhereClauseContext;
 import org.apache.doris.nereids.PLParserLexer;
 import org.apache.doris.nereids.PLParserParser;
 import org.apache.doris.nereids.PLParserParser.Allocate_cursor_stmtContext;
@@ -73,6 +66,7 @@ import org.apache.doris.nereids.PLParserParser.Expr_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
 import org.apache.doris.nereids.PLParserParser.For_cursor_stmtContext;
 import org.apache.doris.nereids.PLParserParser.For_range_stmtContext;
+import org.apache.doris.nereids.PLParserParser.FromClauseContext;
 import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_exception_itemContext;
 import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_rowcount_itemContext;
 import org.apache.doris.nereids.PLParserParser.Host_cmdContext;
@@ -86,24 +80,31 @@ import org.apache.doris.nereids.PLParserParser.Int_numberContext;
 import org.apache.doris.nereids.PLParserParser.LabelContext;
 import org.apache.doris.nereids.PLParserParser.Leave_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Map_object_stmtContext;
+import org.apache.doris.nereids.PLParserParser.NamedExpressionSeqContext;
 import org.apache.doris.nereids.PLParserParser.Null_constContext;
 import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Print_stmtContext;
 import org.apache.doris.nereids.PLParserParser.ProgramContext;
+import org.apache.doris.nereids.PLParserParser.QueryContext;
 import org.apache.doris.nereids.PLParserParser.Quit_stmtContext;
+import org.apache.doris.nereids.PLParserParser.RegularQuerySpecificationContext;
 import org.apache.doris.nereids.PLParserParser.Resignal_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Return_stmtContext;
+import org.apache.doris.nereids.PLParserParser.SelectClauseContext;
 import org.apache.doris.nereids.PLParserParser.Set_current_schema_optionContext;
 import org.apache.doris.nereids.PLParserParser.Set_doris_session_optionContext;
 import org.apache.doris.nereids.PLParserParser.Signal_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Single_quotedStringContext;
+import org.apache.doris.nereids.PLParserParser.StatementDefaultContext;
 import org.apache.doris.nereids.PLParserParser.StmtContext;
 import org.apache.doris.nereids.PLParserParser.Timestamp_literalContext;
 import org.apache.doris.nereids.PLParserParser.Unconditional_loop_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Values_into_stmtContext;
+import org.apache.doris.nereids.PLParserParser.WhereClauseContext;
 import org.apache.doris.nereids.PLParserParser.While_stmtContext;
-import org.apache.doris.nereids.analyzer.UnboundSlot;
 import org.apache.doris.nereids.parser.LogicalPlanBuilder;
+import org.apache.doris.nereids.parser.ParserUtils;
+import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.plsql.exception.HplValidationException;
 import org.apache.doris.plsql.exception.QueryException;
@@ -135,8 +136,8 @@ import org.apache.doris.plsql.packages.DorisPackageRegistry;
 import org.apache.doris.plsql.packages.InMemoryPackageRegistry;
 import org.apache.doris.plsql.packages.PackageRegistry;
 import org.apache.doris.plsql.store.MetaClient;
-import org.apache.doris.qe.ConnectContext;
 
+import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.ANTLRInputStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -1140,9 +1141,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         if (ctx.semicolon_stmt() != null) {
             return 0;
         }
-        if (initRoutines && ctx.create_procedure_stmt() == null && ctx.create_function_stmt() == null) {
-            return 0;
-        }
+        // if (initRoutines && ctx.create_procedure_stmt() == null && ctx.create_function_stmt() == null) {
+        //     return 0;
+        // }
         if (exec.resignal) {
             if (exec.currentScope != exec.currentHandlerScope.parent) {
                 return 0;
@@ -1171,17 +1172,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
 
     @Override
     public Integer visitStatementDefault(StatementDefaultContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
-            exec.select.select(ctx);
-        }
-        return null;
-        // LogicalPlan plan = plan(ctx.query());
-        // if (ctx.outFileClause() != null) {
-        //     plan = withOutFile(plan, ctx.outFileClause());
-        // } else {
-        //     plan = new UnboundResultSink<>(plan);
-        // }
-        // return withExplain(plan, ctx.explain());
+        return exec.select.select(ctx);
     }
 
     /**
@@ -1208,22 +1199,8 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     }
 
     @Override
-    public Integer visitFromClause(FromClauseContext ctx) {
-        return exec.select.from(ctx);
-    }
-
-    @Override
     public Integer visitWhereClause(WhereClauseContext ctx) {
         return exec.select.where(ctx);
-    }
-
-    @Override
-    public org.apache.doris.nereids.trees.expressions.Expression visitColumnReference(ColumnReferenceContext ctx) {
-        Var var = exec.findVariable(ctx.getText());
-        if (var != null && var.type == Var.Type.EXPRESSION) {
-            return (org.apache.doris.nereids.trees.expressions.Expression) var.value;
-        }
-        return UnboundSlot.quoted(ctx.getText());
     }
 
     /**
@@ -1246,6 +1223,17 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
             leaveScope();
         }
         return 0;
+    }
+
+    private <T> List<T> visit(List<? extends ParserRuleContext> contexts, Class<T> clazz) {
+        return contexts.stream()
+                .map(this::visit)
+                .map(clazz::cast)
+                .collect(ImmutableList.toImmutableList());
+    }
+
+    public List<NamedExpression> getNamedExpressions(NamedExpressionSeqContext namedCtx) {
+        return ParserUtils.withOrigin(namedCtx, () -> visit(namedCtx.namedExpression(), NamedExpression.class));
     }
 
     /**
@@ -1871,22 +1859,22 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     /**
      * CALL statement
      */
-    @Override
-    public Integer visitCall_stmt(Call_stmtContext ctx) {
-        exec.inCallStmt = true;
-        try {
-            if (ctx.expr_func() != null) {
-                functionCall(ctx, ctx.expr_func().ident_pl(), ctx.expr_func().expr_func_params());
-            } else if (ctx.expr_dot() != null) {
-                visitExpr_dot(ctx.expr_dot());
-            } else if (ctx.ident_pl() != null) {
-                functionCall(ctx, ctx.ident_pl(), null);
-            }
-        } finally {
-            exec.inCallStmt = false;
-        }
-        return 0;
-    }
+    // @Override
+    // public Integer visitCall_stmt(Call_stmtContext ctx) {
+    //     exec.inCallStmt = true;
+    //     try {
+    //         if (ctx.expr_func() != null) {
+    //             functionCall(ctx, ctx.expr_func().ident_pl(), ctx.expr_func().expr_func_params());
+    //         } else if (ctx.expr_dot() != null) {
+    //             visitExpr_dot(ctx.expr_dot());
+    //         } else if (ctx.ident_pl() != null) {
+    //             functionCall(ctx, ctx.ident_pl(), null);
+    //         }
+    //     } finally {
+    //         exec.inCallStmt = false;
+    //     }
+    //     return 0;
+    // }
 
     /**
      * EXIT statement (leave the specified loop with a condition)

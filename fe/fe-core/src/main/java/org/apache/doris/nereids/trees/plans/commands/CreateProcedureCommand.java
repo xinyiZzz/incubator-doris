@@ -17,10 +17,10 @@
 
 package org.apache.doris.nereids.trees.plans.commands;
 
-import org.apache.doris.plsql.store.MetaClient;
 import org.apache.doris.nereids.annotation.Developing;
 import org.apache.doris.nereids.trees.plans.PlanType;
 import org.apache.doris.nereids.trees.plans.visitor.PlanVisitor;
+import org.apache.doris.plsql.store.MetaClient;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.StmtExecutor;
 

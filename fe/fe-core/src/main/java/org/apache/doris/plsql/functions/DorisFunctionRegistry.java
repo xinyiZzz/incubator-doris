@@ -131,7 +131,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
             Create_procedure_stmtContext proc = (Create_procedure_stmtContext) procCtx;
             InMemoryFunctionRegistry.setCallParameters(proc.ident_pl(0).getText(), ctx, actualParams,
                     proc.create_routine_params(), out, exec);
-            exec.visit(proc.proc_block());
+            exec.visit(proc.procedure_block());
         }
     }
 

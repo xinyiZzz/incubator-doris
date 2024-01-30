@@ -44,9 +44,6 @@ import org.apache.doris.datasource.InitCatalogLog;
 import org.apache.doris.datasource.InitDatabaseLog;
 import org.apache.doris.datasource.InitTableLog;
 import org.apache.doris.ha.MasterInfo;
-import org.apache.doris.plsql.store.PlsqlPackage;
-import org.apache.doris.plsql.store.StoredKey;
-import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.insertoverwrite.InsertOverwriteLog;
 import org.apache.doris.job.base.AbstractJob;
 import org.apache.doris.journal.bdbje.Timestamp;
@@ -119,6 +116,9 @@ import org.apache.doris.persist.TablePropertyInfo;
 import org.apache.doris.persist.TableRenameColumnInfo;
 import org.apache.doris.persist.TableStatsDeletionLog;
 import org.apache.doris.persist.TruncateTableInfo;
+import org.apache.doris.plsql.store.PlsqlPackage;
+import org.apache.doris.plsql.store.StoredKey;
+import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.plugin.PluginInfo;
 import org.apache.doris.policy.DropPolicyLog;
 import org.apache.doris.policy.Policy;
@@ -550,7 +550,7 @@ public class JournalEntity implements Writable {
             }
             case OperationType.OP_CREATE_SCHEDULER_TASK:
             case OperationType.OP_DELETE_SCHEDULER_TASK: {
-                //todo improve
+                // todo improve
                 break;
             }
             case OperationType.OP_CREATE_LOAD_JOB: {

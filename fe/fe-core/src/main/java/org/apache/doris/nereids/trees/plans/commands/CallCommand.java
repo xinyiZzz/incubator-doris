@@ -44,6 +44,7 @@ public class CallCommand extends Command implements ForwardWithSync {
         super(PlanType.CALL_COMMAND);
         this.unboundFunction = Objects.requireNonNull(unboundFunction, "function is null");
     }
+
     @Override
     public void run(ConnectContext ctx, StmtExecutor executor) throws Exception {
         CallFunc analyzedFunc = CallFunc.getFunc(ctx, ctx.getCurrentUserIdentity(), unboundFunction);

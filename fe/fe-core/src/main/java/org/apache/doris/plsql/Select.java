@@ -20,15 +20,15 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.DorisParser.FromClauseContext;
-import org.apache.doris.nereids.DorisParser.QueryContext;
-import org.apache.doris.nereids.DorisParser.RegularQuerySpecificationContext;
-import org.apache.doris.nereids.DorisParser.RelationContext;
-import org.apache.doris.nereids.DorisParser.SelectClauseContext;
-import org.apache.doris.nereids.DorisParser.SelectColumnClauseContext;
-import org.apache.doris.nereids.DorisParser.StatementContext;
-import org.apache.doris.nereids.DorisParser.StatementDefaultContext;
-import org.apache.doris.nereids.DorisParser.WhereClauseContext;
+import org.apache.doris.nereids.PLParserParser.FromClauseContext;
+import org.apache.doris.nereids.PLParserParser.QueryContext;
+import org.apache.doris.nereids.PLParserParser.RegularQuerySpecificationContext;
+import org.apache.doris.nereids.PLParserParser.RelationContext;
+import org.apache.doris.nereids.PLParserParser.SelectClauseContext;
+import org.apache.doris.nereids.PLParserParser.SelectColumnClauseContext;
+import org.apache.doris.nereids.PLParserParser.StatementContext;
+import org.apache.doris.nereids.PLParserParser.StatementDefaultContext;
+import org.apache.doris.nereids.PLParserParser.WhereClauseContext;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.plsql.executor.PlsqlResult;
@@ -288,7 +288,7 @@ public class Select {
     public Integer selectList(SelectClauseContext ctx) {
         StringBuilder sql = new StringBuilder();
         SelectColumnClauseContext selectColumnCtx = ctx.selectColumnClause();
-        List<NamedExpression> namedExpressions = exec.logicalPlanBuilder.getNamedExpressions(
+        List<NamedExpression> namedExpressions = exec.getNamedExpressions(
                 selectColumnCtx.namedExpressionSeq());
         int cnt = namedExpressions.size();
         for (int i = 0; i < cnt; i++) {

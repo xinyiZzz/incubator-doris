@@ -17,11 +17,11 @@
 
 package org.apache.doris.plsql.executor;
 
-import org.apache.doris.plsql.Console;
-import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.mysql.MysqlEofPacket;
 import org.apache.doris.mysql.MysqlSerializer;
 import org.apache.doris.mysql.MysqlServerStatusFlag;
+import org.apache.doris.plsql.Console;
+import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.qe.AutoCloseConnectContext;
 import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;

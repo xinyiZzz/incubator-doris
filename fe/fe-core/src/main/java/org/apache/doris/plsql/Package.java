@@ -160,7 +160,7 @@ public class Package {
         if (p.create_routine_params() != null) {
             InMemoryFunctionRegistry.setCallParameters(name, ctx, actualParams, p.create_routine_params(), out, exec);
         }
-        visit(p.proc_block());
+        visit(p.procedure_block());
         exec.callStackPop();
         exec.leaveScope();
         for (Map.Entry<String, Var> i : out.entrySet()) {      // Set OUT parameters

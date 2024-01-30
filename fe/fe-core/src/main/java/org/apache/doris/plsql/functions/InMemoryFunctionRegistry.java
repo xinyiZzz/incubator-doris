@@ -120,7 +120,7 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { //脚本执�
         if (procCtx.create_routine_params() != null) {
             setCallParameters(name, ctx, actualParams, procCtx.create_routine_params(), out, exec);
         }
-        visit(procCtx.proc_block());
+        visit(procCtx.procedure_block());
         exec.callStackPop();
         exec.leaveScope();
         for (Map.Entry<String, Var> i : out.entrySet()) {      // Set OUT parameters // 和prepare statement有关，先不用管
