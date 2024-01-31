@@ -2047,7 +2047,7 @@ public class LogicalPlanBuilder extends DorisParserBaseVisitor<Object> {
 
     @Override
     public Expression visitColumnReference(ColumnReferenceContext ctx) {
-        if (ConnectContext.get().isRunProcedure() && ConnectContext.get().getProcedureExec().buildSql) {
+        if (ConnectContext.get().isRunProcedure()) {
             Var var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
             if (var != null && var.type == Var.Type.EXPRESSION) {
                 return (Expression) var.value;

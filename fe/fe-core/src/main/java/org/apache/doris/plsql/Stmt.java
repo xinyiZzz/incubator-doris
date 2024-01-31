@@ -46,14 +46,17 @@ import org.apache.doris.nereids.PLParserParser.Resignal_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Return_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Set_current_schema_optionContext;
 import org.apache.doris.nereids.PLParserParser.Signal_stmtContext;
+import org.apache.doris.nereids.PLParserParser.StatementContext;
 import org.apache.doris.nereids.PLParserParser.Unconditional_loop_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Values_into_stmtContext;
 import org.apache.doris.nereids.PLParserParser.While_stmtContext;
 import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.plsql.executor.Metadata;
+import org.apache.doris.plsql.executor.PlsqlResult;
 import org.apache.doris.plsql.executor.QueryExecutor;
 import org.apache.doris.plsql.executor.QueryResult;
+import org.apache.doris.plsql.executor.ResultListener;
 import org.apache.doris.plsql.objects.Table;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -75,6 +78,7 @@ public class Stmt {
     Console console;
 
     boolean trace = false;
+    ResultListener resultListener = ResultListener.NONE;
     private QueryExecutor queryExecutor;
 
     Stmt(Exec e, QueryExecutor queryExecutor) {
@@ -85,6 +89,107 @@ public class Stmt {
         trace = exec.getTrace();
         console = exec.console;
         this.queryExecutor = queryExecutor;
+    }
+
+    public void setResultListener(ResultListener resultListener) {
+        this.resultListener = resultListener;
+    }
+
+    /**
+     * Executing Statement statement
+     */
+    public Integer statement(ParserRuleContext ctx) {
+        trace(ctx, "SELECT");
+        if (exec.getOffline()) {
+            trace(ctx, "Not executed - offline mode set");
+            return 0;
+        }
+
+        QueryResult query = queryExecutor.executeQuery(exec.logicalPlanBuilder.getOriginSql(ctx), ctx);
+        resultListener.setProcessor(query.processor());
+
+        if (query.error()) {
+            exec.signal(query);
+            return 1;
+        }
+        trace(ctx, "statement completed successfully");
+        exec.setSqlSuccess();
+        try {
+            // int intoCount = getIntoCount(ctx);
+            // if (intoCount > 0) {
+            //     if (isBulkCollect(ctx)) {
+            //         trace(ctx, "SELECT BULK COLLECT INTO statement executed");
+            //         long rowIndex = 1;
+            //         List<Table> tables = exec.intoTables(ctx, intoVariableNames(ctx, intoCount));
+            //         tables.forEach(Table::removeAll);
+            //         while (query.next()) {
+            //             for (int i = 0; i < intoCount; i++) {
+            //                 Table table = tables.get(i);
+            //                 table.populate(query, rowIndex, i);
+            //             }
+            //             rowIndex++;
+            //         }
+            //     } else {
+            //         trace(ctx, "SELECT INTO statement executed");
+            //         if (query.next()) {
+            //             for (int i = 0; i < intoCount; i++) {
+            //                 populateVariable(ctx, query, i);
+            //             }
+            //             exec.incRowCount();
+            //             exec.setSqlSuccess();
+            //             if (query.next()) {
+            //                 exec.setSqlCode(SqlCodes.TOO_MANY_ROWS);
+            //                 exec.signal(Signal.Type.TOO_MANY_ROWS);
+            //             }
+            //         } else {
+            //             exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
+            //             exec.signal(Signal.Type.NOTFOUND);
+            //         }
+            //     }
+            // } else
+            if (ctx instanceof StatementContext) { // only from visitStatement
+                // Print all results for standalone Statement.
+                resultListener.onMetadata(query.metadata());
+                int cols = query.columnCount();
+                if (trace) {
+                    trace(ctx, "Standalone statement executed: " + cols + " columns in the result set");
+                }
+                while (query.next()) {
+                    if (resultListener instanceof PlsqlResult) { // hplsql.sh 不会走，mysql client中set hpl=true会走
+                        resultListener.onMysqlRow(query.mysqlRow());
+                    } else { // hplsql 什么时候走到这, hplsql.sh
+                        Object[] row = new Object[cols]; // hplsql，这数据量要是很大岂不炸了
+                        for (int i = 0; i < cols; i++) {
+                            row[i] = query.column(i, Object.class);
+                            if (i > 0) {
+                                console.print("\t");
+                            }
+                            console.print(String.valueOf(row[i]));
+                        }
+                        console.printLine("");
+                        exec.incRowCount();
+
+                        resultListener.onRow(row);
+                    }
+                }
+                resultListener.onEof();
+            } else { // Scalar subquery, such as visitExpr
+                trace(ctx, "Scalar subquery executed, first row and first column fetched only");
+                if (query.next()) {
+                    exec.stackPush(new Var().setValue(query, 1));
+                    exec.setSqlSuccess();
+                } else {
+                    evalNull();
+                    exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
+                }
+            }
+        } catch (QueryException e) {
+            exec.signal(query);
+            query.close();
+            return 1;
+        }
+        query.close();
+        return 0;
     }
 
     /**
@@ -169,7 +274,8 @@ public class Stmt {
         String cursorName = ctx.ident_pl().getText();
         String sql = null;
         if (ctx.T_FOR() != null) {                             // SELECT statement or dynamic SQL
-            sql = ctx.expr() != null ? evalPop(ctx.expr()).toString() : evalPop(ctx.query()).toString();
+            sql = ctx.expr() != null ? exec.logicalPlanBuilder.getOriginSql(ctx.expr())
+                    : exec.logicalPlanBuilder.getOriginSql(ctx.query());
             cursor = new Cursor(sql);
             var = exec.findCursor(cursorName);                      // Can be a ref cursor variable
             if (var == null) {
@@ -183,11 +289,9 @@ public class Stmt {
             if (var != null && var.type == Type.CURSOR) {
                 cursor = (Cursor) var.value;
                 if (cursor.getSqlExpr() != null) {
-                    sql = evalPop(cursor.getSqlExpr()).toString(); // parser, replace var, to sql
-                    cursor.setSql(sql);
+                    cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlExpr()));
                 } else if (cursor.getSqlSelect() != null) {
-                    sql = evalPop(cursor.getSqlSelect()).toString(); //
-                    cursor.setSql(sql);
+                    cursor.setSql(exec.logicalPlanBuilder.getOriginSql(cursor.getSqlSelect()));
                 }
             }
         }
@@ -518,7 +622,7 @@ public class Stmt {
         trace(ctx, "FOR CURSOR - ENTERED");
         exec.enterScope(Scope.Type.LOOP);
         String cursor = ctx.L_ID().getText();
-        String sql = evalPop(ctx.query()).toString();
+        String sql = exec.logicalPlanBuilder.getOriginSql(ctx.query());
         trace(ctx, sql);
         QueryResult query = exec.queryExecutor.executeQuery(sql, ctx);
         if (query.error()) {
@@ -840,6 +944,13 @@ public class Stmt {
 
     void evalString(StringBuilder string) {
         evalString(string.toString());
+    }
+
+    /**
+     * Evaluate the expression to NULL
+     */
+    void evalNull() {
+        exec.stackPush(Var.Null);
     }
 
     /**

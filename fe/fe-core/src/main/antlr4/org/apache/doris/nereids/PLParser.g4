@@ -79,8 +79,12 @@ procedure_block :
 // 3. delete hplsql stmt
 //      create_table_type_stmt
 //      hive
-stmt :
+doris_statement :
        statement
+     ;
+
+stmt :
+       doris_statement
      | assignment_stmt
      | allocate_cursor_stmt
      | associate_locator_stmt
@@ -529,18 +533,7 @@ bool_expr_atom :
 bool_expr_unary :
       expr T_IS T_NOT? T_NULL
     | expr T_BETWEEN expr T_AND expr
-    | T_NOT? T_EXISTS T_OPEN_P query T_CLOSE_P
-    | bool_expr_single_in
-    | bool_expr_multi_in
-    ;
-
-bool_expr_single_in :
-      expr T_NOT? T_IN T_OPEN_P ((expr (T_COMMA expr)*) | query) T_CLOSE_P
-    ;
-
-bool_expr_multi_in :
-      T_OPEN_P expr (T_COMMA expr)* T_CLOSE_P T_NOT? T_IN T_OPEN_P query T_CLOSE_P
-    ;
+    ; // TODO T_NOT? T_EXISTS T_OPEN_P query T_CLOSE_P, bool_expr_single_in, bool_expr_multi_in
 
 bool_expr_binary :
        expr bool_expr_binary_operator expr

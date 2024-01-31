@@ -24,6 +24,7 @@ import org.apache.doris.nereids.DorisLexer;
 import org.apache.doris.nereids.DorisParser;
 import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
+import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.parser.spark.SparkSql3LogicalPlanBuilder;
 import org.apache.doris.nereids.parser.trino.TrinoParser;
 import org.apache.doris.nereids.trees.expressions.Expression;
@@ -81,8 +82,8 @@ public class NereidsParser {
     }
 
     private List<StatementBase> parseSQLWithDialect(String sql,
-                                                    @Nullable ParseDialect.Dialect sqlDialect,
-                                                    SessionVariable sessionVariable) {
+            @Nullable ParseDialect.Dialect sqlDialect,
+            SessionVariable sessionVariable) {
         if (!Strings.isNullOrEmpty(Config.sql_convertor_service)) {
             // if sql convertor service is enabled, no need to parse sql again by specific dialect.
             return parseSQL(sql);
@@ -97,6 +98,9 @@ public class NereidsParser {
 
             case SPARK_SQL:
                 return parseSQL(sql, new SparkSql3LogicalPlanBuilder());
+
+            case PLSQL:
+                return parseSQL(sql, new PLSqlLogicalPlanBuilder());
 
             default:
                 return parseSQL(sql);
@@ -128,7 +132,7 @@ public class NereidsParser {
     }
 
     public List<Pair<LogicalPlan, StatementContext>> parseMultiple(String sql,
-                                                                   @Nullable LogicalPlanBuilder logicalPlanBuilder) {
+            @Nullable LogicalPlanBuilder logicalPlanBuilder) {
         return parse(sql, logicalPlanBuilder, DorisParser::multiStatements);
     }
 
@@ -149,10 +153,10 @@ public class NereidsParser {
     }
 
     private <T> T parse(String sql, @Nullable LogicalPlanBuilder logicalPlanBuilder,
-                        Function<DorisParser, ParserRuleContext> parseFunction) {
+            Function<DorisParser, ParserRuleContext> parseFunction) {
         ParserRuleContext tree = toAst(sql, parseFunction);
         LogicalPlanBuilder realLogicalPlanBuilder = logicalPlanBuilder == null
-                    ? new LogicalPlanBuilder() : logicalPlanBuilder;
+                ? new LogicalPlanBuilder() : logicalPlanBuilder;
         return (T) realLogicalPlanBuilder.visit(tree);
     }
 

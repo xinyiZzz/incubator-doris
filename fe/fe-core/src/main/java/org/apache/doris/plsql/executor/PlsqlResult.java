@@ -71,12 +71,14 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
 
     @Override
     public void onMysqlRow(ByteBuffer rows) {
-        sendData(() -> ConnectContext.get().getMysqlChannel().sendOnePacket(rows));
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
+        sendData(() -> ctx.getMysqlChannel().sendOnePacket(rows));
     }
 
     @Override
     public void onRow(Object[] rows) {
-        sendData(() -> ConnectContext.get().getMysqlChannel().sendOnePacket(rows));
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
+        sendData(() -> ctx.getMysqlChannel().sendOnePacket(rows));
     }
 
     @Override
@@ -87,10 +89,11 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
 
     @Override
     public void onEof() {
-        ConnectContext.get().getState().setEof();
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
+        ctx.getState().setEof();
         try {
             if (metadata != null && !isSendFields) {
-                sendFields(metadata, ConnectContext.get().getMysqlChannel().getSerializer());
+                sendFields(metadata, ctx.getMysqlChannel().getSerializer());
                 isSendFields = true;
             }
         } catch (IOException e) {
@@ -112,7 +115,8 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
             throw new RuntimeException("The metadata has not been set.");
         }
 
-        MysqlSerializer serializer = ConnectContext.get().getMysqlChannel().getSerializer();
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
+        MysqlSerializer serializer = ctx.getMysqlChannel().getSerializer();
         try {
             if (!isSendFields) {
                 // For some language driver, getting error packet after fields packet
@@ -130,20 +134,21 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
     }
 
     private void sendFields(Metadata metadata, MysqlSerializer serializer) throws IOException {
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
         serializer.reset();
         serializer.writeVInt(metadata.columnCount());
-        ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+        ctx.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
         // send field one by one
         for (int i = 0; i < metadata.columnCount(); ++i) {
             serializer.reset();
             serializer.writeField(metadata.columnName(i), metadata.dorisType(i)); // 能不能把 doristype 从 metadata 移除
-            ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer()); // ，用其他方式传进来？不好搞
+            ctx.getMysqlChannel().sendOnePacket(serializer.toByteBuffer()); // ，用其他方式传进来？不好搞
         }
         // send EOF
         serializer.reset();
-        MysqlEofPacket eofPacket = new MysqlEofPacket(ConnectContext.get().getState());
+        MysqlEofPacket eofPacket = new MysqlEofPacket(ctx.getState());
         eofPacket.writeTo(serializer);
-        ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+        ctx.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
     }
 
     @Override
@@ -163,13 +168,13 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
 
     @Override
     public void flushConsole() {
-        ConnectContext context = ConnectContext.get();
+        ConnectContext ctx = processor != null ? processor.getCtx() : ConnectContext.get();
         boolean needSend = false;
         if (error.length() > 0) {
-            context.getState().setError("hplsql exec error, " + error.toString());
+            ctx.getState().setError("hplsql exec error, " + error.toString());
             needSend = true;
         } else if (msg.length() > 0) {
-            context.getState().setOk(0, 0, msg.toString());
+            ctx.getState().setOk(0, 0, msg.toString());
             needSend = true;
         }
         if (needSend) {
@@ -182,7 +187,7 @@ public class PlsqlResult implements ResultListener, Console { // 如果是mysql 
         if (processor != null) {
             try (AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(processor.getCtx())) {
                 autoCloseCtx.call();
-                QueryState state = ConnectContext.get().getState();
+                QueryState state = processor.getCtx().getState();
                 // https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_command_phase_sp.html
                 state.serverStatus |= MysqlServerStatusFlag.SERVER_MORE_RESULTS_EXISTS;
                 processor.finalizeCommand();

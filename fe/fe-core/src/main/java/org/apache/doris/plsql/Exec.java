@@ -45,6 +45,7 @@ import org.apache.doris.nereids.PLParserParser.Declare_condition_itemContext;
 import org.apache.doris.nereids.PLParserParser.Declare_cursor_itemContext;
 import org.apache.doris.nereids.PLParserParser.Declare_handler_itemContext;
 import org.apache.doris.nereids.PLParserParser.Declare_var_itemContext;
+import org.apache.doris.nereids.PLParserParser.Doris_statementContext;
 import org.apache.doris.nereids.PLParserParser.DtypeContext;
 import org.apache.doris.nereids.PLParserParser.Dtype_lenContext;
 import org.apache.doris.nereids.PLParserParser.Exception_block_itemContext;
@@ -66,7 +67,6 @@ import org.apache.doris.nereids.PLParserParser.Expr_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
 import org.apache.doris.nereids.PLParserParser.For_cursor_stmtContext;
 import org.apache.doris.nereids.PLParserParser.For_range_stmtContext;
-import org.apache.doris.nereids.PLParserParser.FromClauseContext;
 import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_exception_itemContext;
 import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_rowcount_itemContext;
 import org.apache.doris.nereids.PLParserParser.Host_cmdContext;
@@ -87,23 +87,19 @@ import org.apache.doris.nereids.PLParserParser.Print_stmtContext;
 import org.apache.doris.nereids.PLParserParser.ProgramContext;
 import org.apache.doris.nereids.PLParserParser.QueryContext;
 import org.apache.doris.nereids.PLParserParser.Quit_stmtContext;
-import org.apache.doris.nereids.PLParserParser.RegularQuerySpecificationContext;
 import org.apache.doris.nereids.PLParserParser.Resignal_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Return_stmtContext;
-import org.apache.doris.nereids.PLParserParser.SelectClauseContext;
 import org.apache.doris.nereids.PLParserParser.Set_current_schema_optionContext;
 import org.apache.doris.nereids.PLParserParser.Set_doris_session_optionContext;
 import org.apache.doris.nereids.PLParserParser.Signal_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Single_quotedStringContext;
-import org.apache.doris.nereids.PLParserParser.StatementDefaultContext;
 import org.apache.doris.nereids.PLParserParser.StmtContext;
 import org.apache.doris.nereids.PLParserParser.Timestamp_literalContext;
 import org.apache.doris.nereids.PLParserParser.Unconditional_loop_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Values_into_stmtContext;
-import org.apache.doris.nereids.PLParserParser.WhereClauseContext;
 import org.apache.doris.nereids.PLParserParser.While_stmtContext;
-import org.apache.doris.nereids.parser.LogicalPlanBuilder;
 import org.apache.doris.nereids.parser.ParserUtils;
+import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
 import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.plsql.exception.HplValidationException;
@@ -150,6 +146,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -158,7 +155,6 @@ import java.io.PrintWriter;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -166,6 +162,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Stack;
 import java.util.stream.Collectors;
@@ -188,7 +185,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     QueryExecutor queryExecutor;
     private PackageRegistry packageRegistry = new InMemoryPackageRegistry();
     private boolean packageLoading = false;
-    private Map<String, TableClass> types = new HashMap<>();
+    private final Map<String, TableClass> types = new HashMap<>();
 
     public enum OnError {
         EXCEPTION, SETERROR, STOP
@@ -215,15 +212,11 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     HashMap<String, Package> packages = new HashMap<>();
 
     Package currentPackageDecl = null;
-
-    public ArrayList<String> stmtConnList = new ArrayList<>();
-
     Arguments arguments = new Arguments();
     public Conf conf;
     Expression expr;
     Converter converter;
     Meta meta;
-    Select select;
     Stmt stmt;
     Conn conn;
     Console console = Console.STANDARD;
@@ -233,7 +226,6 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
 
     StringBuilder localUdf = new StringBuilder();
     boolean initRoutines = false;
-    public boolean buildSql = false;
     public boolean inCallStmt = false;
     boolean udfRegistered = false;
     boolean udfRun = false;
@@ -244,7 +236,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     boolean trace = false;
     boolean info = true;
     boolean offline = false;
-    LogicalPlanBuilder logicalPlanBuilder;
+    PLSqlLogicalPlanBuilder logicalPlanBuilder;
 
     public Exec() {
         exec = this;
@@ -441,7 +433,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         Var var;
         String name1 = name.toUpperCase();
         String name1a = null;
-        String name2 = null;
+        String name2;
         Scope cur = exec.currentScope;
         Package pack;
         Package packCallContext = exec.getPackageCallContext();
@@ -723,7 +715,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         ArrayList<String> sql = new ArrayList<>();
         String dir = Utils.getExecDir();
         String hplsqlJarName = "hplsql.jar";
-        for (String jarName : new java.io.File(dir).list()) {
+        for (String jarName : Objects.requireNonNull(new File(dir).list())) {
             if (jarName.startsWith("hive-hplsql") && jarName.endsWith(".jar")) {
                 hplsqlJarName = jarName;
                 break;
@@ -811,7 +803,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     }
 
     public void setResultListener(ResultListener resultListener) {
-        select.setResultListener(resultListener);
+        stmt.setResultListener(resultListener);
     }
 
     /**
@@ -917,12 +909,11 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         conn = new Conn(this);
         meta = new Meta(this, queryExecutor);
         initOptions();
-        logicalPlanBuilder = new LogicalPlanBuilder();
+        logicalPlanBuilder = new PLSqlLogicalPlanBuilder();
 
         expr = new Expression(this);
-        select = new Select(this, queryExecutor);
-        select.setResultListener(resultListener);
         stmt = new Stmt(this, queryExecutor);
+        stmt.setResultListener(resultListener);
         converter = new Converter(this);
 
         builtinFunctions = new BuiltinFunctions(this, queryExecutor);
@@ -1159,8 +1150,12 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         if (prev != null && prev.value != null) {
             console.printLine(prev.toString());
         }
-        Integer rc = visitChildren(ctx);
+        return visitChildren(ctx);
+    }
 
+    @Override
+    public Integer visitDoris_statement(Doris_statementContext ctx) {
+        Integer rc = exec.stmt.statement(ctx.statement());
         // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
         // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
         // printExceptions();
@@ -1170,37 +1165,12 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         return rc;
     }
 
-    @Override
-    public Integer visitStatementDefault(StatementDefaultContext ctx) {
-        return exec.select.select(ctx);
-    }
-
     /**
-     * Executing or building SELECT statement
+     * Executing SELECT statement
      */
     @Override
     public Integer visitQuery(QueryContext ctx) {
-        return exec.select.visitQuery(ctx);
-    }
-
-    @Override
-    public Integer visitRegularQuerySpecification(RegularQuerySpecificationContext ctx) {
-        return exec.select.visitRegularQuerySpecification(ctx);
-    }
-
-    @Override
-    public Integer visitFromClause(FromClauseContext ctx) {
-        return exec.select.from(ctx);
-    }
-
-    @Override
-    public Integer visitSelectClause(SelectClauseContext ctx) {
-        return exec.select.selectList(ctx);
-    }
-
-    @Override
-    public Integer visitWhereClause(WhereClauseContext ctx) {
-        return exec.select.where(ctx);
+        return exec.stmt.statement(ctx);
     }
 
     /**
@@ -1569,11 +1539,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitExpr(ExprContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execSql(ctx);
-        } else {
-            exec.expr.exec(ctx);
-        }
+        exec.expr.exec(ctx);
         return 0;
     }
 
@@ -1582,31 +1548,19 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitBool_expr(Bool_exprContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execBoolSql(ctx);
-        } else {
-            exec.expr.execBool(ctx);
-        }
+        exec.expr.execBool(ctx);
         return 0;
     }
 
     @Override
     public Integer visitBool_expr_binary(Bool_expr_binaryContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execBoolBinarySql(ctx);
-        } else {
-            exec.expr.execBoolBinary(ctx);
-        }
+        exec.expr.execBoolBinary(ctx);
         return 0;
     }
 
     @Override
     public Integer visitBool_expr_unary(Bool_expr_unaryContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execBoolUnarySql(ctx);
-        } else {
-            exec.expr.execBoolUnary(ctx);
-        }
+        exec.expr.execBoolUnary(ctx);
         return 0;
     }
 
@@ -1630,30 +1584,26 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     private int functionCall(ParserRuleContext ctx, Ident_plContext ident,
             Expr_func_paramsContext params) {
         String name = ident.getText();
-        if (exec.buildSql) {
-            exec.execSql(name, params);
-        } else {
-            name = name.toUpperCase();
-            Package packCallContext = exec.getPackageCallContext();
-            ArrayList<String> qualified = exec.meta.splitIdentifier(name);
-            boolean executed = false;
-            if (qualified != null) {
-                Package pack = findPackage(qualified.get(0));
-                if (pack != null) {
-                    executed = pack.execFunc(qualified.get(1), params);
-                }
+        name = name.toUpperCase();
+        Package packCallContext = exec.getPackageCallContext();
+        ArrayList<String> qualified = exec.meta.splitIdentifier(name);
+        boolean executed = false;
+        if (qualified != null) {
+            Package pack = findPackage(qualified.get(0));
+            if (pack != null) {
+                executed = pack.execFunc(qualified.get(1), params);
             }
-            if (!executed && packCallContext != null) {
-                executed = packCallContext.execFunc(name, params);
-            }
-            if (!executed) {
-                if (!exec.functions.exec(name, params)) {
-                    Var var = findVariable(name);
-                    if (var != null && var.type == Type.HPL_OBJECT) {
-                        stackPush(dispatch(ctx, (HplObject) var.value, MethodDictionary.__GETITEM__, params));
-                    } else {
-                        throw new UndefinedIdentException(ctx, name);
-                    }
+        }
+        if (!executed && packCallContext != null) {
+            executed = packCallContext.execFunc(name, params);
+        }
+        if (!executed) {
+            if (!exec.functions.exec(name, params)) {
+                Var var = findVariable(name);
+                if (var != null && var.type == Type.HPL_OBJECT) {
+                    stackPush(dispatch(ctx, (HplObject) var.value, MethodDictionary.__GETITEM__, params));
+                } else {
+                    throw new UndefinedIdentException(ctx, name);
                 }
             }
         }
@@ -1766,11 +1716,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitExpr_spec_func(Expr_spec_funcContext ctx) {
-        if (exec.buildSql) {
-            exec.builtinFunctions.specExecSql(ctx);
-        } else {
-            exec.builtinFunctions.specExec(ctx);
-        }
+        exec.builtinFunctions.specExec(ctx);
         return 0;
     }
 
@@ -2041,20 +1987,12 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitExpr_concat(Expr_concatContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.operatorConcatSql(ctx);
-        } else {
-            exec.expr.operatorConcat(ctx);
-        }
+        exec.expr.operatorConcat(ctx);
         return 0;
     }
 
     @Override
     public Integer visitExpr_dot_method_call(Expr_dot_method_callContext ctx) {
-        if (exec.buildSql) {
-            exec.stackPush(new Var(Var.Type.IDENT, ctx.getText()));
-            return 0;
-        }
         Var var = ctx.ident_pl() != null
                 ? findVariable(ctx.ident_pl().getText())
                 : evalPop(ctx.expr_func(0));
@@ -2085,10 +2023,6 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     @Override
     public Integer visitExpr_dot_property_access(
             Expr_dot_property_accessContext ctx) {
-        if (exec.buildSql) {
-            exec.stackPush(new Var(Var.Type.IDENT, ctx.getText()));
-            return 0;
-        }
         Var var = ctx.expr_func() != null
                 ? evalPop(ctx.expr_func())
                 : findVariable(ctx.ident_pl(0).getText());
@@ -2124,11 +2058,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitExpr_case_simple(Expr_case_simpleContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execSimpleCaseSql(ctx);
-        } else {
-            exec.expr.execSimpleCase(ctx);
-        }
+        exec.expr.execSimpleCase(ctx);
         return 0;
     }
 
@@ -2137,11 +2067,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitExpr_case_searched(Expr_case_searchedContext ctx) {
-        if (exec.buildSql) {
-            exec.expr.execSearchedCaseSql(ctx);
-        } else {
-            exec.expr.execSearchedCase(ctx);
-        }
+        exec.expr.execSearchedCase(ctx);
         return 0;
     }
 
@@ -2195,19 +2121,15 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
 
         Var var = findVariable(actualIdent);
         if (var != null) {
-            if (!exec.buildSql) {
-                if (hasSub) {
-                    Var var1 = new Var(var);
-                    var1.negate();
-                    exec.stackPush(var1); // 使用之前保存的变量
-                } else {
-                    exec.stackPush(var);
-                }
+            if (hasSub) {
+                Var var1 = new Var(var);
+                var1.negate();
+                exec.stackPush(var1); // 使用之前保存的变量
             } else {
-                exec.stackPush(new Var(ident, Var.Type.STRING, var.toSqlString()));
+                exec.stackPush(var);
             }
         } else {
-            if (exec.buildSql || exec.inCallStmt) {
+            if (exec.inCallStmt) {
                 exec.stackPush(new Var(Var.Type.IDENT, ident));
             } else {
                 ident = ident.toUpperCase();
@@ -2224,11 +2146,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitSingle_quotedString(Single_quotedStringContext ctx) {
-        if (exec.buildSql) {
-            exec.stackPush(ctx.getText());
-        } else {
-            exec.stackPush(Utils.unquoteString(ctx.getText()));
-        }
+        exec.stackPush(Utils.unquoteString(ctx.getText()));
         return 0;
     }
 
@@ -2288,12 +2206,8 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitDate_literal(Date_literalContext ctx) {
-        if (!exec.buildSql) {
-            String str = evalPop(ctx.string()).toString();
-            stackPush(new Var(Var.Type.DATE, Utils.toDate(str)));
-        } else {
-            stackPush(getFormattedText(ctx));
-        }
+        String str = evalPop(ctx.string()).toString();
+        stackPush(new Var(Var.Type.DATE, Utils.toDate(str)));
         return 0;
     }
 
@@ -2302,20 +2216,16 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitTimestamp_literal(Timestamp_literalContext ctx) {
-        if (!exec.buildSql) {
-            String str = evalPop(ctx.string()).toString();
-            int len = str.length();
-            int precision = 0;
-            if (len > 19 && len <= 29) {
-                precision = len - 20;
-                if (precision > 3) {
-                    precision = 3;
-                }
+        String str = evalPop(ctx.string()).toString();
+        int len = str.length();
+        int precision = 0;
+        if (len > 19 && len <= 29) {
+            precision = len - 20;
+            if (precision > 3) {
+                precision = 3;
             }
-            stackPush(new Var(Utils.toTimestamp(str), precision));
-        } else {
-            stackPush(getFormattedText(ctx));
         }
+        stackPush(new Var(Utils.toTimestamp(str), precision));
         return 0;
     }
 
@@ -2337,44 +2247,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      * Define the connection profile to execute the current statement
      */
     public String getStatementConnection() {
-        if (exec.stmtConnList.contains(exec.conf.defaultConnection)) {
-            return exec.conf.defaultConnection;
-        } else if (!exec.stmtConnList.isEmpty()) {
-            return exec.stmtConnList.get(0);
-        }
         return exec.conf.defaultConnection;
-    }
-
-    /**
-     * Define the connection profile for the specified object
-     *
-     * @return
-     */
-    String getObjectConnection(String name) {
-        String conn = exec.objectConnMap.get(name.toUpperCase());
-        if (conn != null) {
-            return conn;
-        }
-        return exec.conf.defaultConnection;
-    }
-
-    /**
-     * Get the connection (open the new connection if not available)
-     *
-     * @throws Exception
-     */
-    Connection getConnection(String conn) throws Exception {
-        if (conn == null || conn.equalsIgnoreCase("default")) {
-            conn = exec.conf.defaultConnection;
-        }
-        return exec.conn.getConnection(conn);
-    }
-
-    /**
-     * Return the connection to the pool
-     */
-    void returnConnection(String name, Connection conn) {
-        exec.conn.returnConnection(name, conn);
     }
 
     /**
@@ -2389,13 +2262,6 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     public Conn.Type getConnectionType() {
         return getConnectionType(exec.conf.defaultConnection);
-    }
-
-    /**
-     * Add managed temporary table
-     */
-    public void addManagedTable(String name, String managedName) {
-        exec.managedTables.put(name, managedName);
     }
 
     /**

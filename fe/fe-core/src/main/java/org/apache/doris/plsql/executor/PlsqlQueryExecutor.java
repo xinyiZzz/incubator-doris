@@ -42,6 +42,8 @@ public class PlsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应�
     public void execute(ConnectContext ctx, String statement) {
         ctx.setRunProcedure(true);
         ctx.setProcedureExec(exec);
+        String oldDialect = ctx.getSessionVariable().getSqlDialect();
+        ctx.getSessionVariable().setSqlDialect("plsql");
         result.reset();
         try {
             Arguments args = new Arguments();
@@ -59,6 +61,7 @@ public class PlsqlQueryExecutor { // 从hpl目录移除 放到doris目录，应�
             ctx.getMysqlChannel().reset();
             ctx.getState().setOk();
             ctx.setRunProcedure(false);
+            ctx.getSessionVariable().setSqlDialect(oldDialect);
         } catch (Exception e) {
             exec.printExceptions();
             ctx.getState().setError(ErrorCode.ERR_UNKNOWN_ERROR, result.getError() + " " + e.getMessage());

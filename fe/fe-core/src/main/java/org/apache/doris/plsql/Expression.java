@@ -23,8 +23,6 @@ package org.apache.doris.plsql;
 import org.apache.doris.nereids.PLParserParser.Bool_exprContext;
 import org.apache.doris.nereids.PLParserParser.Bool_expr_binaryContext;
 import org.apache.doris.nereids.PLParserParser.Bool_expr_binary_operatorContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_multi_inContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_single_inContext;
 import org.apache.doris.nereids.PLParserParser.Bool_expr_unaryContext;
 import org.apache.doris.nereids.PLParserParser.ExprContext;
 import org.apache.doris.nereids.PLParserParser.Expr_case_searchedContext;
@@ -80,46 +78,6 @@ public class Expression {
     }
 
     /**
-     * Evaluate an expression in executable SQL statement
-     */
-    public void execSql(ExprContext ctx) {
-        StringBuilder sql = new StringBuilder();
-        if (ctx.T_OPEN_P() != null) {
-            sql.append("(");
-            if (ctx.query() != null) {
-                exec.append(sql, evalPop(ctx.query()).toString(), ctx.T_OPEN_P().getSymbol(),
-                        ctx.query().getStart());
-                exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.query().stop, ctx.T_CLOSE_P().getSymbol());
-            } else {
-                sql.append(evalPop(ctx.expr(0)).toString());
-                sql.append(")");
-            }
-        } else if (ctx.T_MUL() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" * ");
-            sql.append(evalPop(ctx.expr(1)).toString());
-        } else if (ctx.T_DIV() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" / ");
-            sql.append(evalPop(ctx.expr(1)).toString());
-        } else if (ctx.T_ADD() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" + ");
-            sql.append(evalPop(ctx.expr(1)).toString());
-        } else if (ctx.T_SUB() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" - ");
-            sql.append(evalPop(ctx.expr(1)).toString());
-        } else if (ctx.interval_item() != null) {
-            sql.append(exec.getFormattedText(ctx));
-        } else {
-            visitChildren(ctx);
-            sql.append(exec.stackPop().toString());
-        }
-        exec.stackPush(sql);
-    }
-
-    /**
      * Evaluate a boolean expression
      */
     public void execBool(Bool_exprContext ctx) {
@@ -147,28 +105,6 @@ public class Expression {
     }
 
     /**
-     * Evaluate a boolean expression in executable SQL statement
-     */
-    public void execBoolSql(Bool_exprContext ctx) {
-        StringBuilder sql = new StringBuilder();
-        if (ctx.T_OPEN_P() != null) {
-            if (ctx.T_NOT() != null) {
-                sql.append(ctx.T_NOT().getText() + " ");
-            }
-            sql.append("(");
-            sql.append(evalPop(ctx.bool_expr(0)).toString());
-            sql.append(")");
-        } else if (ctx.bool_expr_atom() != null) {
-            sql.append(evalPop(ctx.bool_expr_atom()).toString());
-        } else if (ctx.bool_expr_logical_operator() != null) {
-            sql.append(evalPop(ctx.bool_expr(0)).toString());
-            sql.append(" " + ctx.bool_expr_logical_operator().getText() + " ");
-            sql.append(evalPop(ctx.bool_expr(1)).toString());
-        }
-        exec.stackPush(sql);
-    }
-
-    /**
      * Binary boolean expression
      */
     public Integer execBoolBinary(Bool_expr_binaryContext ctx) {
@@ -183,18 +119,6 @@ public class Expression {
         } else {
             exec.stackPush(false);
         }
-        return 0;
-    }
-
-    /**
-     * Binary boolean expression in executable SQL statement
-     */
-    public Integer execBoolBinarySql(Bool_expr_binaryContext ctx) {
-        StringBuilder sql = new StringBuilder();
-        sql.append(evalPop(ctx.expr(0)).toString());
-        sql.append(" " + exec.getFormattedText(ctx.bool_expr_binary_operator()) + " ");
-        sql.append(evalPop(ctx.expr(1)).toString());
-        exec.stackPush(sql);
         return 0;
     }
 
@@ -222,81 +146,6 @@ public class Expression {
         }
         exec.stackPush(val);
         return 0;
-    }
-
-    /**
-     * Unary boolean expression in executable SQL statement
-     */
-    public Integer execBoolUnarySql(Bool_expr_unaryContext ctx) {
-        StringBuilder sql = new StringBuilder();
-        if (ctx.T_IS() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" " + exec.getText(ctx, ctx.T_IS().getSymbol(), ctx.T_NULL().getSymbol()));
-        } else if (ctx.T_BETWEEN() != null) {
-            sql.append(evalPop(ctx.expr(0)).toString());
-            sql.append(" " + ctx.T_BETWEEN().getText() + " ");
-            sql.append(evalPop(ctx.expr(1)).toString());
-            sql.append(" " + ctx.T_AND().getText() + " ");
-            sql.append(evalPop(ctx.expr(2)).toString());
-        } else if (ctx.T_EXISTS() != null) {
-            exec.append(sql, exec.nvl(ctx.T_NOT(), ctx.T_EXISTS()), ctx.T_OPEN_P());
-            exec.append(sql, evalPop(ctx.query()).toString(), ctx.T_OPEN_P().getSymbol(),
-                    ctx.query().getStart());
-            exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.query().stop, ctx.T_CLOSE_P().getSymbol());
-        } else if (ctx.bool_expr_single_in() != null) {
-            singleInClauseSql(ctx.bool_expr_single_in(), sql);
-        } else if (ctx.bool_expr_multi_in() != null) {
-            multiInClauseSql(ctx.bool_expr_multi_in(), sql);
-        }
-        exec.stackPush(sql);
-        return 0;
-    }
-
-    /**
-     * Single value IN clause in executable SQL statement
-     */
-    public void singleInClauseSql(Bool_expr_single_inContext ctx,
-            StringBuilder sql) {
-        sql.append(evalPop(ctx.expr(0)).toString() + " ");
-        exec.append(sql, exec.nvl(ctx.T_NOT(), ctx.T_IN()), ctx.T_OPEN_P());
-        if (ctx.query() != null) {
-            exec.append(sql, evalPop(ctx.query()).toString(), ctx.T_OPEN_P().getSymbol(),
-                    ctx.query().getStart());
-            exec.append(sql, ctx.T_CLOSE_P().getText(), ctx.query().stop, ctx.T_CLOSE_P().getSymbol());
-        } else {
-            int cnt = ctx.expr().size();
-            for (int i = 1; i < cnt; i++) {
-                sql.append(evalPop(ctx.expr(i)).toString());
-                if (i + 1 < cnt) {
-                    sql.append(", ");
-                }
-            }
-            sql.append(")");
-        }
-    }
-
-    /**
-     * Multi-value IN clause in executable SQL statement
-     */
-    public void multiInClauseSql(Bool_expr_multi_inContext ctx,
-            StringBuilder sql) {
-        int cnt = ctx.expr().size();
-        sql.append("(");
-        for (int i = 0; i < cnt; i++) {
-            sql.append(evalPop(ctx.expr(i)).toString());
-            if (i + 1 < cnt) {
-                sql.append(", ");
-            }
-        }
-        sql.append(")");
-        if (ctx.T_NOT() != null) {
-            sql.append(" " + ctx.T_NOT().getText());
-        }
-        sql.append(" " + ctx.T_IN().getText() + " (");
-        if (ctx.query() != null) {
-            sql.append(evalPop(ctx.query()));
-        }
-        sql.append(")");
     }
 
     /**

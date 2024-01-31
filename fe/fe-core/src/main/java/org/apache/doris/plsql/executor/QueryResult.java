@@ -22,6 +22,8 @@ package org.apache.doris.plsql.executor;
 
 import org.apache.doris.common.AnalysisException;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
+import org.apache.doris.qe.AutoCloseConnectContext;
+import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.ConnectProcessor;
 
 import java.nio.ByteBuffer;
@@ -41,6 +43,14 @@ public class QueryResult {
     }
 
     public boolean next() {
+        ConnectContext preConnectContext;
+        if (processor() != null) {
+            preConnectContext = processor().getCtx();
+            try (AutoCloseConnectContext autoCloseCtx = new AutoCloseConnectContext(preConnectContext)) {
+                autoCloseCtx.call();
+                return rows.next();
+            }
+        }
         return rows.next();
     }
 
