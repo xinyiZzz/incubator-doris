@@ -37,7 +37,6 @@ public abstract class CallFunc {
             default:
                 return CallProcedure.create(ctx, unboundFunction.getSource());
             // throw new IllegalArgumentException("unknown function name: " + funcName);
-
         }
     }
 

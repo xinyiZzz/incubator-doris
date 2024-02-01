@@ -26,6 +26,7 @@ import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
 import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
 import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 import org.apache.doris.nereids.PLParserBaseVisitor;
+import org.apache.doris.nereids.parser.CaseInsensitiveStream;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Scope;
 import org.apache.doris.plsql.Var;
@@ -33,7 +34,7 @@ import org.apache.doris.plsql.store.MetaClient;
 import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.qe.ConnectContext;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -136,7 +137,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     private ParserRuleContext parse(StoredProcedure proc) {
-        PLLexer lexer = new PLLexer(new ANTLRInputStream(proc.getSource()));
+        PLLexer lexer = new PLLexer(new CaseInsensitiveStream(CharStreams.fromString(proc.getSource())));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         PLParser parser = new PLParser(tokens);
         ProcedureVisitor visitor = new ProcedureVisitor();

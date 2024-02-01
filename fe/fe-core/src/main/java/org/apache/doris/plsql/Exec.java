@@ -99,6 +99,7 @@ import org.apache.doris.nereids.PLParser.Timestamp_literalContext;
 import org.apache.doris.nereids.PLParser.Unconditional_loop_stmtContext;
 import org.apache.doris.nereids.PLParser.Values_into_stmtContext;
 import org.apache.doris.nereids.PLParser.While_stmtContext;
+import org.apache.doris.nereids.parser.CaseInsensitiveStream;
 import org.apache.doris.nereids.parser.ParserUtils;
 import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
@@ -136,6 +137,8 @@ import org.apache.doris.plsql.store.MetaClient;
 
 import com.google.common.collect.ImmutableList;
 import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
@@ -148,8 +151,6 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
@@ -502,7 +503,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         }
         Optional<String> source = exec.packageRegistry.getPackage(name);
         if (source.isPresent()) {
-            PLLexer lexer = new PLLexer(new ANTLRInputStream(source.get()));
+            PLLexer lexer = new PLLexer(new CaseInsensitiveStream(CharStreams.fromString(source.get())));
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             PLParser parser = newParser(tokens);
             exec.packageLoading = true;
@@ -846,9 +847,10 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         return getProgramReturnCode();
     }
 
-    public Var parseAndEval(Arguments arguments) {
+    public Var parseAndEval(Arguments arguments) throws IOException {
         ParseTree tree;
-        try (InputStream input = sourceStream(arguments)) {
+        try {
+            CharStream input = sourceStream(arguments);
             tree = parse(input);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
@@ -890,10 +892,10 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         printExceptions();
     }
 
-    private InputStream sourceStream(Arguments arguments) throws FileNotFoundException {
+    private CharStream sourceStream(Arguments arguments) throws IOException {
         return arguments.execString != null
-                ? new ByteArrayInputStream(arguments.execString.getBytes(StandardCharsets.UTF_8))
-                : new FileInputStream(arguments.fileName);
+                ? CharStreams.fromString(arguments.execString)
+                : CharStreams.fromFileName(arguments.fileName);
     }
 
     /**
@@ -938,8 +940,8 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         registerBuiltins();
     }
 
-    private ParseTree parse(InputStream input) throws IOException {
-        PLLexer lexer = new PLLexer(new ANTLRInputStream(input));
+    private ParseTree parse(CharStream input) throws IOException {
+        PLLexer lexer = new PLLexer(new CaseInsensitiveStream(input));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         PLParser parser = newParser(tokens);
         ParseTree tree = parser.program();

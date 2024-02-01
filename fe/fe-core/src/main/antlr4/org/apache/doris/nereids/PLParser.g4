@@ -80,7 +80,7 @@ procedure_block :
 //      create_table_type_stmt
 //      hive
 doris_statement :
-       statement
+       statementNoProcedure
      ;
 
 stmt :
