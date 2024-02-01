@@ -34,6 +34,7 @@ import org.apache.doris.nereids.PLParserParser.Bool_expr_binaryContext;
 import org.apache.doris.nereids.PLParserParser.Bool_expr_unaryContext;
 import org.apache.doris.nereids.PLParserParser.Bool_literalContext;
 import org.apache.doris.nereids.PLParserParser.Break_stmtContext;
+import org.apache.doris.nereids.PLParserParser.Call_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Close_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
 import org.apache.doris.nereids.PLParserParser.Create_package_body_stmtContext;
@@ -1132,9 +1133,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         if (ctx.semicolon_stmt() != null) {
             return 0;
         }
-        // if (initRoutines && ctx.create_procedure_stmt() == null && ctx.create_function_stmt() == null) {
-        //     return 0;
-        // }
+        if (initRoutines && ctx.create_procedure_stmt() == null && ctx.create_function_stmt() == null) {
+            return 0;
+        }
         if (exec.resignal) {
             if (exec.currentScope != exec.currentHandlerScope.parent) {
                 return 0;
@@ -1805,22 +1806,22 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     /**
      * CALL statement
      */
-    // @Override
-    // public Integer visitCall_stmt(Call_stmtContext ctx) {
-    //     exec.inCallStmt = true;
-    //     try {
-    //         if (ctx.expr_func() != null) {
-    //             functionCall(ctx, ctx.expr_func().ident_pl(), ctx.expr_func().expr_func_params());
-    //         } else if (ctx.expr_dot() != null) {
-    //             visitExpr_dot(ctx.expr_dot());
-    //         } else if (ctx.ident_pl() != null) {
-    //             functionCall(ctx, ctx.ident_pl(), null);
-    //         }
-    //     } finally {
-    //         exec.inCallStmt = false;
-    //     }
-    //     return 0;
-    // }
+    @Override
+    public Integer visitCall_stmt(Call_stmtContext ctx) {
+        exec.inCallStmt = true;
+        try {
+            if (ctx.expr_func() != null) {
+                functionCall(ctx, ctx.expr_func().ident_pl(), ctx.expr_func().expr_func_params());
+            } else if (ctx.expr_dot() != null) {
+                visitExpr_dot(ctx.expr_dot());
+            } else if (ctx.ident_pl() != null) {
+                functionCall(ctx, ctx.ident_pl(), null);
+            }
+        } finally {
+            exec.inCallStmt = false;
+        }
+        return 0;
+    }
 
     /**
      * EXIT statement (leave the specified loop with a condition)

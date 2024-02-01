@@ -139,7 +139,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(proc.getSource()));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         PLParserParser parser = new PLParserParser(tokens);
-        ProcVisitor visitor = new ProcVisitor();
+        ProcedureVisitor visitor = new ProcedureVisitor();
         parser.program().accept(visitor);
         return visitor.func != null ? visitor.func : visitor.proc;
     }
@@ -209,7 +209,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         }
     }
 
-    private static class ProcVisitor extends PLParserBaseVisitor<Void> {
+    private static class ProcedureVisitor extends PLParserBaseVisitor<Void> {
         Create_function_stmtContext func;
         Create_procedure_stmtContext proc;
 
