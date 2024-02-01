@@ -134,7 +134,11 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
         InternalQueryBuffer queryBuffer = new InternalQueryBuffer(buffer.slice());
         for (int i = 0; i < columnNames.size(); i++) {
             String value = queryBuffer.readStringWithLength();
-            current[i] = Literal.fromLegacyLiteral(LiteralExpr.create(value, dorisTypes.get(i)), dorisTypes.get(i));
+            if (value == null) {
+                current[i] = Literal.of(null);
+            } else {
+                current[i] = Literal.fromLegacyLiteral(LiteralExpr.create(value, dorisTypes.get(i)), dorisTypes.get(i));
+            }
         }
     }
 }

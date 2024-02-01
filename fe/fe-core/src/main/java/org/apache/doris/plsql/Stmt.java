@@ -46,7 +46,7 @@ import org.apache.doris.nereids.PLParser.Resignal_stmtContext;
 import org.apache.doris.nereids.PLParser.Return_stmtContext;
 import org.apache.doris.nereids.PLParser.Set_current_schema_optionContext;
 import org.apache.doris.nereids.PLParser.Signal_stmtContext;
-import org.apache.doris.nereids.PLParser.StatementContext;
+import org.apache.doris.nereids.PLParser.StatementNoProcedureContext;
 import org.apache.doris.nereids.PLParser.Unconditional_loop_stmtContext;
 import org.apache.doris.nereids.PLParser.Values_into_stmtContext;
 import org.apache.doris.nereids.PLParser.While_stmtContext;
@@ -147,7 +147,7 @@ public class Stmt {
             //         }
             //     }
             // } else
-            if (ctx instanceof StatementContext) { // only from visitStatement
+            if (ctx instanceof StatementNoProcedureContext) { // only from visitStatement
                 // Print all results for standalone Statement.
                 resultListener.onMetadata(query.metadata());
                 int cols = query.columnCount();
@@ -184,7 +184,11 @@ public class Stmt {
                 }
             }
         } catch (QueryException | AnalysisException e) {
-            exec.signal(query);
+            if (query.error()) {
+                exec.signal(query);
+            } else {
+                exec.signal(e);
+            }
             query.close();
             return 1;
         }
