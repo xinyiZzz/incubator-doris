@@ -181,7 +181,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     public static final String HOSTCODE = "HOSTCODE";
 
     Exec exec;
-    FunctionRegistry functions;
+    public FunctionRegistry functions;
     private BuiltinFunctions builtinFunctions;
     private MetaClient client;
     QueryExecutor queryExecutor;

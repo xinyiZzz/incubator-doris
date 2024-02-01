@@ -76,6 +76,10 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         return cache.containsKey(qualified(name));
     }
 
+    public void removeCached(String name) {
+        cache.remove(qualified(name));
+    }
+
     private String qualified(String name) {
         return (ConnectContext.get().getDatabase() + "." + name).toUpperCase();
     }
@@ -193,7 +197,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     private void saveInCache(String name, ParserRuleContext procCtx) {
-        cache.put(qualified(name), procCtx);
+        cache.put(qualified(name.toUpperCase()), procCtx);
     }
 
     /**

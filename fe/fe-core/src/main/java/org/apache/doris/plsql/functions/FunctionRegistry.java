@@ -34,4 +34,6 @@ public interface FunctionRegistry {
     boolean exists(String name);
 
     void remove(String name);
+
+    void removeCached(String name);
 }
