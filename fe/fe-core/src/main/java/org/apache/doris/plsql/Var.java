@@ -50,7 +50,6 @@ public class Var {
     public String name;
     public Type type;
     public Object value;
-    public Type type;
 
     int len;
     int scale;
