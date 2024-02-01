@@ -76,6 +76,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         return cache.containsKey(qualified(name));
     }
 
+    @Override
     public void removeCached(String name) {
         cache.remove(qualified(name));
     }

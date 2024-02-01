@@ -76,6 +76,11 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { // 脚本执
         return (procMap.get(name) != null && execProc(name, ctx));
     }
 
+    @Override
+    public void removeCached(String name) {
+        throw new RuntimeException("no support removeCached");
+    }
+
     /**
      * Execute a user-defined function
      */
