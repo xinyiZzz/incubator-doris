@@ -24,7 +24,6 @@ import org.apache.doris.nereids.parser.ParseDialect;
 import org.apache.doris.nereids.parser.ParserContext;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.plsql.Var;
-import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.qe.ConnectContext;
 
 /**
@@ -41,8 +40,8 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
     @Override
     public Expression visitColumnReference(ColumnReferenceContext ctx) {
         Var var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
-        if (var != null && var.type == Type.EXPRESSION) {
-            return (Expression) var.value;
+        if (var != null) {
+            return var.toExpression();
         }
         return UnboundSlot.quoted(ctx.getText());
     }

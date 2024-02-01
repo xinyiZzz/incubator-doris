@@ -227,6 +227,14 @@ public class Var {
         return this;
     }
 
+    public Expression toExpression() {
+        if (type == Type.EXPRESSION) {
+            return (Expression) value;
+        } else {
+            return Literal.of(value);
+        }
+    }
+
     /**
      * Cast a new string value to the variable
      */
@@ -273,7 +281,7 @@ public class Var {
         }
     }
 
-    public Var setValue(QueryResult queryResult, int idx) {
+    public Var setValue(QueryResult queryResult, int idx) throws AnalysisException {
         int type = queryResult.jdbcType(idx);
         if (type == java.sql.Types.CHAR || type == java.sql.Types.VARCHAR) {
             cast(new Var(queryResult.column(idx, String.class)));
@@ -293,7 +301,7 @@ public class Var {
         return this;
     }
 
-    public Var setRowValues(QueryResult queryResult) {
+    public Var setRowValues(QueryResult queryResult) throws AnalysisException {
         Row row = (Row) this.value;
         int idx = 0;
         for (Column column : row.getColumns()) {

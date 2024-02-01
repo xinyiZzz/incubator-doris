@@ -20,6 +20,7 @@
 
 package org.apache.doris.plsql.functions;
 
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
 import org.apache.doris.plsql.Conn;
@@ -298,7 +299,7 @@ public class FunctionMisc extends BuiltinFunctions {
                 }
                 group.put(key, count + 1);
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             query.close();
             return;
         }

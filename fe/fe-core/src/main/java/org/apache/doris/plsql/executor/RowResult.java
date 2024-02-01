@@ -30,7 +30,7 @@ public interface RowResult {
 
     void close();
 
-    <T> T get(int columnIndex, Class<T> type);
+    <T> T get(int columnIndex, Class<T> type) throws AnalysisException;
 
     Literal get(int columnIndex) throws AnalysisException;
 

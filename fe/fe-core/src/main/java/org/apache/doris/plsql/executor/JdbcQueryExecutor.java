@@ -95,7 +95,7 @@ public class JdbcQueryExecutor implements QueryExecutor {
 
         @Override
         public Literal get(int columnIndex) throws AnalysisException {
-            throw new RuntimeException("no support");
+            throw new RuntimeException("no support get Doris type result");
         }
 
         @Override

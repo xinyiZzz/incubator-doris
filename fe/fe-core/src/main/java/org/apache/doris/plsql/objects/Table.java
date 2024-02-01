@@ -20,6 +20,7 @@
 
 package org.apache.doris.plsql.objects;
 
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.plsql.ColumnDefinition;
 import org.apache.doris.plsql.Row;
 import org.apache.doris.plsql.Var;
@@ -62,7 +63,7 @@ public class Table implements HplObject {
         this.hplClass = hplClass;
     }
 
-    public void populate(QueryResult query, long rowIndex, int columnIndex) {
+    public void populate(QueryResult query, long rowIndex, int columnIndex) throws AnalysisException {
         if (hplClass().rowType()) {
             putRow(rowIndex, query);
         } else {
@@ -70,11 +71,11 @@ public class Table implements HplObject {
         }
     }
 
-    public void putRow(Object key, QueryResult result) {
+    public void putRow(Object key, QueryResult result) throws AnalysisException {
         put(key, readRow(result));
     }
 
-    public void putColumn(Object key, QueryResult query, int columnIndex) {
+    public void putColumn(Object key, QueryResult query, int columnIndex) throws AnalysisException {
         put(key, readColumn(query, columnIndex));
     }
 
@@ -94,7 +95,7 @@ public class Table implements HplObject {
         }
     }
 
-    private Row readRow(QueryResult result) {
+    private Row readRow(QueryResult result) throws AnalysisException {
         Row row = new Row();
         int idx = 0;
         for (ColumnDefinition column : hplClass.columns()) {
@@ -106,7 +107,7 @@ public class Table implements HplObject {
         return row;
     }
 
-    private Row readColumn(QueryResult result, int columnIndex) {
+    private Row readColumn(QueryResult result, int columnIndex) throws AnalysisException {
         Row row = new Row();
         ColumnDefinition column = hplClass.columns().get(0);
         Var var = new Var(column.columnName(), column.columnType().typeString(), (Integer) null, null, null);

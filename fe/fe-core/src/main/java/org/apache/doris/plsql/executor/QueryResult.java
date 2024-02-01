@@ -62,7 +62,7 @@ public class QueryResult {
      * Get the nth column from the row result.
      * The index is 0 based unlike in JDBC.
      */
-    public <T> T column(int columnIndex, Class<T> type) {
+    public <T> T column(int columnIndex, Class<T> type) throws AnalysisException {
         return rows.get(columnIndex, type);
     }
 

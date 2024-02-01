@@ -18,21 +18,15 @@
 package org.apache.doris.plsql.executor;
 
 import org.apache.doris.analysis.LiteralExpr;
-import org.apache.doris.catalog.PrimitiveType;
 import org.apache.doris.catalog.Type;
 import org.apache.doris.common.AnalysisException;
-import org.apache.doris.nereids.trees.expressions.literal.DateTimeLiteral;
-import org.apache.doris.nereids.trees.expressions.literal.DateTimeV2Literal;
 import org.apache.doris.nereids.trees.expressions.literal.Literal;
 import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.qe.Coordinator;
 import org.apache.doris.qe.RowBatch;
 import org.apache.doris.statistics.util.InternalQueryBuffer;
 
-import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.sql.Date;
-import java.sql.Time;
 import java.util.List;
 
 public class DorisRowResult implements RowResult { // 只有mysql client连接时会用到，get next读取doris查询结果，并返回jdbc ByteBuffer格式
@@ -92,14 +86,15 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
     }
 
     @Override
-    public <T> T get(int columnIndex, Class<T> type) {
+    public <T> T get(int columnIndex, Class<T> type) throws AnalysisException {
         if (isLazyLoading) {
-            readFromJavaType(batch.getBatch().getRows().get(index));
+            readFromDorisType(batch.getBatch().getRows().get(index));
             isLazyLoading = false;
         }
         if (current[columnIndex] == null) {
             return null;
         }
+        current[columnIndex] = ((Literal) current[columnIndex]).getValue();
         if (type.isInstance(current[columnIndex])) {
             return (T) current[columnIndex];
         } else {
@@ -140,58 +135,6 @@ public class DorisRowResult implements RowResult { // 只有mysql client连接�
         for (int i = 0; i < columnNames.size(); i++) {
             String value = queryBuffer.readStringWithLength();
             current[i] = Literal.fromLegacyLiteral(LiteralExpr.create(value, dorisTypes.get(i)), dorisTypes.get(i));
-        }
-    }
-
-    private void readFromJavaType(ByteBuffer buffer) {
-        InternalQueryBuffer queryBuffer = new InternalQueryBuffer(buffer.slice());
-        for (int i = 0; i < columnNames.size(); i++) {
-            String value = queryBuffer.readStringWithLength();
-            current[i] = toJavaType(dorisTypes.get(i).getPrimitiveType(), value);
-        }
-    }
-
-    // https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-type-conversions.html
-    private Object toJavaType(PrimitiveType type, String value) {
-        if (value == null) {
-            return null;
-        }
-        switch (type) {
-            case BOOLEAN:
-                return Boolean.valueOf(value);
-            case TINYINT:
-            case SMALLINT:
-            case INT:
-                return Integer.valueOf(value);
-            case BIGINT:
-                return Long.valueOf(value);
-            case FLOAT:
-                return Float.valueOf(value);
-            case DOUBLE:
-                return Double.valueOf(value);
-            case TIME:
-            case TIMEV2:
-                return Time.valueOf(value);
-            case DATE:
-            case DATEV2:
-                return Date.valueOf(value);
-            case DATETIME:
-                if (type.isTimeType()) {
-                    return Time.valueOf(value);
-                }
-                return new DateTimeLiteral(value).toJavaDateType();
-            case DATETIMEV2:
-                if (type.isTimeType()) {
-                    return Time.valueOf(value);
-                }
-                return new DateTimeV2Literal(value).toJavaDateType();
-            case DECIMALV2:
-            case DECIMAL32:
-            case DECIMAL64:
-            case DECIMAL128:
-                return new BigDecimal(value);
-            default:
-                return value;
         }
     }
 }

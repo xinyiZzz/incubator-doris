@@ -20,6 +20,7 @@
 
 package org.apache.doris.plsql.functions;
 
+import org.apache.doris.common.AnalysisException;
 import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
 import org.apache.doris.nereids.PLParser.Expr_stmtContext;
@@ -290,7 +291,7 @@ public class BuiltinFunctions {
             } else {
                 evalNull();
             }
-        } catch (QueryException ignored) {
+        } catch (QueryException | AnalysisException ignored) {
             // ignored
         }
         query.close();
@@ -345,7 +346,7 @@ public class BuiltinFunctions {
                     }
                 }
             }
-        } catch (QueryException ignored) {
+        } catch (QueryException | AnalysisException ignored) {
             // ignored
         }
         if (result != null) {

@@ -183,7 +183,7 @@ public class Stmt {
                     exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
                 }
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             exec.signal(query);
             query.close();
             return 1;
@@ -388,11 +388,9 @@ public class Stmt {
                     exec.setSqlCode(SqlCodes.NO_DATA_FOUND); // 退出
                 }
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             exec.setSqlCode(e);
             exec.signal(Signal.Type.SQLEXCEPTION, e.getMessage(), e);
-        } catch (AnalysisException e) {
-            throw new RuntimeException(e);
         }
         return 0;
     }
@@ -526,7 +524,7 @@ public class Stmt {
                 exec.setSqlCode(SqlCodes.NO_DATA_FOUND);
                 exec.signal(Signal.Type.NOTFOUND);
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             exec.signal(query);
             return 1;
         } finally {
@@ -647,7 +645,7 @@ public class Stmt {
                 visit(ctx.block());
                 exec.incRowCount();
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             exec.signal(e);
             query.close();
             return 1;
@@ -766,7 +764,7 @@ public class Stmt {
                     console.printLine("");
                 }
             }
-        } catch (QueryException e) {
+        } catch (QueryException | AnalysisException e) {
             exec.signal(query);
             query.close();
             return 1;
