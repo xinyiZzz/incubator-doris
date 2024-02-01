@@ -20,15 +20,15 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserParser.Bool_exprContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_binaryContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_binary_operatorContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_unaryContext;
-import org.apache.doris.nereids.PLParserParser.ExprContext;
-import org.apache.doris.nereids.PLParserParser.Expr_case_searchedContext;
-import org.apache.doris.nereids.PLParserParser.Expr_case_simpleContext;
-import org.apache.doris.nereids.PLParserParser.Expr_concatContext;
-import org.apache.doris.nereids.PLParserParser.Expr_cursor_attributeContext;
+import org.apache.doris.nereids.PLParser.Bool_exprContext;
+import org.apache.doris.nereids.PLParser.Bool_expr_binaryContext;
+import org.apache.doris.nereids.PLParser.Bool_expr_binary_operatorContext;
+import org.apache.doris.nereids.PLParser.Bool_expr_unaryContext;
+import org.apache.doris.nereids.PLParser.ExprContext;
+import org.apache.doris.nereids.PLParser.Expr_case_searchedContext;
+import org.apache.doris.nereids.PLParser.Expr_case_simpleContext;
+import org.apache.doris.nereids.PLParser.Expr_concatContext;
+import org.apache.doris.nereids.PLParser.Expr_cursor_attributeContext;
 import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.plsql.exception.HplValidationException;
 
@@ -57,13 +57,13 @@ public class Expression {
      */
     public void exec(ExprContext ctx) {
         try {
-            if (ctx.T_ADD() != null) {
+            if (ctx.PLUS() != null) {
                 operatorAdd(ctx);
-            } else if (ctx.T_SUB() != null) {
+            } else if (ctx.SUBTRACT() != null) {
                 operatorSub(ctx);
-            } else if (ctx.T_MUL() != null) {
+            } else if (ctx.ASTERISK() != null) {
                 operatorMultiply(ctx);
-            } else if (ctx.T_DIV() != null) {
+            } else if (ctx.SLASH() != null) {
                 operatorDiv(ctx);
             } else if (ctx.interval_item() != null) {
                 createInterval(ctx);
@@ -86,16 +86,16 @@ public class Expression {
             return;
         }
         Var result = evalPop(ctx.bool_expr(0));
-        if (ctx.T_OPEN_P() != null) {
-            if (ctx.T_NOT() != null) {
+        if (ctx.LEFT_PAREN() != null) {
+            if (ctx.NOT() != null) {
                 result.negate();
             }
         } else if (ctx.bool_expr_logical_operator() != null) {
-            if (ctx.bool_expr_logical_operator().T_AND() != null) {
+            if (ctx.bool_expr_logical_operator().AND() != null) {
                 if (result.isTrue()) {
                     result = evalPop(ctx.bool_expr(1));
                 }
-            } else if (ctx.bool_expr_logical_operator().T_OR() != null) {
+            } else if (ctx.bool_expr_logical_operator().OR() != null) {
                 if (!result.isTrue()) {
                     result = evalPop(ctx.bool_expr(1));
                 }
@@ -109,12 +109,12 @@ public class Expression {
      */
     public Integer execBoolBinary(Bool_expr_binaryContext ctx) {
         Bool_expr_binary_operatorContext op = ctx.bool_expr_binary_operator();
-        if (op.T_EQUAL() != null || op.T_EQUAL2() != null) {
+        if (op.EQ() != null) {
             operatorEqual(ctx, true);
-        } else if (op.T_NOTEQUAL() != null || op.T_NOTEQUAL2() != null) {
+        } else if (op.NEQ() != null) {
             operatorEqual(ctx, false);
-        } else if (op.T_GREATER() != null || op.T_LESS() != null || op.T_GREATEREQUAL() != null
-                || op.T_LESSEQUAL() != null) {
+        } else if (op.GT() != null || op.LT() != null || op.GTE() != null
+                || op.LTE() != null) {
             operatorCompare(ctx, op);
         } else {
             exec.stackPush(false);
@@ -127,12 +127,12 @@ public class Expression {
      */
     public Integer execBoolUnary(Bool_expr_unaryContext ctx) {
         boolean val = false;
-        if (ctx.T_IS() != null) {
+        if (ctx.IS() != null) {
             val = evalPop(ctx.expr(0)).isNull();
-            if (ctx.T_NOT() != null) {
+            if (ctx.NOT() != null) {
                 val = !val;
             }
-        } else if (ctx.T_BETWEEN() != null) {
+        } else if (ctx.BETWEEN() != null) {
             Var v = evalPop(ctx.expr(0));
             Var v1 = evalPop(ctx.expr(1));
             int cmp = v.compareTo(v1);
@@ -158,11 +158,11 @@ public class Expression {
         if (cursorVar != null) {
             Cursor cursor = (Cursor) cursorVar.value;
             if (cursor != null) {
-                if (ctx.T_ISOPEN() != null) {
+                if (ctx.ISOPEN() != null) {
                     val.setValue(cursor.isOpen());
-                } else if (ctx.T_FOUND() != null) {
+                } else if (ctx.FOUND() != null) {
                     val.setValue(cursor.isFound());
-                } else if (ctx.T_NOTFOUND() != null) {
+                } else if (ctx.NOTFOUND() != null) {
                     val.setValue(cursor.isNotFound());
                 }
             }
@@ -360,20 +360,20 @@ public class Expression {
         Var v2 = evalPop(ctx.expr(1));
         int cmp = v1.compareTo(v2);
         boolean bool = false;
-        if (op.T_GREATER() != null) {
+        if (op.GT() != null) {
             if (cmp > 0) {
                 bool = true;
             }
-        } else if (op.T_GREATEREQUAL() != null) {
+        } else if (op.GTE() != null) {
             if (cmp >= 0) {
                 bool = true;
             }
         }
-        if (op.T_LESS() != null) {
+        if (op.LT() != null) {
             if (cmp < 0) {
                 bool = true;
             }
-        } else if (op.T_LESSEQUAL() != null) {
+        } else if (op.LTE() != null) {
             if (cmp <= 0) {
                 bool = true;
             }
@@ -437,7 +437,7 @@ public class Expression {
             i += 2;
         }
         if (!found) {
-            if (ctx.T_ELSE() != null) {
+            if (ctx.ELSE() != null) {
                 visit(ctx.expr(cnt - 1));
             } else {
                 evalNull();
@@ -452,14 +452,14 @@ public class Expression {
         StringBuilder sql = new StringBuilder();
         sql.append("CASE ");
         sql.append(evalPop(ctx.expr(0)).toString());
-        int cnt = ctx.T_WHEN().size();
+        int cnt = ctx.WHEN().size();
         for (int i = 0; i < cnt; i++) {
             sql.append(" WHEN ");
             sql.append(evalPop(ctx.expr(i * 2 + 1)).toString());
             sql.append(" THEN ");
             sql.append(evalPop(ctx.expr(i * 2 + 2)).toString());
         }
-        if (ctx.T_ELSE() != null) {
+        if (ctx.ELSE() != null) {
             sql.append(" ELSE ");
             sql.append(evalPop(ctx.expr(cnt * 2 + 1)).toString());
         }
@@ -481,7 +481,7 @@ public class Expression {
             }
         }
         if (!found) {
-            if (ctx.T_ELSE() != null) {
+            if (ctx.ELSE() != null) {
                 visit(ctx.expr(cnt));
             } else {
                 evalNull();
@@ -495,14 +495,14 @@ public class Expression {
     public void execSearchedCaseSql(Expr_case_searchedContext ctx) {
         StringBuilder sql = new StringBuilder();
         sql.append("CASE");
-        int cnt = ctx.T_WHEN().size();
+        int cnt = ctx.WHEN().size();
         for (int i = 0; i < cnt; i++) {
             sql.append(" WHEN ");
             sql.append(evalPop(ctx.bool_expr(i)).toString());
             sql.append(" THEN ");
             sql.append(evalPop(ctx.expr(i)).toString());
         }
-        if (ctx.T_ELSE() != null) {
+        if (ctx.ELSE() != null) {
             sql.append(" ELSE ");
             sql.append(evalPop(ctx.expr(cnt)).toString());
         }

@@ -20,7 +20,7 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
+import org.apache.doris.nereids.PLParser.Open_stmtContext;
 import org.apache.doris.plsql.executor.QueryExecutor;
 import org.apache.doris.plsql.executor.QueryResult;
 

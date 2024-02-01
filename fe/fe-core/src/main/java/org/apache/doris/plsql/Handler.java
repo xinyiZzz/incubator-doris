@@ -20,7 +20,7 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserParser.Declare_handler_itemContext;
+import org.apache.doris.nereids.PLParser.Declare_handler_itemContext;
 import org.apache.doris.plsql.Signal.Type;
 
 /**

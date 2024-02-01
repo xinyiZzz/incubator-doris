@@ -20,12 +20,12 @@
 
 package org.apache.doris.plsql.functions;
 
+import org.apache.doris.nereids.PLLexer;
+import org.apache.doris.nereids.PLParser;
+import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 import org.apache.doris.nereids.PLParserBaseVisitor;
-import org.apache.doris.nereids.PLParserLexer;
-import org.apache.doris.nereids.PLParserParser;
-import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Scope;
 import org.apache.doris.plsql.Var;
@@ -136,9 +136,9 @@ public class DorisFunctionRegistry implements FunctionRegistry {
     }
 
     private ParserRuleContext parse(StoredProcedure proc) {
-        PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(proc.getSource()));
+        PLLexer lexer = new PLLexer(new ANTLRInputStream(proc.getSource()));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        PLParserParser parser = new PLParserParser(tokens);
+        PLParser parser = new PLParser(tokens);
         ProcedureVisitor visitor = new ProcedureVisitor();
         parser.program().accept(visitor);
         return visitor.func != null ? visitor.func : visitor.proc;
@@ -170,7 +170,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         }
         trace(ctx, "CREATE FUNCTION " + name);
         saveInCache(name, ctx);
-        saveStoredProc(name, Exec.getFormattedText(ctx), ctx.T_REPLACE() != null);
+        saveStoredProc(name, Exec.getFormattedText(ctx), ctx.REPLACE() != null);
     }
 
     @Override
@@ -182,7 +182,7 @@ public class DorisFunctionRegistry implements FunctionRegistry {
         }
         trace(ctx, "CREATE PROCEDURE " + name);
         saveInCache(name, ctx);
-        saveStoredProc(name, Exec.getFormattedText(ctx), ctx.T_REPLACE() != null);
+        saveStoredProc(name, Exec.getFormattedText(ctx), ctx.REPLACE() != null);
     }
 
     private void saveStoredProc(String name, String source, boolean isForce) {

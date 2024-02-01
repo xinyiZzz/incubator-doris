@@ -20,9 +20,9 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 
 public interface FunctionRegistry {
     boolean exec(String name, Expr_func_paramsContext ctx);

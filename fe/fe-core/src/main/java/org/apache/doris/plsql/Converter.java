@@ -20,8 +20,8 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserParser.DtypeContext;
-import org.apache.doris.nereids.PLParserParser.Dtype_lenContext;
+import org.apache.doris.nereids.PLParser.DtypeContext;
+import org.apache.doris.nereids.PLParser.Dtype_lenContext;
 
 /**
  * On-the-fly SQL Converter
@@ -59,7 +59,7 @@ public class Converter {
             t = "BIGINT";
         } else if (t.equalsIgnoreCase("DATETIME") || t.equalsIgnoreCase("SMALLDATETIME")) {
             t = "TIMESTAMP";
-        } else if ((t.equalsIgnoreCase("VARCHAR") || t.equalsIgnoreCase("NVARCHAR")) && len.T_MAX() != null) {
+        } else if ((t.equalsIgnoreCase("VARCHAR") || t.equalsIgnoreCase("NVARCHAR")) && len.MAX() != null) {
             t = "STRING";
         } else if (t.equalsIgnoreCase("VARCHAR2") || t.equalsIgnoreCase("NCHAR") || t.equalsIgnoreCase("NVARCHAR")
                 || t.equalsIgnoreCase("TEXT")) {

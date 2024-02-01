@@ -20,12 +20,12 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_routine_param_itemContext;
-import org.apache.doris.nereids.PLParserParser.Create_routine_paramsContext;
-import org.apache.doris.nereids.PLParserParser.ExprContext;
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_routine_param_itemContext;
+import org.apache.doris.nereids.PLParser.Create_routine_paramsContext;
+import org.apache.doris.nereids.PLParser.ExprContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Scope;
 import org.apache.doris.plsql.Var;
@@ -41,7 +41,7 @@ import java.util.Map;
 /**
  * HPL/SQL functions
  */
-public class InMemoryFunctionRegistry implements FunctionRegistry { //脚本执行的时候用这个
+public class InMemoryFunctionRegistry implements FunctionRegistry { // 脚本执行的时候用这个
     Exec exec;
     private BuiltinFunctions builtinFunctions;
     HashMap<String, Create_function_stmtContext> funcMap = new HashMap<>();
@@ -151,15 +151,15 @@ public class InMemoryFunctionRegistry implements FunctionRegistry { //脚本执�
             String len = null;
             String scale = null;
             if (p.dtype_len() != null) {
-                len = p.dtype_len().L_INT(0).getText();
-                if (p.dtype_len().L_INT(1) != null) {
-                    scale = p.dtype_len().L_INT(1).getText();
+                len = p.dtype_len().INTEGER_VALUE(0).getText();
+                if (p.dtype_len().INTEGER_VALUE(1) != null) {
+                    scale = p.dtype_len().INTEGER_VALUE(1).getText();
                 }
             }
             Var var = setCallParameter(name, type, len, scale, actualValues.get(i), exec);
             exec.trace(actual, "SET PARAM " + name + " = " + var.toString());
-            if (out != null && a.expr_atom() != null && a.expr_atom().qident() != null && (p.T_OUT() != null
-                    || p.T_INOUT() != null)) {
+            if (out != null && a.expr_atom() != null && a.expr_atom().qident() != null && (p.OUT() != null
+                    || p.INOUT() != null)) {
                 String actualName = a.expr_atom().qident().getText();
                 if (actualName != null) {
                     out.put(actualName, var);

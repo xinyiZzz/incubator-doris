@@ -20,85 +20,85 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserLexer;
-import org.apache.doris.nereids.PLParserParser;
-import org.apache.doris.nereids.PLParserParser.Allocate_cursor_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Assignment_stmt_collection_itemContext;
-import org.apache.doris.nereids.PLParserParser.Assignment_stmt_multiple_itemContext;
-import org.apache.doris.nereids.PLParserParser.Assignment_stmt_select_itemContext;
-import org.apache.doris.nereids.PLParserParser.Assignment_stmt_single_itemContext;
-import org.apache.doris.nereids.PLParserParser.Associate_locator_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Begin_end_blockContext;
-import org.apache.doris.nereids.PLParserParser.Bool_exprContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_binaryContext;
-import org.apache.doris.nereids.PLParserParser.Bool_expr_unaryContext;
-import org.apache.doris.nereids.PLParserParser.Bool_literalContext;
-import org.apache.doris.nereids.PLParserParser.Break_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Call_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Close_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_package_body_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_package_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Date_literalContext;
-import org.apache.doris.nereids.PLParserParser.Dec_numberContext;
-import org.apache.doris.nereids.PLParserParser.Declare_condition_itemContext;
-import org.apache.doris.nereids.PLParserParser.Declare_cursor_itemContext;
-import org.apache.doris.nereids.PLParserParser.Declare_handler_itemContext;
-import org.apache.doris.nereids.PLParserParser.Declare_var_itemContext;
-import org.apache.doris.nereids.PLParserParser.Doris_statementContext;
-import org.apache.doris.nereids.PLParserParser.DtypeContext;
-import org.apache.doris.nereids.PLParserParser.Dtype_lenContext;
-import org.apache.doris.nereids.PLParserParser.Exception_block_itemContext;
-import org.apache.doris.nereids.PLParserParser.Exec_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Exit_stmtContext;
-import org.apache.doris.nereids.PLParserParser.ExprContext;
-import org.apache.doris.nereids.PLParserParser.Expr_agg_window_funcContext;
-import org.apache.doris.nereids.PLParserParser.Expr_case_searchedContext;
-import org.apache.doris.nereids.PLParserParser.Expr_case_simpleContext;
-import org.apache.doris.nereids.PLParserParser.Expr_concatContext;
-import org.apache.doris.nereids.PLParserParser.Expr_cursor_attributeContext;
-import org.apache.doris.nereids.PLParserParser.Expr_dot_method_callContext;
-import org.apache.doris.nereids.PLParserParser.Expr_dot_property_accessContext;
-import org.apache.doris.nereids.PLParserParser.Expr_funcContext;
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Expr_intervalContext;
-import org.apache.doris.nereids.PLParserParser.Expr_spec_funcContext;
-import org.apache.doris.nereids.PLParserParser.Expr_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
-import org.apache.doris.nereids.PLParserParser.For_cursor_stmtContext;
-import org.apache.doris.nereids.PLParserParser.For_range_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_exception_itemContext;
-import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_rowcount_itemContext;
-import org.apache.doris.nereids.PLParserParser.Host_cmdContext;
-import org.apache.doris.nereids.PLParserParser.Host_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Ident_plContext;
-import org.apache.doris.nereids.PLParserParser.If_bteq_stmtContext;
-import org.apache.doris.nereids.PLParserParser.If_plsql_stmtContext;
-import org.apache.doris.nereids.PLParserParser.If_tsql_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Include_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Int_numberContext;
-import org.apache.doris.nereids.PLParserParser.LabelContext;
-import org.apache.doris.nereids.PLParserParser.Leave_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Map_object_stmtContext;
-import org.apache.doris.nereids.PLParserParser.NamedExpressionSeqContext;
-import org.apache.doris.nereids.PLParserParser.Null_constContext;
-import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Print_stmtContext;
-import org.apache.doris.nereids.PLParserParser.ProgramContext;
-import org.apache.doris.nereids.PLParserParser.QueryContext;
-import org.apache.doris.nereids.PLParserParser.Quit_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Resignal_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Return_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Set_current_schema_optionContext;
-import org.apache.doris.nereids.PLParserParser.Set_doris_session_optionContext;
-import org.apache.doris.nereids.PLParserParser.Signal_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Single_quotedStringContext;
-import org.apache.doris.nereids.PLParserParser.StmtContext;
-import org.apache.doris.nereids.PLParserParser.Timestamp_literalContext;
-import org.apache.doris.nereids.PLParserParser.Unconditional_loop_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Values_into_stmtContext;
-import org.apache.doris.nereids.PLParserParser.While_stmtContext;
+import org.apache.doris.nereids.PLLexer;
+import org.apache.doris.nereids.PLParser;
+import org.apache.doris.nereids.PLParser.Allocate_cursor_stmtContext;
+import org.apache.doris.nereids.PLParser.Assignment_stmt_collection_itemContext;
+import org.apache.doris.nereids.PLParser.Assignment_stmt_multiple_itemContext;
+import org.apache.doris.nereids.PLParser.Assignment_stmt_select_itemContext;
+import org.apache.doris.nereids.PLParser.Assignment_stmt_single_itemContext;
+import org.apache.doris.nereids.PLParser.Associate_locator_stmtContext;
+import org.apache.doris.nereids.PLParser.Begin_end_blockContext;
+import org.apache.doris.nereids.PLParser.Bool_exprContext;
+import org.apache.doris.nereids.PLParser.Bool_expr_binaryContext;
+import org.apache.doris.nereids.PLParser.Bool_expr_unaryContext;
+import org.apache.doris.nereids.PLParser.Bool_literalContext;
+import org.apache.doris.nereids.PLParser.Break_stmtContext;
+import org.apache.doris.nereids.PLParser.Call_stmtContext;
+import org.apache.doris.nereids.PLParser.Close_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_package_body_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_package_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParser.Date_literalContext;
+import org.apache.doris.nereids.PLParser.Dec_numberContext;
+import org.apache.doris.nereids.PLParser.Declare_condition_itemContext;
+import org.apache.doris.nereids.PLParser.Declare_cursor_itemContext;
+import org.apache.doris.nereids.PLParser.Declare_handler_itemContext;
+import org.apache.doris.nereids.PLParser.Declare_var_itemContext;
+import org.apache.doris.nereids.PLParser.Doris_statementContext;
+import org.apache.doris.nereids.PLParser.DtypeContext;
+import org.apache.doris.nereids.PLParser.Dtype_lenContext;
+import org.apache.doris.nereids.PLParser.Exception_block_itemContext;
+import org.apache.doris.nereids.PLParser.Exec_stmtContext;
+import org.apache.doris.nereids.PLParser.Exit_stmtContext;
+import org.apache.doris.nereids.PLParser.ExprContext;
+import org.apache.doris.nereids.PLParser.Expr_agg_window_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_case_searchedContext;
+import org.apache.doris.nereids.PLParser.Expr_case_simpleContext;
+import org.apache.doris.nereids.PLParser.Expr_concatContext;
+import org.apache.doris.nereids.PLParser.Expr_cursor_attributeContext;
+import org.apache.doris.nereids.PLParser.Expr_dot_method_callContext;
+import org.apache.doris.nereids.PLParser.Expr_dot_property_accessContext;
+import org.apache.doris.nereids.PLParser.Expr_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_intervalContext;
+import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_stmtContext;
+import org.apache.doris.nereids.PLParser.Fetch_stmtContext;
+import org.apache.doris.nereids.PLParser.For_cursor_stmtContext;
+import org.apache.doris.nereids.PLParser.For_range_stmtContext;
+import org.apache.doris.nereids.PLParser.Get_diag_stmt_exception_itemContext;
+import org.apache.doris.nereids.PLParser.Get_diag_stmt_rowcount_itemContext;
+import org.apache.doris.nereids.PLParser.Host_cmdContext;
+import org.apache.doris.nereids.PLParser.Host_stmtContext;
+import org.apache.doris.nereids.PLParser.Ident_plContext;
+import org.apache.doris.nereids.PLParser.If_bteq_stmtContext;
+import org.apache.doris.nereids.PLParser.If_plsql_stmtContext;
+import org.apache.doris.nereids.PLParser.If_tsql_stmtContext;
+import org.apache.doris.nereids.PLParser.Include_stmtContext;
+import org.apache.doris.nereids.PLParser.Int_numberContext;
+import org.apache.doris.nereids.PLParser.LabelContext;
+import org.apache.doris.nereids.PLParser.Leave_stmtContext;
+import org.apache.doris.nereids.PLParser.Map_object_stmtContext;
+import org.apache.doris.nereids.PLParser.NamedExpressionSeqContext;
+import org.apache.doris.nereids.PLParser.Null_constContext;
+import org.apache.doris.nereids.PLParser.Open_stmtContext;
+import org.apache.doris.nereids.PLParser.Print_stmtContext;
+import org.apache.doris.nereids.PLParser.ProgramContext;
+import org.apache.doris.nereids.PLParser.QueryContext;
+import org.apache.doris.nereids.PLParser.Quit_stmtContext;
+import org.apache.doris.nereids.PLParser.Resignal_stmtContext;
+import org.apache.doris.nereids.PLParser.Return_stmtContext;
+import org.apache.doris.nereids.PLParser.Set_current_schema_optionContext;
+import org.apache.doris.nereids.PLParser.Set_doris_session_optionContext;
+import org.apache.doris.nereids.PLParser.Signal_stmtContext;
+import org.apache.doris.nereids.PLParser.StmtContext;
+import org.apache.doris.nereids.PLParser.StringContext;
+import org.apache.doris.nereids.PLParser.Timestamp_literalContext;
+import org.apache.doris.nereids.PLParser.Unconditional_loop_stmtContext;
+import org.apache.doris.nereids.PLParser.Values_into_stmtContext;
+import org.apache.doris.nereids.PLParser.While_stmtContext;
 import org.apache.doris.nereids.parser.ParserUtils;
 import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.NamedExpression;
@@ -502,9 +502,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         }
         Optional<String> source = exec.packageRegistry.getPackage(name);
         if (source.isPresent()) {
-            PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(source.get()));
+            PLLexer lexer = new PLLexer(new ANTLRInputStream(source.get()));
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-            PLParserParser parser = newParser(tokens);
+            PLParser parser = newParser(tokens);
             exec.packageLoading = true;
             try {
                 visit(parser.program());
@@ -939,9 +939,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     }
 
     private ParseTree parse(InputStream input) throws IOException {
-        PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(input));
+        PLLexer lexer = new PLLexer(new ANTLRInputStream(input));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        PLParserParser parser = newParser(tokens);
+        PLParser parser = newParser(tokens);
         ParseTree tree = parser.program();
         if (trace) {
             console.printError("Configuration file: " + conf.getLocation());
@@ -965,8 +965,8 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         addVariable(utlFileVar);
     }
 
-    private PLParserParser newParser(CommonTokenStream tokens) {
-        PLParserParser parser = new PLParserParser(tokens);
+    private PLParser newParser(CommonTokenStream tokens) {
+        PLParser parser = new PLParser(tokens);
         // the default listener logs into stdout, overwrite it with a custom listener that uses beeline console
         parser.removeErrorListeners();
         parser.addErrorListener(new SyntaxErrorReporter(console));
@@ -1044,9 +1044,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     void include(String content) throws Exception {
         InputStream input = new ByteArrayInputStream(content.getBytes(StandardCharsets.UTF_8));
-        PLParserLexer lexer = new PLParserLexer(new ANTLRInputStream(input));
+        PLLexer lexer = new PLLexer(new ANTLRInputStream(input));
         CommonTokenStream tokens = new CommonTokenStream(lexer);
-        PLParserParser parser = newParser(tokens);
+        PLParser parser = newParser(tokens);
         ParseTree tree = parser.program();
         visit(tree);
     }
@@ -1186,7 +1186,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
             exec.signals.pop();
             return 0;
         }
-        if (ctx.L_ID().toString().equalsIgnoreCase("OTHERS")) {
+        if (ctx.IDENTIFIER().toString().equalsIgnoreCase("OTHERS")) {
             trace(ctx, "EXCEPTION HANDLER");
             exec.signals.pop();
             enterScope(Scope.Type.HANDLER);
@@ -1218,7 +1218,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         String len = null;
         String scale = null;
         Var defaultVar = null;
-        if (ctx.dtype().T_ROWTYPE() != null) {
+        if (ctx.dtype().ROWTYPE() != null) {
             row = meta.getRowDataType(ctx, exec.conf.defaultConnection, ctx.dtype().qident().getText());
             if (row == null) {
                 type = Var.DERIVED_ROWTYPE;
@@ -1226,9 +1226,9 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         } else {
             type = getDataType(ctx);
             if (ctx.dtype_len() != null) {
-                len = ctx.dtype_len().L_INT(0).getText();
-                if (ctx.dtype_len().L_INT(1) != null) {
-                    scale = ctx.dtype_len().L_INT(1).getText();
+                len = ctx.dtype_len().INTEGER_VALUE(0).getText();
+                if (ctx.dtype_len().INTEGER_VALUE(1) != null) {
+                    scale = ctx.dtype_len().INTEGER_VALUE(1).getText();
                 }
             }
             if (ctx.dtype_default() != null) {
@@ -1249,7 +1249,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
                     var.setValue(userDefinedType.newInstance());
                 }
                 exec.addVariable(var);
-                if (ctx.T_CONSTANT() != null) {
+                if (ctx.CONSTANT() != null) {
                     var.setConstant(true);
                 }
                 if (trace) {
@@ -1274,7 +1274,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     String getDataType(Declare_var_itemContext ctx) {
         String type;
-        if (ctx.dtype().T_TYPE() != null) {
+        if (ctx.dtype().TYPE() != null) {
             type = meta.getDataType(ctx, exec.conf.defaultConnection, ctx.dtype().qident().getText());
             if (type == null) {
                 type = Var.DERIVED_TYPE;
@@ -1342,13 +1342,13 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         Handler.ExecType execType = Handler.ExecType.EXIT;
         Signal.Type type = Signal.Type.SQLEXCEPTION;
         String value = null;
-        if (ctx.T_CONTINUE() != null) {
+        if (ctx.CONTINUE() != null) {
             execType = Handler.ExecType.CONTINUE;
         }
         if (ctx.ident_pl() != null) {
             type = Signal.Type.USERDEFINED;
             value = ctx.ident_pl().getText();
-        } else if (ctx.T_NOT() != null && ctx.T_FOUND() != null) {
+        } else if (ctx.NOT() != null && ctx.FOUND() != null) {
             type = Signal.Type.NOTFOUND;
         }
         addHandler(new Handler(execType, type, value, exec.currentScope, ctx));
@@ -1387,7 +1387,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         } else {
             trace(ctx, "CREATE PACKAGE");
             exec.packages.remove(name);
-            exec.packageRegistry.createPackageHeader(name, getFormattedText(ctx), ctx.T_REPLACE() != null);
+            exec.packageRegistry.createPackageHeader(name, getFormattedText(ctx), ctx.REPLACE() != null);
         }
         return 0;
     }
@@ -1411,7 +1411,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         } else {
             trace(ctx, "CREATE PACKAGE BODY");
             exec.packages.remove(name);
-            exec.packageRegistry.createPackageBody(name, getFormattedText(ctx), ctx.T_REPLACE() != null);
+            exec.packageRegistry.createPackageBody(name, getFormattedText(ctx), ctx.REPLACE() != null);
         }
         return 0;
     }
@@ -1912,12 +1912,12 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
         String source = ctx.ident_pl(0).getText();
         String target = null;
         String conn = null;
-        if (ctx.T_TO() != null) {
+        if (ctx.TO() != null) {
             target = ctx.ident_pl(1).getText();
             exec.objectMap.put(source.toUpperCase(), target);
         }
-        if (ctx.T_AT() != null) {
-            if (ctx.T_TO() == null) {
+        if (ctx.AT() != null) {
+            if (ctx.TO() == null) {
                 conn = ctx.ident_pl(1).getText();
             } else {
                 conn = ctx.ident_pl(2).getText();
@@ -2095,10 +2095,10 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
      */
     @Override
     public Integer visitLabel(LabelContext ctx) {
-        if (ctx.L_ID() != null) {
-            exec.labels.push(ctx.L_ID().toString());
+        if (ctx.IDENTIFIER() != null) {
+            exec.labels.push(ctx.IDENTIFIER().toString());
         } else {
-            String label = ctx.L_LABEL().getText();
+            String label = ctx.LABEL().getText();
             if (label.endsWith(":")) {
                 label = label.substring(0, label.length() - 1);
             }
@@ -2143,10 +2143,10 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     }
 
     /**
-     * Single quoted string literal
+     * string literal
      */
     @Override
-    public Integer visitSingle_quotedString(Single_quotedStringContext ctx) {
+    public Integer visitString(StringContext ctx) {
         exec.stackPush(Utils.unquoteString(ctx.getText()));
         return 0;
     }
@@ -2186,7 +2186,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
     @Override
     public Integer visitBool_literal(Bool_literalContext ctx) {
         boolean val = true;
-        if (ctx.T_FALSE() != null) {
+        if (ctx.FALSE() != null) {
             val = false;
         }
         stackPush(new Var(val));

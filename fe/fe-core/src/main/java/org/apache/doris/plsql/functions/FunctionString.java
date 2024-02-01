@@ -20,8 +20,8 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Expr_spec_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.executor.QueryExecutor;
 
@@ -244,7 +244,7 @@ public class FunctionString extends BuiltinFunctions {
         if (start == 0) {
             start = 1;
         }
-        if (ctx.T_FOR() != null) {
+        if (ctx.FOR() != null) {
             len = evalPop(ctx.expr(2)).intValue();
         }
         substr(str, start, len);

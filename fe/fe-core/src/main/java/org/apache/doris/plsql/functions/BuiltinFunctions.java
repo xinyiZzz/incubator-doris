@@ -20,9 +20,9 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Expr_spec_funcContext;
-import org.apache.doris.nereids.PLParserParser.Expr_stmtContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_stmtContext;
 import org.apache.doris.plsql.Console;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Utils;
@@ -102,19 +102,19 @@ public class BuiltinFunctions {
         org.apache.doris.plsql.functions.FuncSpecCommand func = specMap.get(name);
         if (func != null) {
             func.run(ctx);
-        } else if (ctx.T_MAX_PART_STRING() != null) {
+        } else if (ctx.MAX_PART_STRING() != null) {
             execMaxPartString(ctx);
-        } else if (ctx.T_MIN_PART_STRING() != null) {
+        } else if (ctx.MIN_PART_STRING() != null) {
             execMinPartString(ctx);
-        } else if (ctx.T_MAX_PART_INT() != null) {
+        } else if (ctx.MAX_PART_INT() != null) {
             execMaxPartInt(ctx);
-        } else if (ctx.T_MIN_PART_INT() != null) {
+        } else if (ctx.MIN_PART_INT() != null) {
             execMinPartInt(ctx);
-        } else if (ctx.T_MAX_PART_DATE() != null) {
+        } else if (ctx.MAX_PART_DATE() != null) {
             execMaxPartDate(ctx);
-        } else if (ctx.T_MIN_PART_DATE() != null) {
+        } else if (ctx.MIN_PART_DATE() != null) {
             execMinPartDate(ctx);
-        } else if (ctx.T_PART_LOC() != null) {
+        } else if (ctx.PART_LOC() != null) {
             execPartLoc(ctx);
         } else {
             evalNull();

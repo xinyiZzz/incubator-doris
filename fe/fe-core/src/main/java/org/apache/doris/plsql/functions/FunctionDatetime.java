@@ -20,8 +20,8 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Expr_spec_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Var;
 import org.apache.doris.plsql.executor.QueryExecutor;

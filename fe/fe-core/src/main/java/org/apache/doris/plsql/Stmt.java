@@ -21,35 +21,35 @@
 package org.apache.doris.plsql;
 
 import org.apache.doris.common.AnalysisException;
-import org.apache.doris.nereids.PLParserParser.Allocate_cursor_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Assignment_stmt_select_itemContext;
-import org.apache.doris.nereids.PLParserParser.Associate_locator_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Break_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Close_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Declare_cursor_itemContext;
-import org.apache.doris.nereids.PLParserParser.Exec_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Exit_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Fetch_stmtContext;
-import org.apache.doris.nereids.PLParserParser.For_cursor_stmtContext;
-import org.apache.doris.nereids.PLParserParser.For_range_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_exception_itemContext;
-import org.apache.doris.nereids.PLParserParser.Get_diag_stmt_rowcount_itemContext;
-import org.apache.doris.nereids.PLParserParser.If_bteq_stmtContext;
-import org.apache.doris.nereids.PLParserParser.If_plsql_stmtContext;
-import org.apache.doris.nereids.PLParserParser.If_tsql_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Include_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Leave_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Open_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Print_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Quit_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Resignal_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Return_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Set_current_schema_optionContext;
-import org.apache.doris.nereids.PLParserParser.Signal_stmtContext;
-import org.apache.doris.nereids.PLParserParser.StatementContext;
-import org.apache.doris.nereids.PLParserParser.Unconditional_loop_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Values_into_stmtContext;
-import org.apache.doris.nereids.PLParserParser.While_stmtContext;
+import org.apache.doris.nereids.PLParser.Allocate_cursor_stmtContext;
+import org.apache.doris.nereids.PLParser.Assignment_stmt_select_itemContext;
+import org.apache.doris.nereids.PLParser.Associate_locator_stmtContext;
+import org.apache.doris.nereids.PLParser.Break_stmtContext;
+import org.apache.doris.nereids.PLParser.Close_stmtContext;
+import org.apache.doris.nereids.PLParser.Declare_cursor_itemContext;
+import org.apache.doris.nereids.PLParser.Exec_stmtContext;
+import org.apache.doris.nereids.PLParser.Exit_stmtContext;
+import org.apache.doris.nereids.PLParser.Fetch_stmtContext;
+import org.apache.doris.nereids.PLParser.For_cursor_stmtContext;
+import org.apache.doris.nereids.PLParser.For_range_stmtContext;
+import org.apache.doris.nereids.PLParser.Get_diag_stmt_exception_itemContext;
+import org.apache.doris.nereids.PLParser.Get_diag_stmt_rowcount_itemContext;
+import org.apache.doris.nereids.PLParser.If_bteq_stmtContext;
+import org.apache.doris.nereids.PLParser.If_plsql_stmtContext;
+import org.apache.doris.nereids.PLParser.If_tsql_stmtContext;
+import org.apache.doris.nereids.PLParser.Include_stmtContext;
+import org.apache.doris.nereids.PLParser.Leave_stmtContext;
+import org.apache.doris.nereids.PLParser.Open_stmtContext;
+import org.apache.doris.nereids.PLParser.Print_stmtContext;
+import org.apache.doris.nereids.PLParser.Quit_stmtContext;
+import org.apache.doris.nereids.PLParser.Resignal_stmtContext;
+import org.apache.doris.nereids.PLParser.Return_stmtContext;
+import org.apache.doris.nereids.PLParser.Set_current_schema_optionContext;
+import org.apache.doris.nereids.PLParser.Signal_stmtContext;
+import org.apache.doris.nereids.PLParser.StatementContext;
+import org.apache.doris.nereids.PLParser.Unconditional_loop_stmtContext;
+import org.apache.doris.nereids.PLParser.Values_into_stmtContext;
+import org.apache.doris.nereids.PLParser.While_stmtContext;
 import org.apache.doris.plsql.Var.Type;
 import org.apache.doris.plsql.exception.QueryException;
 import org.apache.doris.plsql.executor.Metadata;
@@ -199,9 +199,9 @@ public class Stmt {
         trace(ctx, "ALLOCATE CURSOR");
         String name = ctx.ident_pl(0).getText();
         Var cur = null;
-        if (ctx.T_PROCEDURE() != null) {
+        if (ctx.PROCEDURE() != null) {
             cur = exec.consumeReturnCursor(ctx.ident_pl(1).getText());
-        } else if (ctx.T_RESULT() != null) {
+        } else if (ctx.RESULT() != null) {
             cur = exec.findVariable(ctx.ident_pl(1).getText());
             if (cur != null && cur.type != Type.RS_LOCATOR) {
                 cur = null;
@@ -273,7 +273,7 @@ public class Stmt {
         Var var = null;
         String cursorName = ctx.ident_pl().getText();
         String sql = null;
-        if (ctx.T_FOR() != null) {                             // SELECT statement or dynamic SQL
+        if (ctx.FOR() != null) {                             // SELECT statement or dynamic SQL
             sql = ctx.expr() != null ? exec.logicalPlanBuilder.getOriginSql(ctx.expr())
                     : exec.logicalPlanBuilder.getOriginSql(ctx.query());
             cursor = new Cursor(sql);
@@ -407,7 +407,7 @@ public class Stmt {
      */
     public Integer close(Close_stmtContext ctx) {
         trace(ctx, "CLOSE");
-        String name = ctx.L_ID().toString();
+        String name = ctx.IDENTIFIER().toString();
         Var var = exec.findVariable(name);
         if (var != null && var.type == Type.CURSOR) {
             ((Cursor) var.value).close();
@@ -470,7 +470,7 @@ public class Stmt {
         if (exec.stackPop().isTrue()) {
             trace(ctx, "IF TRUE executed");
             visit(ctx.single_block_stmt(0));
-        } else if (ctx.T_ELSE() != null) {
+        } else if (ctx.ELSE() != null) {
             trace(ctx, "ELSE executed");
             visit(ctx.single_block_stmt(1));
         }
@@ -621,7 +621,7 @@ public class Stmt {
     public Integer forCursor(For_cursor_stmtContext ctx) {
         trace(ctx, "FOR CURSOR - ENTERED");
         exec.enterScope(Scope.Type.LOOP);
-        String cursor = ctx.L_ID().getText();
+        String cursor = ctx.IDENTIFIER().getText();
         String sql = exec.logicalPlanBuilder.getOriginSql(ctx.query());
         trace(ctx, sql);
         QueryResult query = exec.queryExecutor.executeQuery(sql, ctx);
@@ -696,10 +696,10 @@ public class Stmt {
      */
     private Var setIndex(int start, int end, For_range_stmtContext ctx) {
 
-        if (ctx.T_REVERSE() == null) {
-            return new Var(ctx.L_ID().getText(), Long.valueOf(start));
+        if (ctx.REVERSE() == null) {
+            return new Var(ctx.IDENTIFIER().getText(), Long.valueOf(start));
         } else {
-            return new Var(ctx.L_ID().getText(), Long.valueOf(end));
+            return new Var(ctx.IDENTIFIER().getText(), Long.valueOf(end));
         }
     }
 
@@ -708,7 +708,7 @@ public class Stmt {
      */
     private void updateIndex(int step, Var index, For_range_stmtContext ctx) {
 
-        if (ctx.T_REVERSE() == null) {
+        if (ctx.REVERSE() == null) {
             index.increment(step);
         } else {
             index.decrement(step);
@@ -734,11 +734,11 @@ public class Stmt {
             return 1;
         }
         try {
-            if (ctx.T_INTO() != null) {
-                int cols = ctx.L_ID().size();
+            if (ctx.INTO() != null) {
+                int cols = ctx.IDENTIFIER().size();
                 if (query.next()) {
                     for (int i = 0; i < cols; i++) {
-                        Var var = exec.findVariable(ctx.L_ID(i).getText());
+                        Var var = exec.findVariable(ctx.IDENTIFIER(i).getText());
                         if (var != null) {
                             if (var.type != Type.ROW) {
                                 var.setValue(query, i);
@@ -749,7 +749,7 @@ public class Stmt {
                                 trace(ctx, var, query.metadata(), i);
                             }
                         } else if (trace) {
-                            trace(ctx, "Variable not found: " + ctx.L_ID(i).getText());
+                            trace(ctx, "Variable not found: " + ctx.IDENTIFIER(i).getText());
                         }
                     }
                     exec.setSqlCode(SqlCodes.SUCCESS);
@@ -792,10 +792,10 @@ public class Stmt {
     public Integer exit(Exit_stmtContext ctx) {
         trace(ctx, "EXIT");
         String label = "";
-        if (ctx.L_ID() != null) {
-            label = ctx.L_ID().toString();
+        if (ctx.IDENTIFIER() != null) {
+            label = ctx.IDENTIFIER().toString();
         }
-        if (ctx.T_WHEN() != null) {
+        if (ctx.WHEN() != null) {
             if (evalPop(ctx.bool_expr()).isTrue()) {
                 leaveLoop(label);
             }
@@ -820,8 +820,8 @@ public class Stmt {
     public Integer leave(Leave_stmtContext ctx) {
         trace(ctx, "LEAVE");
         String label = "";
-        if (ctx.L_ID() != null) {
-            label = ctx.L_ID().toString();
+        if (ctx.IDENTIFIER() != null) {
+            label = ctx.IDENTIFIER().toString();
         }
         leaveLoop(label);
         return 0;
@@ -881,10 +881,10 @@ public class Stmt {
      */
     public Integer resignal(Resignal_stmtContext ctx) {
         trace(ctx, "RESIGNAL");
-        if (ctx.T_SQLSTATE() != null) {
+        if (ctx.SQLSTATE() != null) {
             String sqlstate = evalPop(ctx.expr(0)).toString();
             String text = "";
-            if (ctx.T_MESSAGE_TEXT() != null) {
+            if (ctx.MESSAGE_TEXT() != null) {
                 text = evalPop(ctx.expr(1)).toString();
             }
             SQLException exception = new SQLException(text, sqlstate, -1);

@@ -20,8 +20,8 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Expr_spec_funcContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_spec_funcContext;
 import org.apache.doris.plsql.Conn;
 import org.apache.doris.plsql.Exec;
 import org.apache.doris.plsql.Var;
@@ -79,9 +79,9 @@ public class FunctionMisc extends BuiltinFunctions {
         String len = null;
         String scale = null;
         if (ctx.dtype_len() != null) {
-            len = ctx.dtype_len().L_INT(0).getText();
-            if (ctx.dtype_len().L_INT(1) != null) {
-                scale = ctx.dtype_len().L_INT(1).getText();
+            len = ctx.dtype_len().INTEGER_VALUE(0).getText();
+            if (ctx.dtype_len().INTEGER_VALUE(1) != null) {
+                scale = ctx.dtype_len().INTEGER_VALUE(1).getText();
             }
         }
         Var var = new Var(null, type, len, scale, null);
@@ -93,12 +93,12 @@ public class FunctionMisc extends BuiltinFunctions {
      * CURRENT <VALUE> function
      */
     void current(Expr_spec_funcContext ctx) {
-        if (ctx.T_DATE() != null) {
+        if (ctx.DATE() != null) {
             evalVar(FunctionDatetime.currentDate());
-        } else if (ctx.T_TIMESTAMP() != null) {
+        } else if (ctx.TIMESTAMP() != null) {
             int precision = evalPop(ctx.expr(0), 3).intValue();
             evalVar(FunctionDatetime.currentTimestamp(precision));
-        } else if (ctx.T_USER() != null) {
+        } else if (ctx.USER() != null) {
             evalVar(FunctionMisc.currentUser());
         } else {
             evalNull();
@@ -109,13 +109,13 @@ public class FunctionMisc extends BuiltinFunctions {
      * CURRENT <VALUE> function in executable SQL statement
      */
     void currentSql(Expr_spec_funcContext ctx) {
-        if (ctx.T_DATE() != null) {
+        if (ctx.DATE() != null) {
             if (exec.getConnectionType() == Conn.Type.HIVE) {
                 evalString("TO_DATE(FROM_UNIXTIME(UNIX_TIMESTAMP()))");
             } else {
                 evalString("CURRENT_DATE");
             }
-        } else if (ctx.T_TIMESTAMP() != null) {
+        } else if (ctx.TIMESTAMP() != null) {
             if (exec.getConnectionType() == Conn.Type.HIVE) {
                 evalString("FROM_UNIXTIME(UNIX_TIMESTAMP())");
             } else {

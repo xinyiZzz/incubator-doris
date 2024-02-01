@@ -20,13 +20,13 @@
 
 package org.apache.doris.plsql;
 
-import org.apache.doris.nereids.PLParserParser.Create_function_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_package_body_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_package_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Create_procedure_stmtContext;
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
-import org.apache.doris.nereids.PLParserParser.Package_body_itemContext;
-import org.apache.doris.nereids.PLParserParser.Package_spec_itemContext;
+import org.apache.doris.nereids.PLParser.Create_function_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_package_body_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_package_stmtContext;
+import org.apache.doris.nereids.PLParser.Create_procedure_stmtContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Package_body_itemContext;
+import org.apache.doris.nereids.PLParser.Package_spec_itemContext;
 import org.apache.doris.plsql.functions.BuiltinFunctions;
 import org.apache.doris.plsql.functions.InMemoryFunctionRegistry;
 
@@ -91,9 +91,9 @@ public class Package {
             Package_spec_itemContext c = ctx.package_spec().package_spec_item(i);
             if (c.declare_stmt_item() != null) {
                 visit(c);
-            } else if (c.T_FUNCTION() != null) {
+            } else if (c.FUNCTION() != null) {
                 publicFuncs.add(c.ident_pl().getText().toUpperCase());
-            } else if (c.T_PROC() != null || c.T_PROCEDURE() != null) {
+            } else if (c.PROC() != null || c.PROCEDURE() != null) {
                 publicProcs.add(c.ident_pl().getText().toUpperCase());
             }
         }

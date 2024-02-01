@@ -2412,7 +2412,7 @@ SELECT /*+ SET_VAR(query_timeout = 1, enable_partition_cache=true) */ sleep(3);
 
 类型：`String`
 
-默认值：`Doris version doris-0.0.0-trunk-54ff312152`
+默认值：`Doris version doris-0.0.0-trunk-64d9c824f3`
 
 只读变量：`true`
 

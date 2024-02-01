@@ -20,7 +20,7 @@
 
 package org.apache.doris.plsql.functions;
 
-import org.apache.doris.nereids.PLParserParser.Expr_func_paramsContext;
+import org.apache.doris.nereids.PLParser.Expr_func_paramsContext;
 
 interface FuncCommand {
     void run(Expr_func_paramsContext ctx);
