@@ -41,7 +41,7 @@ public class PLSqlLogicalPlanBuilder extends LogicalPlanBuilder {
     public Expression visitColumnReference(ColumnReferenceContext ctx) {
         Var var = ConnectContext.get().getProcedureExec().findVariable(ctx.getText());
         if (var != null) {
-            return var.toExpression();
+            return var.toLiteral();
         }
         return UnboundSlot.quoted(ctx.getText());
     }

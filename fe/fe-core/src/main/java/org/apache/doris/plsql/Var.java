@@ -50,6 +50,7 @@ public class Var {
     public String name;
     public Type type;
     public Object value;
+    public Type type;
 
     int len;
     int scale;
@@ -227,9 +228,9 @@ public class Var {
         return this;
     }
 
-    public Expression toExpression() {
-        if (type == Type.EXPRESSION) {
-            return (Expression) value;
+    public Literal toLiteral() {
+        if (value instanceof Literal) {
+            return (Literal) value;
         } else {
             return Literal.of(value);
         }
@@ -592,7 +593,9 @@ public class Var {
      */
     @Override
     public String toString() {
-        if (type == Type.IDENT) {
+        if (value instanceof Literal) {
+            return value.toString();
+        } else if (type == Type.IDENT) {
             return name;
         } else if (value == null) {
             return null;
