@@ -1158,7 +1158,7 @@ public class Exec extends org.apache.doris.nereids.PLParserBaseVisitor<Integer> 
 
     @Override
     public Integer visitDoris_statement(Doris_statementContext ctx) {
-        Integer rc = exec.stmt.statement(ctx.statement());
+        Integer rc = exec.stmt.statement(ctx.statementNoProcedure());
         // 这里的 lastStmt，是指用分号分割的最后一个么 // 一条语句中分号分割的多个sql 在mysql中就是为了
         // 支持存储过程，不过我们现在支持的是拆成了多个SQL，// 如果三条语句 xx;xx;xx; 前两条返回OK，最后一条返回EOF
         // printExceptions();

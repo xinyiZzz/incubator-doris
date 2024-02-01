@@ -2413,7 +2413,7 @@ TODO
 
 Type: `String`
 
-Default: `Doris version doris-0.0.0-trunk-64d9c824f3`
+Default: `Doris version doris-0.0.0-trunk-d0aca7855a`
 
 Read Only: `true`
 
