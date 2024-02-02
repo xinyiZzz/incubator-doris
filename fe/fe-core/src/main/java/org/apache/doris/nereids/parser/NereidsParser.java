@@ -24,11 +24,13 @@ import org.apache.doris.nereids.DorisLexer;
 import org.apache.doris.nereids.DorisParser;
 import org.apache.doris.nereids.StatementContext;
 import org.apache.doris.nereids.glue.LogicalPlanAdapter;
+import org.apache.doris.nereids.parser.plsql.PLSqlLogicalPlanBuilder;
 import org.apache.doris.nereids.trees.expressions.Expression;
 import org.apache.doris.nereids.trees.plans.logical.LogicalPlan;
 import org.apache.doris.nereids.types.DataType;
 import org.apache.doris.plugin.DialectConverterPlugin;
 import org.apache.doris.plugin.PluginMgr;
+import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.SessionVariable;
 
 import com.google.common.collect.Lists;
@@ -82,7 +84,7 @@ public class NereidsParser {
     }
 
     private List<StatementBase> parseSQLWithDialect(String sql,
-                                                    SessionVariable sessionVariable) {
+            SessionVariable sessionVariable) {
         @Nullable Dialect sqlDialect = Dialect.getByName(sessionVariable.getSqlDialect());
         if (sqlDialect == null) {
             return parseSQL(sql);
@@ -98,10 +100,13 @@ public class NereidsParser {
                 }
             } catch (Throwable throwable) {
                 LOG.warn("Parse sql with dialect {} failed, plugin: {}, sql: {}.",
-                            sqlDialect, plugin.getClass().getSimpleName(), sql, throwable);
+                        sqlDialect, plugin.getClass().getSimpleName(), sql, throwable);
             }
         }
 
+        if (ConnectContext.get().isRunProcedure()) {
+            return parseSQL(sql, new PLSqlLogicalPlanBuilder());
+        }
         // fallback if any exception occurs before
         return parseSQL(sql);
     }
@@ -131,7 +136,7 @@ public class NereidsParser {
     }
 
     public List<Pair<LogicalPlan, StatementContext>> parseMultiple(String sql,
-                                                                   @Nullable LogicalPlanBuilder logicalPlanBuilder) {
+            @Nullable LogicalPlanBuilder logicalPlanBuilder) {
         return parse(sql, logicalPlanBuilder, DorisParser::multiStatements);
     }
 
@@ -152,10 +157,10 @@ public class NereidsParser {
     }
 
     private <T> T parse(String sql, @Nullable LogicalPlanBuilder logicalPlanBuilder,
-                        Function<DorisParser, ParserRuleContext> parseFunction) {
+            Function<DorisParser, ParserRuleContext> parseFunction) {
         ParserRuleContext tree = toAst(sql, parseFunction);
         LogicalPlanBuilder realLogicalPlanBuilder = logicalPlanBuilder == null
-                    ? new LogicalPlanBuilder() : logicalPlanBuilder;
+                ? new LogicalPlanBuilder() : logicalPlanBuilder;
         return (T) realLogicalPlanBuilder.visit(tree);
     }
 

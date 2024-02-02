@@ -187,6 +187,7 @@ import org.apache.thrift.TException;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -637,7 +638,7 @@ public class StmtExecutor {
         }
     }
 
-    private void parseByNereids() {
+    public void parseByNereids() {
         if (parsedStmt != null) {
             return;
         }
@@ -1443,7 +1444,7 @@ public class StmtExecutor {
     private void handleQueryStmt() throws Exception {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Handling query {} with query id {}",
-                          originStmt.originStmt, DebugUtil.printId(context.queryId));
+                    originStmt.originStmt, DebugUtil.printId(context.queryId));
         }
 
         if (context.getConnectType() == ConnectType.MYSQL) {
@@ -1561,6 +1562,13 @@ public class StmtExecutor {
                 }
                 return;
             }
+
+            if (context.isRunProcedure()) {
+                // hplsql will get the returned results without sending them to mysql client.
+                // see org/apache/doris/hplsql/executor/DorisRowResult.java
+                return;
+            }
+
             while (true) {
                 // register the fetch result time.
                 profile.getSummaryProfile().setTempStartTime();
@@ -1998,7 +2006,7 @@ public class StmtExecutor {
                 if (table instanceof OlapTable) {
                     boolean isEnableMemtableOnSinkNode =
                             ((OlapTable) table).getTableProperty().getUseSchemaLightChange()
-                            ? coord.getQueryOptions().isEnableMemtableOnSinkNode() : false;
+                                    ? coord.getQueryOptions().isEnableMemtableOnSinkNode() : false;
                     coord.getQueryOptions().setEnableMemtableOnSinkNode(isEnableMemtableOnSinkNode);
                 }
                 coord.exec();
@@ -2278,6 +2286,27 @@ public class StmtExecutor {
         } else {
             context.getState().setOk();
         }
+    }
+
+    public void sendEmptyFields() throws IOException {
+        // sends how many columns
+        serializer.reset();
+        serializer.writeVInt(1);
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        serializer.reset();
+        serializer.writeField("Status", Type.getTypeFromTypeName("STRING"));
+        ConnectContext.get().getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        // send EOF
+        serializer.reset();
+        MysqlEofPacket eofPacket = new MysqlEofPacket(context.getState());
+        eofPacket.writeTo(serializer);
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
+
+        serializer.reset();
+        serializer.writeBytes("OK".getBytes(StandardCharsets.UTF_8));
+        context.getMysqlChannel().sendOnePacket(serializer.toByteBuffer());
     }
 
     private void sendFields(List<String> colNames, List<Type> types) throws IOException {
@@ -2831,6 +2860,18 @@ public class StmtExecutor {
             resultRows.add(resultRow);
         }
         return resultRows;
+    }
+
+    public Coordinator getCoord() {
+        return coord;
+    }
+
+    public List<String> getColumns() {
+        return parsedStmt.getColLabels();
+    }
+
+    public List<Type> getReturnTypes() {
+        return exprToType(parsedStmt.getResultExprs());
     }
 
     public SummaryProfile getSummaryProfile() {

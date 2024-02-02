@@ -66,7 +66,11 @@ public enum Dialect {
     /**
      * oracle parser dialect
      */
-    ORACLE("oracle");
+    ORACLE("oracle"),
+    /**
+     * PLsql parser dialect
+     */
+    PLSQL("plsql");
 
     public static final int MAX_DIALECT_SIZE = Dialect.values().length;
 

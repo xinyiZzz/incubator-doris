@@ -34,7 +34,7 @@ singleStatement
     ;
 
 statement
-    : explain? query outFileClause?                                    #statementDefault
+    : explain? query outFileClause? # statementDefault
     | CREATE ROW POLICY (IF NOT EXISTS)? name=identifier
         ON table=multipartIdentifier
         AS type=(RESTRICTIVE | PERMISSIVE)
@@ -104,6 +104,7 @@ statement
         DROP CONSTRAINT constraintName=errorCapturingIdentifier           #dropConstraint
     | SHOW CONSTRAINTS FROM table=multipartIdentifier                                 #showConstraint
     | CALL functionName=identifier LEFT_PAREN (expression (COMMA expression)*)? RIGHT_PAREN #callProcedure
+    | (ALTER | CREATE (OR REPLACE)? | REPLACE)? (PROCEDURE | PROC) identifier LEFT_PAREN .*? RIGHT_PAREN .*? #createProcedure
     ;
 
 constraint

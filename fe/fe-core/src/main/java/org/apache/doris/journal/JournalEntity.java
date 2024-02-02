@@ -117,6 +117,9 @@ import org.apache.doris.persist.TablePropertyInfo;
 import org.apache.doris.persist.TableRenameColumnInfo;
 import org.apache.doris.persist.TableStatsDeletionLog;
 import org.apache.doris.persist.TruncateTableInfo;
+import org.apache.doris.plsql.store.PlsqlPackage;
+import org.apache.doris.plsql.store.StoredKey;
+import org.apache.doris.plsql.store.StoredProcedure;
 import org.apache.doris.plugin.PluginInfo;
 import org.apache.doris.policy.DropPolicyLog;
 import org.apache.doris.policy.Policy;
@@ -548,7 +551,7 @@ public class JournalEntity implements Writable {
             }
             case OperationType.OP_CREATE_SCHEDULER_TASK:
             case OperationType.OP_DELETE_SCHEDULER_TASK: {
-                //todo improve
+                // todo improve
                 break;
             }
             case OperationType.OP_CREATE_LOAD_JOB: {
@@ -857,6 +860,26 @@ public class JournalEntity implements Writable {
             }
             case OperationType.OP_UPDATE_AUTO_INCREMENT_ID: {
                 data = AutoIncrementIdUpdateLog.read(in);
+                isRead = true;
+                break;
+            }
+            case OperationType.OP_ADD_STORED_PROCEDURE: {
+                data = StoredProcedure.read(in);
+                isRead = true;
+                break;
+            }
+            case OperationType.OP_DROP_STORED_PROCEDURE: {
+                data = StoredKey.read(in); // hplsql-xinyi, 为什么用 StoredKey
+                isRead = true;
+                break;
+            }
+            case OperationType.OP_ADD_HPLSQL_PACKAGE: {
+                data = PlsqlPackage.read(in);
+                isRead = true;
+                break;
+            }
+            case OperationType.OP_DROP_HPLSQL_PACKAGE: {
+                data = StoredKey.read(in); // hplsql-xinyi, 为什么用 StoredKey
                 isRead = true;
                 break;
             }

@@ -93,6 +93,10 @@ public abstract class ConnectProcessor {
         this.ctx = context;
     }
 
+    public ConnectContext getCtx() {
+        return ctx;
+    }
+
     // change current database of this session.
     protected void handleInitDb(String fullDbName) {
         String catalogName = null;
@@ -173,6 +177,13 @@ public abstract class ConnectProcessor {
 
     // only throw an exception when there is a problem interacting with the requesting client
     protected void handleQuery(MysqlCommand mysqlCommand, String originStmt) {
+        try {
+            executeQuery(mysqlCommand, originStmt);
+        } catch (Exception ignored) {
+            // saved use handleQueryException
+        }
+    }
+    public void executeQuery(MysqlCommand mysqlCommand, String originStmt) throws Exception {
         if (MetricRepo.isInit) {
             MetricRepo.COUNTER_REQUEST_ALL.increase(1L);
         }
@@ -274,11 +285,9 @@ public abstract class ConnectProcessor {
                 handleQueryException(throwable, auditStmt, executor.getParsedStmt(),
                         executor.getQueryStatisticsForAuditLog());
                 // execute failed, skip remaining stmts
-                break;
+                throw throwable;
             }
-
         }
-
     }
 
     private String convertOriginStmt(String originStmt) {
@@ -428,7 +437,7 @@ public abstract class ConnectProcessor {
     // When any request is completed, it will generally need to send a response packet to the client
     // This method is used to send a response packet to the client
     // only Mysql protocol
-    public void finalizeCommand() throws IOException {
+    public void finalizeCommand() throws IOException { // hplsql, 想办法不改成public，让hpl也继承一个connectprocessor
         Preconditions.checkState(connectType.equals(ConnectType.MYSQL));
         ByteBuffer packet;
         if (executor != null && executor.isForwardToMaster()
