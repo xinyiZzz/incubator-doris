@@ -32,14 +32,15 @@ Status to_doris_status(const arrow::Status& status) {
     }
 }
 
-arrow::Status to_arrow_status(const Status& status) {
-    if (status.ok()) {
+arrow::Status to_arrow_status(const Status& status, const std::string& msg) {
+    if (LIKELY(status.ok())) {
         return arrow::Status::OK();
     } else {
+        LOG(WARNING) << msg + ", " + status.to_string();
         // The length of exception msg returned to the ADBC Client cannot larger than 8192,
         // otherwise ADBC Client will receive:
         // `INTERNAL: http2 exception Header size exceeded max allowed size (8192)`.
-        return arrow::Status::Invalid(status.to_string_no_stack());
+        return arrow::Status::Invalid(msg + ", " + status.to_string_no_stack());
     }
 }
 

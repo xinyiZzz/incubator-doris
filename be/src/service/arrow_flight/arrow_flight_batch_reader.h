@@ -17,40 +17,82 @@
 
 #pragma once
 
+#include <cctz/time_zone.h>
 #include <gen_cpp/Types_types.h>
 
 #include <memory>
+#include <mutex>
+#include <utility>
 
 #include "arrow/record_batch.h"
+#include "runtime/exec_env.h"
+#include "util/ref_count_closure.h"
+#include "util/runtime_profile.h"
 
-namespace doris {
-namespace flight {
+namespace doris::flight {
 
 struct QueryStatement {
 public:
     TUniqueId query_id;
+    TNetworkAddress result_addr; // BE brpc ip & port
     std::string sql;
 
-    QueryStatement(const TUniqueId& query_id_, const std::string& sql_)
-            : query_id(query_id_), sql(sql_) {}
+    QueryStatement(TUniqueId query_id_, TNetworkAddress result_addr_, std::string sql_)
+            : query_id(std::move(query_id_)),
+              result_addr(std::move(result_addr_)),
+              sql(std::move(sql_)) {}
 };
 
-class ArrowFlightBatchReader : public arrow::RecordBatchReader {
+class ArrowFlightBatchReaderBase : public arrow::RecordBatchReader {
 public:
-    static arrow::Result<std::shared_ptr<ArrowFlightBatchReader>> Create(
-            const std::shared_ptr<QueryStatement>& statement);
-
+    // RecordBatchReader force override
     [[nodiscard]] std::shared_ptr<arrow::Schema> schema() const override;
+
+protected:
+    ArrowFlightBatchReaderBase(const std::shared_ptr<QueryStatement>& statement);
+    ~ArrowFlightBatchReaderBase() override;
+    arrow::Status _return_invalid_status(const std::string& msg);
+
+    std::shared_ptr<QueryStatement> _statement;
+    std::shared_ptr<arrow::Schema> _schema;
+    cctz::time_zone _timezone_obj;
+    std::atomic<int64_t> _packet_seq = 0;
+
+    std::atomic<int64_t> _convert_arrow_batch_timer = 0;
+    std::atomic<int64_t> _deserialize_block_timer = 0;
+    std::shared_ptr<MemTrackerLimiter> _mem_tracker;
+};
+
+class ArrowFlightBatchLocalReader : public ArrowFlightBatchReaderBase {
+public:
+    static arrow::Result<std::shared_ptr<ArrowFlightBatchLocalReader>> Create(
+            const std::shared_ptr<QueryStatement>& statement);
 
     arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* out) override;
 
 private:
-    std::shared_ptr<QueryStatement> statement_;
-    std::shared_ptr<arrow::Schema> schema_;
-
-    ArrowFlightBatchReader(std::shared_ptr<QueryStatement> statement,
-                           std::shared_ptr<arrow::Schema> schema);
+    ArrowFlightBatchLocalReader(const std::shared_ptr<QueryStatement>& statement,
+                                const std::shared_ptr<arrow::Schema>& schema,
+                                const std::shared_ptr<MemTrackerLimiter>& mem_tracker);
 };
 
-} // namespace flight
-} // namespace doris
+class ArrowFlightBatchRemoteReader : public ArrowFlightBatchReaderBase {
+public:
+    static arrow::Result<std::shared_ptr<ArrowFlightBatchRemoteReader>> Create(
+            const std::shared_ptr<QueryStatement>& statement);
+
+    arrow::Status init_schema();
+    arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* out) override;
+
+private:
+    ArrowFlightBatchRemoteReader(const std::shared_ptr<QueryStatement>& statement,
+                                 const std::shared_ptr<PBackendService_Stub>& stub);
+    arrow::Status _fetch_data();
+
+    std::shared_ptr<PBackendService_Stub> _brpc_stub = nullptr;
+    std::once_flag _init_timezone_flag;
+    std::string _timezone;
+    std::shared_ptr<vectorized::Block> _block;
+};
+
+} // namespace doris::flight

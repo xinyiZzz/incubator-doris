@@ -27,6 +27,7 @@ import org.apache.doris.qe.ConnectContext;
 import org.apache.doris.qe.QueryState.MysqlStateType;
 import org.apache.doris.service.arrowflight.results.FlightSqlResultCacheEntry;
 import org.apache.doris.service.arrowflight.sessions.FlightSessionsManager;
+import org.apache.doris.thrift.TUniqueId;
 
 import com.google.common.base.Preconditions;
 import com.google.protobuf.Any;
@@ -224,24 +225,32 @@ public class DorisFlightSqlProducer implements FlightSqlProducer, AutoCloseable 
                     }
                 } else {
                     // Now only query stmt will pull results from BE.
-                    final ByteString handle;
-                    if (connectContext.getSessionVariable().enableParallelResultSink()) {
-                        handle = ByteString.copyFromUtf8(DebugUtil.printId(connectContext.queryId()) + ":" + query);
-                    } else {
-                        // only one instance
-                        handle = ByteString.copyFromUtf8(DebugUtil.printId(connectContext.getFinstId()) + ":" + query);
-                    }
                     Schema schema = flightSQLConnectProcessor.fetchArrowFlightSchema(5000);
                     if (schema == null) {
                         throw CallStatus.INTERNAL.withDescription("fetch arrow flight schema is null")
                                 .toRuntimeException();
                     }
+
+                    TUniqueId queryId = connectContext.queryId();
+                    if (!connectContext.getSessionVariable().enableParallelResultSink()) {
+                        // only one instance
+                        queryId = connectContext.getFinstId();
+                    }
+                    final ByteString handle = ByteString.copyFromUtf8(
+                            DebugUtil.printId(queryId) + "&" + connectContext.getResultInternalServiceAddr().hostname
+                                    + "&" + connectContext.getResultInternalServiceAddr().port + "&" + query);
                     TicketStatementQuery ticketStatement = TicketStatementQuery.newBuilder().setStatementHandle(handle)
                             .build();
                     Ticket ticket = new Ticket(Any.pack(ticketStatement).toByteArray());
                     // TODO Support multiple endpoints.
-                    Location location = Location.forGrpcInsecure(connectContext.getResultFlightServerAddr().hostname,
-                            connectContext.getResultFlightServerAddr().port);
+                    Location location;
+                    if (flightSQLConnectProcessor.getPublicAccessAddr().isSetHostname()) {
+                        location = Location.forGrpcInsecure(flightSQLConnectProcessor.getPublicAccessAddr().hostname,
+                                flightSQLConnectProcessor.getPublicAccessAddr().port);
+                    } else {
+                        location = Location.forGrpcInsecure(connectContext.getResultFlightServerAddr().hostname,
+                                connectContext.getResultFlightServerAddr().port);
+                    }
                     List<FlightEndpoint> endpoints = Collections.singletonList(new FlightEndpoint(ticket, location));
                     // TODO Set in BE callback after query end, Client will not callback.
                     return new FlightInfo(schema, descriptor, endpoints, -1, -1);

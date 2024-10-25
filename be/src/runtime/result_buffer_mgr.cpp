@@ -68,8 +68,8 @@ Status ResultBufferMgr::init() {
 }
 
 Status ResultBufferMgr::create_sender(const TUniqueId& query_id, int buffer_size,
-                                      std::shared_ptr<BufferControlBlock>* sender, int exec_timout,
-                                      int batch_size) {
+                                      std::shared_ptr<BufferControlBlock>* sender,
+                                      RuntimeState* state) {
     *sender = find_control_block(query_id);
     if (*sender != nullptr) {
         LOG(WARNING) << "already have buffer control block for this instance " << query_id;
@@ -78,7 +78,7 @@ Status ResultBufferMgr::create_sender(const TUniqueId& query_id, int buffer_size
 
     std::shared_ptr<BufferControlBlock> control_block = nullptr;
 
-    control_block = std::make_shared<BufferControlBlock>(query_id, buffer_size, batch_size);
+    control_block = std::make_shared<BufferControlBlock>(query_id, buffer_size, state);
 
     {
         std::unique_lock<std::shared_mutex> wlock(_buffer_map_lock);
@@ -88,7 +88,7 @@ Status ResultBufferMgr::create_sender(const TUniqueId& query_id, int buffer_size
         // otherwise in some case may block all fragment handle threads
         // details see issue https://github.com/apache/doris/issues/16203
         // add extra 5s for avoid corner case
-        int64_t max_timeout = time(nullptr) + exec_timout + 5;
+        int64_t max_timeout = time(nullptr) + state->execution_timeout() + 5;
         cancel_at_time(max_timeout, query_id);
     }
     *sender = control_block;
@@ -135,14 +135,43 @@ void ResultBufferMgr::fetch_data(const PUniqueId& finst_id, GetResultBatchCtx* c
     cb->get_batch(ctx);
 }
 
-Status ResultBufferMgr::fetch_arrow_data(const TUniqueId& finst_id,
-                                         std::shared_ptr<arrow::RecordBatch>* result) {
+Status ResultBufferMgr::find_mem_tracker(const TUniqueId& finst_id,
+                                         std::shared_ptr<MemTrackerLimiter>* mem_tracker) {
     std::shared_ptr<BufferControlBlock> cb = find_control_block(finst_id);
     if (cb == nullptr) {
-        return Status::InternalError("no result for this query, finst_id={}", print_id(finst_id));
+        return Status::InternalError(
+                "no result for this query, maybe query has been canceled, finst_id={}",
+                print_id(finst_id));
     }
-    RETURN_IF_ERROR(cb->get_arrow_batch(result));
+    *mem_tracker = cb->mem_tracker();
     return Status::OK();
+}
+
+Status ResultBufferMgr::fetch_arrow_data(const TUniqueId& finst_id,
+                                         std::shared_ptr<vectorized::Block>* result,
+                                         cctz::time_zone& timezone_obj) {
+    std::shared_ptr<BufferControlBlock> cb = find_control_block(finst_id);
+    if (cb == nullptr) {
+        return Status::InternalError(
+                "no result for this query, maybe query has been canceled, finst_id={}",
+                print_id(finst_id));
+    }
+    RETURN_IF_ERROR(cb->get_arrow_batch(result, timezone_obj));
+    return Status::OK();
+}
+
+void ResultBufferMgr::fetch_arrow_data(const PUniqueId& finst_id, GetArrowResultBatchCtx* ctx) {
+    TUniqueId tid;
+    tid.__set_hi(finst_id.hi());
+    tid.__set_lo(finst_id.lo());
+    std::shared_ptr<BufferControlBlock> cb = find_control_block(tid);
+    if (cb == nullptr) {
+        ctx->on_failure(Status::InternalError(
+                "no result for this query, maybe query has been canceled, finst_id={}",
+                print_id(tid)));
+        return;
+    }
+    cb->get_arrow_batch(ctx);
 }
 
 void ResultBufferMgr::cancel(const TUniqueId& query_id, const Status& reason) {
