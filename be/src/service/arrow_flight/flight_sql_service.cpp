@@ -70,7 +70,10 @@ public:
             const arrow::flight::ServerCallContext& context,
             const arrow::flight::sql::StatementQueryTicket& command) {
         ARROW_ASSIGN_OR_RAISE(auto statement, decode_ticket(command.statement_handle));
-        // use brpc to transmit blocks between BEs
+        // if IP:BrpcPort in the Ticket is not current BE node,
+        // pulls the query result Block from the BE node specified by IP:BrpcPort,
+        // converts it to Arrow Batch and returns it to ADBC client.
+        // use brpc to transmit blocks between BEs.
         if (statement->result_addr.hostname == BackendOptions::get_localhost() &&
             statement->result_addr.port == config::brpc_port) {
             std::shared_ptr<ArrowFlightBatchLocalReader> reader;

@@ -81,18 +81,24 @@ public:
     static arrow::Result<std::shared_ptr<ArrowFlightBatchRemoteReader>> Create(
             const std::shared_ptr<QueryStatement>& statement);
 
+    // create arrow RecordBatchReader must initialize the schema.
+    // so when creating arrow RecordBatchReader, fetch result data once,
+    // which will return Block and some necessary information, and extract arrow schema from Block.
     arrow::Status init_schema();
     arrow::Status ReadNext(std::shared_ptr<arrow::RecordBatch>* out) override;
 
 private:
     ArrowFlightBatchRemoteReader(const std::shared_ptr<QueryStatement>& statement,
                                  const std::shared_ptr<PBackendService_Stub>& stub);
-    arrow::Status _fetch_data();
+    // If first_fetch_for_init is true, some additional information will be returned
+    // to initialize the schema. in this case, the fetched block is allowed to be empty,
+    // but eos is not expected to be returned.
+    arrow::Status _fetch_data(bool first_fetch_for_init);
 
     std::shared_ptr<PBackendService_Stub> _brpc_stub = nullptr;
-    std::once_flag _init_timezone_flag;
     std::string _timezone;
     std::shared_ptr<vectorized::Block> _block;
+    std::string _arrow_schema_field_names;
 };
 
 } // namespace doris::flight

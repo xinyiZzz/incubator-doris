@@ -90,7 +90,8 @@ struct GetArrowResultBatchCtx {
     void on_data(const std::shared_ptr<vectorized::Block>& block, int64_t packet_seq,
                  int be_exec_version,
                  segment_v2::CompressionTypePB fragement_transmission_compression_type,
-                 std::string timezone, RuntimeProfile::Counter* serialize_batch_ns_timer,
+                 std::string timezone, std::string arrow_schema_field_names,
+                 RuntimeProfile::Counter* serialize_batch_ns_timer,
                  RuntimeProfile::Counter* uncompressed_bytes_counter,
                  RuntimeProfile::Counter* compressed_bytes_counter);
 };
@@ -111,6 +112,9 @@ public:
                            cctz::time_zone& timezone_obj);
     // for ArrowFlightBatchRemoteReader
     void get_arrow_batch(GetArrowResultBatchCtx* ctx);
+
+    void register_arrow_schema(const std::shared_ptr<arrow::Schema>& arrow_schema);
+    std::shared_ptr<arrow::Schema> find_arrow_schema() { return _arrow_schema; }
 
     // close buffer block, set _status to exec_status and set _is_close to true;
     // called because data has been read or error happened.
@@ -150,6 +154,9 @@ protected:
     // blocking queue for batch
     FeResultQueue _fe_result_batch_queue;
     ArrowFlightResultQueue _arrow_flight_result_batch_queue;
+    // for arrow flight
+    std::shared_ptr<arrow::Schema> _arrow_schema;
+    std::string _arrow_schema_field_names;
 
     // protects all subsequent data in this block
     std::mutex _lock;

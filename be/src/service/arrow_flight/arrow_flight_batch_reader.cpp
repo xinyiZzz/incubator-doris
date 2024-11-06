@@ -33,7 +33,7 @@
 
 namespace doris::flight {
 
-constexpr size_t BRPC_CONTROLLER_TIMEOUT_MS = 10 * 1000;
+constexpr size_t BRPC_CONTROLLER_TIMEOUT_MS = 60 * 1000;
 
 ArrowFlightBatchReaderBase::ArrowFlightBatchReaderBase(
         const std::shared_ptr<QueryStatement>& statement)
@@ -77,14 +77,9 @@ arrow::Result<std::shared_ptr<ArrowFlightBatchLocalReader>> ArrowFlightBatchLoca
     DCHECK(statement->result_addr.hostname == BackendOptions::get_localhost());
     // Make sure that FE send the fragment to BE and creates the BufferControlBlock before returning ticket
     // to the ADBC client, so that the schema and control block can be found.
-    auto schema = ExecEnv::GetInstance()->result_mgr()->find_arrow_schema(statement->query_id);
-    if (schema == nullptr) {
-        std::string msg = fmt::format(
-                "Reader not found arrow schema, maybe query has been canceled, queryid: {}",
-                print_id(statement->query_id));
-        LOG(WARNING) << msg;
-        return arrow::Status::Invalid(msg);
-    }
+    std::shared_ptr<arrow::Schema> schema;
+    RETURN_ARROW_STATUS_IF_ERROR(
+            ExecEnv::GetInstance()->result_mgr()->find_arrow_schema(statement->query_id, &schema));
     std::shared_ptr<MemTrackerLimiter> mem_tracker;
     RETURN_ARROW_STATUS_IF_ERROR(ExecEnv::GetInstance()->result_mgr()->find_mem_tracker(
             statement->query_id, &mem_tracker));
@@ -153,7 +148,7 @@ arrow::Result<std::shared_ptr<ArrowFlightBatchRemoteReader>> ArrowFlightBatchRem
     return result;
 }
 
-arrow::Status ArrowFlightBatchRemoteReader::_fetch_data() {
+arrow::Status ArrowFlightBatchRemoteReader::_fetch_data(bool first_fetch_for_init) {
     DCHECK(_block == nullptr);
     while (true) {
         // if `continue` occurs, data is invalid, continue fetch, block is nullptr.
@@ -190,6 +185,7 @@ arrow::Status ArrowFlightBatchRemoteReader::_fetch_data() {
         st = Status::create(callback->response_->status());
         ARROW_RETURN_NOT_OK(to_arrow_status(st));
 
+        DCHECK(callback->response_->has_packet_seq());
         if (_packet_seq != callback->response_->packet_seq()) {
             return _return_invalid_status(
                     fmt::format("receive packet failed, expect={}, receive={}", _packet_seq,
@@ -198,21 +194,30 @@ arrow::Status ArrowFlightBatchRemoteReader::_fetch_data() {
         _packet_seq++;
 
         if (callback->response_->has_eos() && callback->response_->eos()) {
-            break;
+            if (!first_fetch_for_init) {
+                break;
+            } else {
+                return _return_invalid_status(fmt::format("received unexpected eos, packet_seq={}",
+                                                          callback->response_->packet_seq()));
+            }
         }
 
         if (callback->response_->has_empty_batch() && callback->response_->empty_batch()) {
             continue;
         }
 
+        DCHECK(callback->response_->has_block());
         if (callback->response_->block().ByteSizeLong() == 0) {
             continue;
         }
 
-        std::call_once(_init_timezone_flag, [this, callback] {
+        if (first_fetch_for_init) {
+            DCHECK(callback->response_->has_timezone());
+            DCHECK(callback->response_->has_fields_labels());
             _timezone = callback->response_->timezone();
             TimezoneUtils::find_cctz_time_zone(_timezone, _timezone_obj);
-        });
+            _arrow_schema_field_names = callback->response_->fields_labels();
+        }
 
         {
             SCOPED_ATOMIC_TIMER(&_deserialize_block_timer);
@@ -222,10 +227,12 @@ arrow::Status ArrowFlightBatchRemoteReader::_fetch_data() {
             break;
         }
 
-        const auto rows = _block->rows();
-        if (rows == 0) {
-            _block = nullptr;
-            continue;
+        if (!first_fetch_for_init) {
+            const auto rows = _block->rows();
+            if (rows == 0) {
+                _block = nullptr;
+                continue;
+            }
         }
     }
     return arrow::Status::OK();
@@ -233,11 +240,22 @@ arrow::Status ArrowFlightBatchRemoteReader::_fetch_data() {
 
 arrow::Status ArrowFlightBatchRemoteReader::init_schema() {
     SCOPED_ATTACH_TASK(_mem_tracker);
-    ARROW_RETURN_NOT_OK(_fetch_data());
+    ARROW_RETURN_NOT_OK(_fetch_data(true));
     if (_block == nullptr) {
         return _return_invalid_status("failed to fetch data for schema");
     }
     RETURN_ARROW_STATUS_IF_ERROR(get_arrow_schema_from_block(*_block, &_schema, _timezone));
+
+    // Block does not contain the real column name (label), for example: select avg(k) from tbl
+    //  - Block.name: type=decimal(38, 9)
+    //  - Real column name (label): avg(k)
+    // so, the first fetch data Block will return the actual column name, and then modify the schema.
+    std::vector<std::string> arrow_schema_field_names = split(_arrow_schema_field_names, ",");
+    std::vector<std::shared_ptr<arrow::Field>> fields;
+    for (int i = 0; i < arrow_schema_field_names.size(); i++) {
+        fields.push_back(_schema->fields()[i]->WithName(arrow_schema_field_names[i]));
+    }
+    _schema = arrow::schema(std::move(fields));
     return arrow::Status::OK();
 }
 
@@ -259,7 +277,7 @@ arrow::Status ArrowFlightBatchRemoteReader::ReadNext(std::shared_ptr<arrow::Reco
                 st, "ArrowFlightBatchRemoteReader convert block to arrow batch failed"));
     }
     _block = nullptr;
-    ARROW_RETURN_NOT_OK(_fetch_data());
+    ARROW_RETURN_NOT_OK(_fetch_data(false));
 
     if (*out != nullptr) {
         VLOG_NOTICE << "ArrowFlightBatchRemoteReader read next: " << (*out)->num_rows() << ", "

@@ -81,13 +81,8 @@ Status ResultSinkLocalState::open(RuntimeState* state) {
     case TResultSinkType::ARROW_FLIGHT_PROTOCAL: {
         std::shared_ptr<arrow::Schema> arrow_schema;
         RETURN_IF_ERROR(get_arrow_schema_from_expr_ctxs(_output_vexpr_ctxs, &arrow_schema,
-                                                       state->timezone()));
-        if (state->query_options().enable_parallel_result_sink) {
-            state->exec_env()->result_mgr()->register_arrow_schema(state->query_id(), arrow_schema);
-        } else {
-            state->exec_env()->result_mgr()->register_arrow_schema(state->fragment_instance_id(),
-                                                                   arrow_schema);
-        }
+                                                        state->timezone()));
+        _sender->register_arrow_schema(arrow_schema);
         _writer.reset(new (std::nothrow) vectorized::VArrowFlightResultWriter(
                 _sender.get(), _output_vexpr_ctxs, _profile));
         break;

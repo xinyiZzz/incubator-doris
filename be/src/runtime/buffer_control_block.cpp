@@ -35,6 +35,7 @@
 #include "pipeline/dependency.h"
 #include "runtime/thread_context.h"
 #include "util/runtime_profile.h"
+#include "util/string_util.h"
 #include "util/thrift_util.h"
 #include "vec/core/block.h"
 
@@ -111,7 +112,7 @@ void GetArrowResultBatchCtx::on_close(int64_t packet_seq) {
 void GetArrowResultBatchCtx::on_data(
         const std::shared_ptr<vectorized::Block>& block, int64_t packet_seq, int be_exec_version,
         segment_v2::CompressionTypePB fragement_transmission_compression_type, std::string timezone,
-        RuntimeProfile::Counter* serialize_batch_ns_timer,
+        std::string arrow_schema_field_names, RuntimeProfile::Counter* serialize_batch_ns_timer,
         RuntimeProfile::Counter* uncompressed_bytes_counter,
         RuntimeProfile::Counter* compressed_bytes_counter) {
     Status st = Status::OK();
@@ -123,9 +124,12 @@ void GetArrowResultBatchCtx::on_data(
         COUNTER_UPDATE(uncompressed_bytes_counter, uncompressed_bytes);
         COUNTER_UPDATE(compressed_bytes_counter, compressed_bytes);
         if (st.ok()) {
-            result->set_timezone(timezone);
             result->set_packet_seq(packet_seq);
             result->set_eos(false);
+            if (packet_seq == 0) {
+                result->set_timezone(timezone);
+                result->set_fields_labels(arrow_schema_field_names);
+            }
         } else {
             result->clear_block();
             result->set_packet_seq(packet_seq);
@@ -233,8 +237,9 @@ Status BufferControlBlock::add_arrow_batch(RuntimeState* state,
         auto* ctx = _waiting_arrow_result_batch_rpc.front();
         _waiting_arrow_result_batch_rpc.pop_front();
         ctx->on_data(result, _packet_num, _be_exec_version,
-                     _fragement_transmission_compression_type, _timezone, _serialize_batch_ns_timer,
-                     _uncompressed_bytes_counter, _compressed_bytes_counter);
+                     _fragement_transmission_compression_type, _timezone, _arrow_schema_field_names,
+                     _serialize_batch_ns_timer, _uncompressed_bytes_counter,
+                     _compressed_bytes_counter);
         _packet_num++;
     }
 
@@ -344,8 +349,8 @@ void BufferControlBlock::get_arrow_batch(GetArrowResultBatchCtx* ctx) {
         _instance_rows_in_queue.pop_front();
 
         ctx->on_data(block, _packet_num, _be_exec_version, _fragement_transmission_compression_type,
-                     _timezone, _serialize_batch_ns_timer, _uncompressed_bytes_counter,
-                     _compressed_bytes_counter);
+                     _timezone, _arrow_schema_field_names, _serialize_batch_ns_timer,
+                     _uncompressed_bytes_counter, _compressed_bytes_counter);
         _packet_num++;
         return;
     }
@@ -366,6 +371,11 @@ void BufferControlBlock::get_arrow_batch(GetArrowResultBatchCtx* ctx) {
     }
     // no ready data, push ctx to waiting list
     _waiting_arrow_result_batch_rpc.push_back(ctx);
+}
+
+void BufferControlBlock::register_arrow_schema(const std::shared_ptr<arrow::Schema>& arrow_schema) {
+    _arrow_schema = arrow_schema;
+    _arrow_schema_field_names = join(_arrow_schema->field_names(), ",");
 }
 
 Status BufferControlBlock::close(const TUniqueId& id, Status exec_status) {
