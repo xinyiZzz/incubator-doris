@@ -21,15 +21,18 @@
 #include <gen_cpp/Types_types.h>
 
 #include <memory>
-#include <mutex>
 #include <utility>
 
 #include "arrow/record_batch.h"
 #include "runtime/exec_env.h"
-#include "util/ref_count_closure.h"
-#include "util/runtime_profile.h"
 
-namespace doris::flight {
+namespace doris {
+
+namespace vectorized {
+class Block;
+} // namespace vectorized
+
+namespace flight {
 
 struct QueryStatement {
 public:
@@ -101,4 +104,6 @@ private:
     std::string _arrow_schema_field_names;
 };
 
-} // namespace doris::flight
+} // namespace flight
+
+} // namespace doris

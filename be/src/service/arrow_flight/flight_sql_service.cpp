@@ -29,8 +29,7 @@
 #include "util/arrow/utils.h"
 #include "util/uid_util.h"
 
-namespace doris {
-namespace flight {
+namespace doris::flight {
 
 class FlightSqlServer::Impl {
 private:
@@ -148,5 +147,4 @@ Status FlightSqlServer::join() {
     return Status::OK();
 }
 
-} // namespace flight
-} // namespace doris
+} // namespace doris::flight

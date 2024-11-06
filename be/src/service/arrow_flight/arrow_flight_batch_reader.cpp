@@ -18,17 +18,22 @@
 #include "service/arrow_flight/arrow_flight_batch_reader.h"
 
 #include <arrow/status.h>
+#include <arrow/type.h>
 #include <gen_cpp/internal_service.pb.h>
 
 #include <utility>
 
 #include "runtime/exec_env.h"
+#include "runtime/memory/mem_tracker_limiter.h"
 #include "runtime/result_buffer_mgr.h"
+#include "runtime/thread_context.h"
 #include "service/backend_options.h"
 #include "util/arrow/block_convertor.h"
 #include "util/arrow/row_batch.h"
 #include "util/arrow/utils.h"
 #include "util/brpc_client_cache.h"
+#include "util/ref_count_closure.h"
+#include "util/string_util.h"
 #include "vec/core/block.h"
 
 namespace doris::flight {
