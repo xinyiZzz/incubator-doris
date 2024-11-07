@@ -60,6 +60,6 @@ Status arrow_pretty_print(const arrow::RecordBatch& rb, std::ostream* os);
 Status arrow_pretty_print(const arrow::Array& rb, std::ostream* os);
 
 Status to_doris_status(const arrow::Status& status);
-arrow::Status to_arrow_status(const Status& status, const std::string& msg = "");
+arrow::Status to_arrow_status(const Status& status);
 
 } // namespace doris
