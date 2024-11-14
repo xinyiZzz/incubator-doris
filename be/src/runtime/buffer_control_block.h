@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <arrow/type.h>
+#include <cctz/time_zone.h>
 #include <gen_cpp/PaloInternalService_types.h>
 #include <gen_cpp/Types_types.h>
 #include <stdint.h>
@@ -51,7 +53,12 @@ namespace pipeline {
 class Dependency;
 } // namespace pipeline
 
+namespace vectorized {
+class Block;
+} // namespace vectorized
+
 class PFetchDataResult;
+class PFetchArrowDataResult;
 
 struct GetResultBatchCtx {
     brpc::Controller* cntl = nullptr;
@@ -68,20 +75,46 @@ struct GetResultBatchCtx {
                  bool eos = false);
 };
 
+struct GetArrowResultBatchCtx {
+    brpc::Controller* cntl = nullptr;
+    PFetchArrowDataResult* result = nullptr;
+    google::protobuf::Closure* done = nullptr;
+
+    GetArrowResultBatchCtx(brpc::Controller* cntl_, PFetchArrowDataResult* result_,
+                           google::protobuf::Closure* done_)
+            : cntl(cntl_), result(result_), done(done_) {}
+
+    void on_failure(const Status& status);
+    void on_close(int64_t packet_seq);
+    void on_data(const std::shared_ptr<vectorized::Block>& block, int64_t packet_seq,
+                 int be_exec_version,
+                 segment_v2::CompressionTypePB fragement_transmission_compression_type,
+                 std::string timezone, RuntimeProfile::Counter* serialize_batch_ns_timer,
+                 RuntimeProfile::Counter* uncompressed_bytes_counter,
+                 RuntimeProfile::Counter* compressed_bytes_counter);
+};
+
 // buffer used for result customer and producer
 class BufferControlBlock {
 public:
-    BufferControlBlock(const TUniqueId& id, int buffer_size);
+    BufferControlBlock(const TUniqueId& id, int buffer_size, RuntimeState* state);
     virtual ~BufferControlBlock();
 
     Status init();
     // Only one fragment is written, so can_sink returns true, then the sink must be executed
     virtual bool can_sink();
     virtual Status add_batch(std::unique_ptr<TFetchDataResult>& result, bool is_pipeline = false);
-    virtual Status add_arrow_batch(std::shared_ptr<arrow::RecordBatch>& result);
+    virtual Status add_arrow_batch(RuntimeState* state, std::shared_ptr<vectorized::Block>& result);
 
     virtual void get_batch(GetResultBatchCtx* ctx);
-    virtual Status get_arrow_batch(std::shared_ptr<arrow::RecordBatch>* result);
+    // for ArrowFlightBatchLocalReader
+    virtual Status get_arrow_batch(std::shared_ptr<vectorized::Block>* result,
+                           cctz::time_zone& timezone_obj);
+    // for ArrowFlightBatchRemoteReader
+    virtual void get_arrow_batch(GetArrowResultBatchCtx* ctx);
+
+    virtual void register_arrow_schema(const std::shared_ptr<arrow::Schema>& arrow_schema);
+    virtual Status find_arrow_schema(std::shared_ptr<arrow::Schema>* arrow_schema);
 
     // close buffer block, set _status to exec_status and set _is_close to true;
     // called because data has been read or error happened.
@@ -90,6 +123,7 @@ public:
     virtual void cancel(const Status& reason);
 
     [[nodiscard]] const TUniqueId& fragment_id() const { return _fragment_id; }
+    [[nodiscard]] std::shared_ptr<MemTrackerLimiter> mem_tracker() { return _mem_tracker; }
 
     void update_return_rows(int64_t num_rows) {
         // _query_statistics may be null when the result sink init failed
@@ -107,7 +141,7 @@ protected:
     virtual void _update_batch_queue_empty() {}
 
     using FeResultQueue = std::list<std::unique_ptr<TFetchDataResult>>;
-    using ArrowFlightResultQueue = std::list<std::shared_ptr<arrow::RecordBatch>>;
+    using ArrowFlightResultQueue = std::list<std::shared_ptr<vectorized::Block>>;
 
     // result's query id
     TUniqueId _fragment_id;
@@ -120,7 +154,9 @@ protected:
 
     // blocking queue for batch
     FeResultQueue _fe_result_batch_queue;
-    ArrowFlightResultQueue _arrow_flight_batch_queue;
+    ArrowFlightResultQueue _arrow_flight_result_batch_queue;
+    // for arrow flight
+    std::shared_ptr<arrow::Schema> _arrow_schema;
 
     // protects all subsequent data in this block
     std::mutex _lock;
@@ -130,6 +166,7 @@ protected:
     std::condition_variable _data_removal;
 
     std::deque<GetResultBatchCtx*> _waiting_rpc;
+    std::deque<GetArrowResultBatchCtx*> _waiting_arrow_result_batch_rpc;
 
     // only used for FE using return rows to check limit
     std::unique_ptr<QueryStatistics> _query_statistics;
@@ -163,6 +200,18 @@ private:
 
     std::atomic_bool _batch_queue_empty {false};
     std::shared_ptr<pipeline::Dependency> _result_sink_dependency;
+
+    std::string _timezone;
+    cctz::time_zone _timezone_obj;
+    int _be_exec_version;
+    segment_v2::CompressionTypePB _fragement_transmission_compression_type;
+    std::shared_ptr<MemTrackerLimiter> _mem_tracker;
+
+    // only used for ArrowFlightBatchRemoteReader
+    RuntimeProfile _profile;
+    RuntimeProfile::Counter* _serialize_batch_ns_timer = nullptr;
+    RuntimeProfile::Counter* _uncompressed_bytes_counter = nullptr;
+    RuntimeProfile::Counter* _compressed_bytes_counter = nullptr;
 };
 
 } // namespace doris
