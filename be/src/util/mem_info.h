@@ -103,7 +103,7 @@ public:
 #ifdef USE_JEMALLOC
         size_t value = 0;
         size_t sz = sizeof(value);
-        if (jemallctl(name.c_str(), &value, &sz, nullptr, 0) == 0) {
+        if (mallctl(name.c_str(), &value, &sz, nullptr, 0) == 0) {
             return value;
         }
 #endif
@@ -114,7 +114,7 @@ public:
 #ifdef USE_JEMALLOC
         unsigned value = 0;
         size_t sz = sizeof(value);
-        if (jemallctl(name.c_str(), &value, &sz, nullptr, 0) == 0) {
+        if (mallctl(name.c_str(), &value, &sz, nullptr, 0) == 0) {
             return value;
         }
 #endif
@@ -146,7 +146,7 @@ public:
         if (config::enable_je_purge_dirty_pages) {
             try {
                 // Purge all unused dirty pages for arena <i>, or for all arenas if <i> equals MALLCTL_ARENAS_ALL.
-                jemallctl(fmt::format("arena.{}.purge", MALLCTL_ARENAS_ALL).c_str(), nullptr,
+                mallctl(fmt::format("arena.{}.purge", MALLCTL_ARENAS_ALL).c_str(), nullptr,
                           nullptr, nullptr, 0);
             } catch (...) {
                 LOG(WARNING) << "Purge all unused dirty pages for all arenas failed";
