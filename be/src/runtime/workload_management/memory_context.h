@@ -72,6 +72,9 @@ public:
     MemoryContext() { stats_.init_profile(); }
     virtual ~MemoryContext() = default;
     Stats* stats() { return &stats_; }
+    void register_stats(std::shared_ptr<Stats> st) {
+        stats_list_.push_back(st);
+    }
 
     std::shared_ptr<MemTrackerLimiter> mem_tracker() { return mem_tracker_; }
     void set_mem_tracker(const std::shared_ptr<MemTrackerLimiter>& mem_tracker) {
@@ -93,6 +96,7 @@ public:
 
 protected:
     Stats stats_;
+    std::vector<std::shared_ptr<Stats>> stats_list_;
     // MemTracker that is shared by all fragment instances running on this host.
     std::shared_ptr<MemTrackerLimiter> mem_tracker_;
 };

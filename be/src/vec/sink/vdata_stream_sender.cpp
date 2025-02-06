@@ -307,8 +307,8 @@ Status BlockSerializer::serialize_block(const Block* src, PBlock* dest, size_t n
     COUNTER_UPDATE(_parent->_bytes_sent_counter, compressed_bytes * num_receivers);
     COUNTER_UPDATE(_parent->_uncompressed_bytes_counter, uncompressed_bytes * num_receivers);
     COUNTER_UPDATE(_parent->_compress_timer, src->get_compress_time());
-    _parent->get_query_statistics_ptr()->add_shuffle_send_bytes(compressed_bytes * num_receivers);
-    _parent->get_query_statistics_ptr()->add_shuffle_send_rows(src->rows() * num_receivers);
+    _parent->get_resource_stats_ptr()->io_stats->shuffle_send_bytes_counter_.add(compressed_bytes * num_receivers);
+    _parent->get_resource_stats_ptr()->io_stats->shuffle_send_rows_counter_.add(src->rows() * num_receivers);
 
     return Status::OK();
 }

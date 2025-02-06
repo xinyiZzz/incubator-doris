@@ -186,7 +186,7 @@ public:
     //  override in Scan  MultiCastSink
     virtual std::vector<Dependency*> filter_dependencies() { return {}; }
 
-    std::shared_ptr<QueryStatistics> get_query_statistics_ptr() { return _query_statistics; }
+    std::shared_ptr<ResourceContext::ResourceStats> get_resource_stats_ptr() { return _resource_stats; }
 
 protected:
     friend class OperatorXBase;
@@ -198,7 +198,7 @@ protected:
 
     std::unique_ptr<RuntimeProfile> _runtime_profile;
 
-    std::shared_ptr<QueryStatistics> _query_statistics = nullptr;
+    std::shared_ptr<ResourceContext::ResourceStats> _resource_stats = nullptr;
 
     RuntimeProfile::Counter* _rows_returned_counter = nullptr;
     RuntimeProfile::Counter* _blocks_returned_counter = nullptr;
@@ -353,7 +353,7 @@ public:
     // override in exchange sink , AsyncWriterSink
     virtual Dependency* finishdependency() { return nullptr; }
 
-    std::shared_ptr<QueryStatistics> get_query_statistics_ptr() { return _query_statistics; }
+    std::shared_ptr<ResourceContext::ResourceStats> get_resource_stats_ptr() { return _resource_stats; }
 
 protected:
     DataSinkOperatorXBase* _parent = nullptr;
@@ -379,7 +379,7 @@ protected:
     RuntimeProfile::Counter* _exec_timer = nullptr;
     RuntimeProfile::HighWaterMarkCounter* _memory_used_counter = nullptr;
 
-    std::shared_ptr<QueryStatistics> _query_statistics = nullptr;
+    std::shared_ptr<ResourceContext::ResourceStats> _resource_stats = nullptr;
 };
 
 template <typename SharedStateArg = FakeSharedState>
@@ -525,7 +525,7 @@ protected:
     std::string _name;
 
     // Maybe this will be transferred to BufferControlBlock.
-    std::shared_ptr<QueryStatistics> _query_statistics;
+    std::shared_ptr<ResourceContext::ResourceStats> _resource_stats = nullptr;
 };
 
 template <typename LocalStateType>

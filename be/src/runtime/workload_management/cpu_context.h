@@ -48,6 +48,9 @@ public:
     CPUContext() { stats_.init_profile(); }
     virtual ~CPUContext() = default;
     Stats* stats() { return &stats_; }
+    void register_stats(std::shared_ptr<Stats> st) {
+        stats_list_.push_back(st);
+    }
 
     // Bind current thread to cgroup, only some load thread should do this.
     void bind_workload_group() {
@@ -56,6 +59,7 @@ public:
 
 protected:
     Stats stats_;
+    std::vector<std::shared_ptr<Stats>> stats_list_;
 };
 
 } // namespace doris

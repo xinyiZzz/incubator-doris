@@ -72,6 +72,27 @@ public:
         task_controller_ = std::move(task_controller);
     }
 
+    class ResourceStats{
+    public:
+        ResourceStats() {
+            cpu_stats = std::make_shared<CPUContext::Stats>();
+            memory_stats = std::make_shared<MemoryContext::Stats>();
+            io_stats = std::make_shared<IOContext::Stats>();
+        }
+
+        std::shared_ptr<CPUContext::Stats> cpu_stats;
+        std::shared_ptr<MemoryContext::Stats> memory_stats;
+        std::shared_ptr<IOContext::Stats> io_stats;
+    };
+
+    std::shared_ptr<ResourceStats> clone_stats() {
+        auto resource_stats = std::make_shared<ResourceStats>();
+        cpu_context_->register_stats(resource_stats->cpu_stats);
+        memory_context_->register_stats(resource_stats->memory_stats);
+        io_context_->register_stats(resource_stats->io_stats);
+        return resource_stats;
+    }
+
     RuntimeProfile* profile() { return const_cast<RuntimeProfile*>(resource_profile_.get().get()); }
     std::string debug_string() { return resource_profile_.get()->pretty_print(); }
     void refresh_resource_profile() {

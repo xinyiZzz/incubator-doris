@@ -75,6 +75,7 @@
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
 #include "pipeline/local_exchange/local_exchange_source_operator.h"
 #include "pipeline/pipeline.h"
+#include "runtime/thread_context_impl.h"
 #include "util/debug_util.h"
 #include "util/runtime_profile.h"
 #include "util/string_util.h"
@@ -436,12 +437,12 @@ Status OperatorX<LocalStateType>::setup_local_state(RuntimeState* state, LocalSt
 PipelineXSinkLocalStateBase::PipelineXSinkLocalStateBase(DataSinkOperatorXBase* parent,
                                                          RuntimeState* state)
         : _parent(parent), _state(state) {
-    _query_statistics = std::make_shared<QueryStatistics>();
+    _resource_stats = thread_context()->resource_ctx()->clone_stats();
 }
 
 PipelineXLocalStateBase::PipelineXLocalStateBase(RuntimeState* state, OperatorXBase* parent)
         : _num_rows_returned(0), _rows_returned_counter(nullptr), _parent(parent), _state(state) {
-    _query_statistics = std::make_shared<QueryStatistics>();
+    _resource_stats = thread_context()->resource_ctx()->clone_stats();
 }
 
 template <typename SharedStateArg>
