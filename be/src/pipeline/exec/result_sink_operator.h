@@ -21,12 +21,12 @@
 #include <stdint.h>
 
 #include "operator.h"
-#include "runtime/buffer_control_block.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_writer.h"
 
 namespace doris {
 #include "common/compile_check_begin.h"
-class BufferControlBlock;
+class ResultBlockBufferBase;
 
 namespace pipeline {
 
@@ -135,7 +135,7 @@ private:
 
     vectorized::VExprContextSPtrs _output_vexpr_ctxs;
 
-    std::shared_ptr<BufferControlBlock> _sender = nullptr;
+    std::shared_ptr<ResultBlockBufferBase> _sender = nullptr;
     std::shared_ptr<ResultWriter> _writer = nullptr;
 
     RuntimeProfile::Counter* _fetch_row_id_timer = nullptr;
@@ -169,7 +169,7 @@ private:
     // for fetch data by rowids
     TFetchOption _fetch_option;
 
-    std::shared_ptr<BufferControlBlock> _sender = nullptr;
+    std::shared_ptr<ResultBlockBufferBase> _sender = nullptr;
 };
 
 } // namespace pipeline

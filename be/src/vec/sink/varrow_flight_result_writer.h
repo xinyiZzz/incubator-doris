@@ -18,21 +18,78 @@
 #pragma once
 
 #include "common/status.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_writer.h"
 #include "util/runtime_profile.h"
 #include "vec/exprs/vexpr_fwd.h"
 
 namespace doris {
 #include "common/compile_check_begin.h"
-class BufferControlBlock;
 class RuntimeState;
+class PFetchArrowDataResult;
 
 namespace vectorized {
 class Block;
 
+struct GetArrowResultBatchCtx {
+    brpc::Controller* cntl = nullptr;
+    PFetchArrowDataResult* result = nullptr;
+    google::protobuf::Closure* done = nullptr;
+
+    GetArrowResultBatchCtx(brpc::Controller* cntl_, PFetchArrowDataResult* result_,
+                           google::protobuf::Closure* done_)
+            : cntl(cntl_), result(result_), done(done_) {}
+
+    void on_failure(const Status& status);
+    void on_close(int64_t packet_seq, int64_t /* returned_rows */);
+    void on_data(const std::shared_ptr<vectorized::Block>& block, int64_t packet_seq,
+                 int be_exec_version,
+                 segment_v2::CompressionTypePB fragment_transmission_compression_type,
+                 std::string timezone, RuntimeProfile::Counter* serialize_batch_ns_timer,
+                 RuntimeProfile::Counter* uncompressed_bytes_counter,
+                 RuntimeProfile::Counter* compressed_bytes_counter);
+};
+
+class ArrowFlightResultBlockBuffer final
+        : public ResultBlockBuffer<GetArrowResultBatchCtx, vectorized::Block> {
+public:
+    ArrowFlightResultBlockBuffer(TUniqueId id, RuntimeState* state)
+            : ResultBlockBuffer<GetArrowResultBatchCtx, vectorized::Block>(id, state->batch_size()),
+              _profile("ResultBlockBuffer " + print_id(_fragment_id)),
+              _timezone(state->timezone()),
+              _timezone_obj(state->timezone_obj()),
+              _be_exec_version(state->be_exec_version()),
+              _fragment_transmission_compression_type(
+                      state->fragement_transmission_compression_type()) {
+        _serialize_batch_ns_timer = ADD_TIMER(&_profile, "SerializeBatchNsTime");
+        _uncompressed_bytes_counter = ADD_COUNTER(&_profile, "UncompressedBytes", TUnit::BYTES);
+        _compressed_bytes_counter = ADD_COUNTER(&_profile, "CompressedBytes", TUnit::BYTES);
+    }
+    ~ArrowFlightResultBlockBuffer() override = default;
+    void get_batch(GetArrowResultBatchCtx* ctx) override;
+    Status add_batch(RuntimeState* state, std::shared_ptr<vectorized::Block>& result) override;
+    Status get_arrow_batch(std::shared_ptr<vectorized::Block>* result);
+    void get_timezone(cctz::time_zone& timezone_obj) { timezone_obj = _timezone_obj; }
+    void register_schema(const std::shared_ptr<arrow::Schema>& arrow_schema);
+    Status find_schema(std::shared_ptr<arrow::Schema>* arrow_schema);
+
+private:
+    std::shared_ptr<arrow::Schema> _arrow_schema;
+    // only used for ArrowFlightBatchRemoteReader
+    RuntimeProfile _profile;
+    RuntimeProfile::Counter* _serialize_batch_ns_timer = nullptr;
+    RuntimeProfile::Counter* _uncompressed_bytes_counter = nullptr;
+    RuntimeProfile::Counter* _compressed_bytes_counter = nullptr;
+    std::string _timezone;
+    cctz::time_zone _timezone_obj;
+    const int _be_exec_version;
+    const segment_v2::CompressionTypePB _fragment_transmission_compression_type;
+};
+
 class VArrowFlightResultWriter final : public ResultWriter {
 public:
-    VArrowFlightResultWriter(BufferControlBlock* sinker, const VExprContextSPtrs& output_vexpr_ctxs,
+    VArrowFlightResultWriter(ResultBlockBufferBase* sinker,
+                             const VExprContextSPtrs& output_vexpr_ctxs,
                              RuntimeProfile* parent_profile);
 
     Status init(RuntimeState* state) override;
@@ -44,7 +101,7 @@ public:
 private:
     void _init_profile();
 
-    BufferControlBlock* _sinker = nullptr;
+    ArrowFlightResultBlockBuffer* _sinker = nullptr;
 
     const VExprContextSPtrs& _output_vexpr_ctxs;
 

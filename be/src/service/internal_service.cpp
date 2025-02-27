@@ -41,6 +41,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 #include <vec/exec/vjdbc_connector.h>
+#include <vec/sink/varrow_flight_result_writer.h>
 
 #include <algorithm>
 #include <exception>
@@ -89,7 +90,6 @@
 #include "olap/txn_manager.h"
 #include "olap/utils.h"
 #include "olap/wal/wal_manager.h"
-#include "runtime/buffer_control_block.h"
 #include "runtime/cache/result_cache.h"
 #include "runtime/define_primitive_type.h"
 #include "runtime/descriptors.h"
@@ -98,6 +98,7 @@
 #include "runtime/fragment_mgr.h"
 #include "runtime/load_channel_mgr.h"
 #include "runtime/load_stream_mgr.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/routine_load/routine_load_task_executor.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
@@ -135,6 +136,7 @@
 #include "vec/exec/format/parquet/vparquet_reader.h"
 #include "vec/jsonb/serialize.h"
 #include "vec/runtime/vdata_stream_mgr.h"
+#include "vec/sink/vmysql_result_writer.h"
 
 namespace google {
 namespace protobuf {
@@ -653,7 +655,7 @@ void PInternalService::fetch_data(google::protobuf::RpcController* controller,
     // fetch_data is a light operation which will put a request rather than wait inplace when there's no data ready.
     // when there's data ready, use brpc to send. there's queue in brpc service. won't take it too long.
     auto* cntl = static_cast<brpc::Controller*>(controller);
-    auto* ctx = new GetResultBatchCtx(cntl, result, done);
+    auto* ctx = new vectorized::GetResultBatchCtx(cntl, result, done);
     _exec_env->result_mgr()->fetch_data(request->finst_id(), ctx);
 }
 
@@ -664,7 +666,7 @@ void PInternalService::fetch_arrow_data(google::protobuf::RpcController* control
     bool ret = _arrow_flight_work_pool.try_offer([this, controller, request, result, done]() {
         brpc::ClosureGuard closure_guard(done);
         auto* cntl = static_cast<brpc::Controller*>(controller);
-        auto* ctx = new GetArrowResultBatchCtx(cntl, result, done);
+        auto* ctx = new vectorized::GetArrowResultBatchCtx(cntl, result, done);
         _exec_env->result_mgr()->fetch_arrow_data(request->finst_id(), ctx);
     });
     if (!ret) {

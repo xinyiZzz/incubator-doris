@@ -71,6 +71,24 @@
 
 namespace doris::vectorized {
 
+class TestBlockSerializer final : public vectorized::NormalResultBlockBuffer {
+public:
+    TestBlockSerializer() : vectorized::NormalResultBlockBuffer() {}
+    ~TestBlockSerializer() override = default;
+    std::shared_ptr<TFetchDataResult> get_block() {
+        std::lock_guard<std::mutex> l(_lock);
+        DCHECK_EQ(_result_batch_queue.size(), 1);
+        auto result = std::move(_result_batch_queue.front());
+        _result_batch_queue.pop_front();
+        return result;
+    }
+    Status add_batch(RuntimeState* state, std::shared_ptr<TFetchDataResult>& result) override {
+        std::unique_lock<std::mutex> l(_lock);
+        _result_batch_queue.push_back(std::move(result));
+        return Status::OK();
+    }
+};
+
 void serialize_and_deserialize_mysql_test() {
     vectorized::Block block;
     //    create_descriptor_tablet();
@@ -315,7 +333,8 @@ void serialize_and_deserialize_mysql_test() {
     std::cout << "block structure: " << block.dump_structure() << std::endl;
 
     // mysql_writer init
-    vectorized::VMysqlResultWriter<false> mysql_writer(nullptr, _output_vexpr_ctxs, nullptr);
+    TestBlockSerializer serializer;
+    vectorized::VMysqlResultWriter<false> mysql_writer(&serializer, _output_vexpr_ctxs, nullptr);
 
     Status st = mysql_writer.write(&runtime_stat, block);
     EXPECT_TRUE(st.ok());

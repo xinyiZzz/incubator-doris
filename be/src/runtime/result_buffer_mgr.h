@@ -41,14 +41,14 @@ class Schema;
 
 namespace doris {
 
-class BufferControlBlock;
-struct GetResultBatchCtx;
-struct GetArrowResultBatchCtx;
+class ResultBlockBufferBase;
 class PUniqueId;
 class RuntimeState;
 class MemTrackerLimiter;
 class Thread;
 namespace vectorized {
+struct GetArrowResultBatchCtx;
+struct GetResultBatchCtx;
 class Block;
 } // namespace vectorized
 
@@ -66,15 +66,16 @@ public:
     // the returned sender do not need release
     // sender is not used when call cancel or unregister
     Status create_sender(const TUniqueId& query_id, int buffer_size,
-                         std::shared_ptr<BufferControlBlock>* sender, RuntimeState* state);
+                         std::shared_ptr<ResultBlockBufferBase>* sender, RuntimeState* state,
+                         bool arrow_flight);
 
     // fetch data result to FE
-    void fetch_data(const PUniqueId& finst_id, GetResultBatchCtx* ctx);
+    void fetch_data(const PUniqueId& finst_id, vectorized::GetResultBatchCtx* ctx);
     // fetch data result to Arrow Flight Client
-    Status fetch_arrow_data(const TUniqueId& finst_id, std::shared_ptr<vectorized::Block>* result,
-                            cctz::time_zone& timezone_obj);
+    Status fetch_arrow_data(const TUniqueId& finst_id, std::shared_ptr<vectorized::Block>* result);
+    Status get_timezone(const TUniqueId& finst_id, cctz::time_zone& timezone_obj);
     // fetch data result to Other BE forwards to Client
-    void fetch_arrow_data(const PUniqueId& finst_id, GetArrowResultBatchCtx* ctx);
+    void fetch_arrow_data(const PUniqueId& finst_id, vectorized::GetArrowResultBatchCtx* ctx);
     Status find_mem_tracker(const TUniqueId& finst_id,
                             std::shared_ptr<MemTrackerLimiter>* mem_tracker);
     Status find_arrow_schema(const TUniqueId& query_id, std::shared_ptr<arrow::Schema>* schema);
@@ -86,10 +87,10 @@ public:
     void cancel_at_time(time_t cancel_time, const TUniqueId& query_id);
 
 private:
-    using BufferMap = std::unordered_map<TUniqueId, std::shared_ptr<BufferControlBlock>>;
+    using BufferMap = std::unordered_map<TUniqueId, std::shared_ptr<ResultBlockBufferBase>>;
     using TimeoutMap = std::map<time_t, std::vector<TUniqueId>>;
 
-    std::shared_ptr<BufferControlBlock> find_control_block(const TUniqueId& query_id);
+    std::shared_ptr<ResultBlockBufferBase> find_control_block(const TUniqueId& query_id);
 
     // used to erase the buffer that fe not clears
     // when fe crush, this thread clear the buffer avoid memory leak in this backend

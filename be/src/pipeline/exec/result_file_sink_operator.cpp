@@ -23,7 +23,7 @@
 #include "pipeline/exec/exchange_sink_buffer.h"
 #include "pipeline/exec/operator.h"
 #include "pipeline/exec/result_sink_operator.h"
-#include "runtime/buffer_control_block.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_buffer_mgr.h"
 #include "vec/sink/vdata_stream_sender.h"
 
@@ -76,7 +76,7 @@ Status ResultFileSinkOperatorX::prepare(RuntimeState* state) {
     RETURN_IF_ERROR(vectorized::VExpr::prepare(_output_vexpr_ctxs, state, _row_desc));
     if (state->query_options().enable_parallel_outfile) {
         RETURN_IF_ERROR(state->exec_env()->result_mgr()->create_sender(state->query_id(), _buf_size,
-                                                                       &_sender, state));
+                                                                       &_sender, state, false));
     }
     return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }
@@ -94,7 +94,7 @@ Status ResultFileSinkLocalState::init(RuntimeState* state, LocalSinkStateInfo& i
         _sender = _parent->cast<ResultFileSinkOperatorX>()._sender;
     } else {
         RETURN_IF_ERROR(state->exec_env()->result_mgr()->create_sender(
-                state->fragment_instance_id(), p._buf_size, &_sender, state));
+                state->fragment_instance_id(), p._buf_size, &_sender, state, false));
     }
     _sender->set_dependency(state->fragment_instance_id(), _dependency->shared_from_this());
 

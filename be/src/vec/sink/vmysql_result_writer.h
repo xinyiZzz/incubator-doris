@@ -24,6 +24,7 @@
 
 #include "common/status.h"
 #include "runtime/define_primitive_type.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_writer.h"
 #include "util/mysql_row_buffer.h"
 #include "util/runtime_profile.h"
@@ -32,18 +33,48 @@
 
 namespace doris {
 #include "common/compile_check_begin.h"
-class BufferControlBlock;
 class RuntimeState;
 
 namespace vectorized {
 class Block;
 
+struct GetResultBatchCtx {
+    brpc::Controller* cntl = nullptr;
+    PFetchDataResult* result = nullptr;
+    google::protobuf::Closure* done = nullptr;
+
+    GetResultBatchCtx(brpc::Controller* cntl_, PFetchDataResult* result_,
+                      google::protobuf::Closure* done_)
+            : cntl(cntl_), result(result_), done(done_) {}
+
+    void on_failure(const Status& status);
+    void on_close(int64_t packet_seq, int64_t returned_rows = 0);
+    void on_data(const std::shared_ptr<TFetchDataResult>& t_result, int64_t packet_seq,
+                 bool eos = false);
+};
+
+class NormalResultBlockBuffer : public ResultBlockBuffer<GetResultBatchCtx, TFetchDataResult> {
+public:
+    NormalResultBlockBuffer(TUniqueId id, int buffer_size, RuntimeState* state)
+            : ResultBlockBuffer<GetResultBatchCtx, TFetchDataResult>(id, state->batch_size()),
+              _buffer_limit(buffer_size) {}
+    ~NormalResultBlockBuffer() override = default;
+    void get_batch(GetResultBatchCtx* ctx) override;
+    Status add_batch(RuntimeState* state, std::shared_ptr<TFetchDataResult>& result) override;
+
+protected:
+    NormalResultBlockBuffer()
+            : ResultBlockBuffer<GetResultBatchCtx, TFetchDataResult>(TUniqueId(), 0),
+              _buffer_limit(0) {}
+
+private:
+    const int _buffer_limit;
+};
+
 template <bool is_binary_format = false>
 class VMysqlResultWriter final : public ResultWriter {
 public:
-    using ResultList = std::vector<std::unique_ptr<TFetchDataResult>>;
-
-    VMysqlResultWriter(BufferControlBlock* sinker, const VExprContextSPtrs& output_vexpr_ctxs,
+    VMysqlResultWriter(ResultBlockBufferBase* sinker, const VExprContextSPtrs& output_vexpr_ctxs,
                        RuntimeProfile* parent_profile);
 
     Status init(RuntimeState* state) override;
@@ -51,8 +82,6 @@ public:
     Status write(RuntimeState* state, Block& block) override;
 
     Status close(Status status) override;
-
-    const ResultList& results() { return _results; }
 
 private:
     void _init_profile();
@@ -69,7 +98,7 @@ private:
 
     Status _write_one_block(RuntimeState* state, Block& block);
 
-    BufferControlBlock* _sinker = nullptr;
+    NormalResultBlockBuffer* _sinker = nullptr;
 
     const VExprContextSPtrs& _output_vexpr_ctxs;
 
@@ -86,8 +115,6 @@ private:
     RuntimeProfile::Counter* _sent_rows_counter = nullptr;
     // size of sent data
     RuntimeProfile::Counter* _bytes_sent_counter = nullptr;
-    // for synchronized results
-    ResultList _results;
     // If true, no block will be sent
     bool _is_dry_run = false;
 

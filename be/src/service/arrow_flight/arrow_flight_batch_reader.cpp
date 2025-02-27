@@ -87,6 +87,8 @@ arrow::Result<std::shared_ptr<ArrowFlightBatchLocalReader>> ArrowFlightBatchLoca
 
     std::shared_ptr<ArrowFlightBatchLocalReader> result(
             new ArrowFlightBatchLocalReader(statement, schema, mem_tracker));
+    RETURN_ARROW_STATUS_IF_ERROR(ExecEnv::GetInstance()->result_mgr()->get_timezone(
+            statement->query_id, result->_timezone_obj));
     return result;
 }
 
@@ -95,8 +97,7 @@ arrow::Status ArrowFlightBatchLocalReader::ReadNext(std::shared_ptr<arrow::Recor
     *out = nullptr;
     SCOPED_ATTACH_TASK(_mem_tracker);
     std::shared_ptr<vectorized::Block> result;
-    auto st = ExecEnv::GetInstance()->result_mgr()->fetch_arrow_data(_statement->query_id, &result,
-                                                                     _timezone_obj);
+    auto st = ExecEnv::GetInstance()->result_mgr()->fetch_arrow_data(_statement->query_id, &result);
     st.prepend("ArrowFlightBatchLocalReader fetch arrow data failed");
     ARROW_RETURN_NOT_OK(to_arrow_status(st));
     if (result == nullptr) {

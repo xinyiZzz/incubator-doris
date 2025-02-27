@@ -20,8 +20,9 @@
 #include <gtest/gtest.h>
 
 #include "gen_cpp/PaloInternalService_types.h"
-#include "runtime/buffer_control_block.h"
+#include "runtime/result_block_buffer.h"
 #include "util/cpu_info.h"
+#include "vec/sink/vmysql_result_writer.h"
 
 namespace doris {
 
@@ -43,8 +44,8 @@ TEST_F(ResultBufferMgrTest, create_normal) {
     query_id.lo = 10;
     query_id.hi = 100;
 
-    std::shared_ptr<BufferControlBlock> control_block1;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block1;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state, false).ok());
 }
 
 TEST_F(ResultBufferMgrTest, create_same_buffer) {
@@ -53,10 +54,10 @@ TEST_F(ResultBufferMgrTest, create_same_buffer) {
     query_id.lo = 10;
     query_id.hi = 100;
 
-    std::shared_ptr<BufferControlBlock> control_block1;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state).ok());
-    std::shared_ptr<BufferControlBlock> control_block2;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block2, &_state).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block1;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state, false).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block2;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block2, &_state, false).ok());
 
     EXPECT_EQ(control_block1.get(), control_block1.get());
 }
@@ -67,12 +68,12 @@ TEST_F(ResultBufferMgrTest, fetch_data_normal) {
     query_id.lo = 10;
     query_id.hi = 100;
 
-    std::shared_ptr<BufferControlBlock> control_block1;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block1;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state, false).ok());
 
     TFetchDataResult* result = new TFetchDataResult();
     result->result_batch.rows.push_back("hello test");
-    control_block1->add_batch(result);
+    control_block1->cast<vectorized::NormalResultBlockBuffer>()->add_batch(result);
     TFetchDataResult get_result;
     EXPECT_TRUE(buffer_mgr.fetch_data(query_id, &get_result).ok());
     EXPECT_EQ(1U, get_result.result_batch.rows.size());
@@ -85,8 +86,8 @@ TEST_F(ResultBufferMgrTest, fetch_data_no_block) {
     query_id.lo = 10;
     query_id.hi = 100;
 
-    std::shared_ptr<BufferControlBlock> control_block1;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block1;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state, false).ok());
 
     TFetchDataResult* result = new TFetchDataResult();
     query_id.lo = 11;
@@ -101,8 +102,8 @@ TEST_F(ResultBufferMgrTest, normal_cancel) {
     query_id.lo = 10;
     query_id.hi = 100;
 
-    std::shared_ptr<BufferControlBlock> control_block1;
-    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state).ok());
+    std::shared_ptr<ResultBlockBufferBase> control_block1;
+    EXPECT_TRUE(buffer_mgr.create_sender(query_id, 1024, &control_block1, &_state, false).ok());
 
     EXPECT_TRUE(buffer_mgr.cancel(query_id).ok());
 }

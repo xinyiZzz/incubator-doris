@@ -25,8 +25,8 @@
 #include "common/config.h"
 #include "exec/rowid_fetcher.h"
 #include "pipeline/exec/operator.h"
-#include "runtime/buffer_control_block.h"
 #include "runtime/exec_env.h"
+#include "runtime/result_block_buffer.h"
 #include "runtime/result_buffer_mgr.h"
 #include "util/arrow/row_batch.h"
 #include "vec/exprs/vexpr.h"
@@ -52,7 +52,8 @@ Status ResultSinkLocalState::init(RuntimeState* state, LocalSinkStateInfo& info)
         _sender = _parent->cast<ResultSinkOperatorX>()._sender;
     } else {
         RETURN_IF_ERROR(state->exec_env()->result_mgr()->create_sender(
-                fragment_instance_id, p._result_sink_buffer_size_rows, &_sender, state));
+                fragment_instance_id, p._result_sink_buffer_size_rows, &_sender, state,
+                p._sink_type == TResultSinkType::ARROW_FLIGHT_PROTOCAL));
     }
     _sender->set_dependency(fragment_instance_id, _dependency->shared_from_this());
 
@@ -64,7 +65,7 @@ Status ResultSinkLocalState::init(RuntimeState* state, LocalSinkStateInfo& info)
         std::shared_ptr<arrow::Schema> arrow_schema;
         RETURN_IF_ERROR(get_arrow_schema_from_expr_ctxs(_output_vexpr_ctxs, &arrow_schema,
                                                         state->timezone()));
-        _sender->register_arrow_schema(arrow_schema);
+        _sender->cast<vectorized::ArrowFlightResultBlockBuffer>()->register_schema(arrow_schema);
     }
     return Status::OK();
 }
@@ -133,7 +134,8 @@ Status ResultSinkOperatorX::prepare(RuntimeState* state) {
 
     if (state->query_options().enable_parallel_result_sink) {
         RETURN_IF_ERROR(state->exec_env()->result_mgr()->create_sender(
-                state->query_id(), _result_sink_buffer_size_rows, &_sender, state));
+                state->query_id(), _result_sink_buffer_size_rows, &_sender, state,
+                _sink_type == TResultSinkType::ARROW_FLIGHT_PROTOCAL));
     }
     return vectorized::VExpr::open(_output_vexpr_ctxs, state);
 }
